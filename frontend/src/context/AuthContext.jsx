@@ -151,9 +151,12 @@ export const AuthProvider = ({ children }) => {
           };
       }
 
+      // Return a clean error message for the UI
       return {
         success: false,
-        message: error.data?.message || error.message || 'Google login failed',
+        message: error.code === 'auth/configuration-not-found' 
+          ? 'Google Login is not configured correctly. Please check server environment variables.'
+          : (error.data?.message || 'Google login failed. Please try again later.'),
       };
     }
   }, [setUser, googleLoginMutation]);

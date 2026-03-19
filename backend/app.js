@@ -25,7 +25,6 @@ app.set("trust proxy", 1);
 // ==================== CORS CONFIGURATION ====================
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "https://blood-bank-main-tau.vercel.app",
   "http://localhost:3000",
   "http://localhost:3001",
   "http://127.0.0.1:3000",
@@ -79,7 +78,16 @@ app.use(urlencoded({ extended: true, limit: "10mb" }));
 
 // ==================== HEALTH CHECK ====================
 app.get("/", (req, res) => {
-  res.json({ message: "RaktSarthi API is running" });
+  const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+  res.json({
+    status: "online",
+    message: "RaktSarthi API is running successfully ✅",
+    database: dbStatus,
+    environment: process.env.NODE_ENV || "development",
+    version: "1.0.0",
+    uptime: process.uptime().toFixed(2) + " seconds",
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ==================== ROUTES ====================
