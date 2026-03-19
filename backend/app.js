@@ -1,34 +1,34 @@
-import express, { json, urlencoded } from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import mongoSanitize from 'express-mongo-sanitize';
-import { globalErrorHandler } from './middleware/globalErrorHandler.js';
+import express, { json, urlencoded } from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import mongoSanitize from "express-mongo-sanitize";
+import { globalErrorHandler } from "./middleware/globalErrorHandler.js";
 
 // ==================== ROUTE IMPORTS ====================
 // IMPORT ROUTES FILE
 
-import authRoutes from './routes/auth.route.js';
-import userRoutes from './routes/users.route.js';
-import bloodBankRoutes from './routes/bloodBank.route.js';
-import bloodBankPortalRoutes from './routes/bloodBankPortal.route.js';
-import bloodCampsRoutes from './routes/bloodCamps.route.js';
-import donorHealthRoutes from './routes/donorHealth.route.js';
-import requestsRoutes from './routes/requests.route.js';
-import eventsRoutes from './routes/events.route.js';
-import adminRoutes from './routes/admin.route.js';
-import donationsRoutes from './routes/donations.route.js';
-
+import authRoutes from "./routes/auth.route.js";
+import userRoutes from "./routes/users.route.js";
+import bloodBankRoutes from "./routes/bloodBank.route.js";
+import bloodBankPortalRoutes from "./routes/bloodBankPortal.route.js";
+import bloodCampsRoutes from "./routes/bloodCamps.route.js";
+import donorHealthRoutes from "./routes/donorHealth.route.js";
+import requestsRoutes from "./routes/requests.route.js";
+import eventsRoutes from "./routes/events.route.js";
+import adminRoutes from "./routes/admin.route.js";
+import donationsRoutes from "./routes/donations.route.js";
 
 const app = express();
 app.set("trust proxy", 1);
 
 // ==================== CORS CONFIGURATION ====================
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://127.0.0.1:3000',
-  process.env.FRONTEND_URL
+  process.env.FRONTEND_URL,
+  "https://blood-bank-main-tau.vercel.app/",
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
 ].filter(Boolean);
 
 const corsOptions = {
@@ -39,19 +39,24 @@ const corsOptions = {
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400 // 24 hours
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+  ],
+  exposedHeaders: ["Content-Range", "X-Content-Range"],
+  maxAge: 86400, // 24 hours
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 // ==================== SECURITY MIDDLEWARE ====================
 app.use(helmet()); // Set security headers
@@ -61,34 +66,33 @@ app.use(mongoSanitize()); // Prevent MongoDB injection
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20000, // 200 requests per 15 minutes per IP
-  message: 'Too many requests from this IP, please try again later.'
+  message: "Too many requests from this IP, please try again later.",
 });
-app.use('/api/', limiter);
+app.use("/api/", limiter);
 
 // ==================== BODY PARSER ====================
-app.use(json({ limit: '10mb' }));
-app.use(urlencoded({ extended: true, limit: '10mb' }));
+app.use(json({ limit: "10mb" }));
+app.use(urlencoded({ extended: true, limit: "10mb" }));
 
 // ==================== HEALTH CHECK ====================
-app.get('/', (req, res) => {
-  res.json({ message: 'RaktSarthi API is running' });
+app.get("/", (req, res) => {
+  res.json({ message: "RaktSarthi API is running" });
 });
 
 // ==================== ROUTES ====================
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/bloodbanks', bloodBankRoutes);
-app.use('/api/blood-banks', bloodBankRoutes); // Alias for blood bank routes
-app.use('/api/bloodbank', bloodBankPortalRoutes); // Blood Bank Portal Routes
-app.use('/api/blood-camps', bloodCampsRoutes);
-app.use('/api/donor-health', donorHealthRoutes);
-app.use('/api/requests', requestsRoutes);
-app.use('/api/events', eventsRoutes);
-app.use('/api/admin', adminRoutes); // Admin routes for Excel export
-app.use('/api/donations', donationsRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/bloodbanks", bloodBankRoutes);
+app.use("/api/blood-banks", bloodBankRoutes); // Alias for blood bank routes
+app.use("/api/bloodbank", bloodBankPortalRoutes); // Blood Bank Portal Routes
+app.use("/api/blood-camps", bloodCampsRoutes);
+app.use("/api/donor-health", donorHealthRoutes);
+app.use("/api/requests", requestsRoutes);
+app.use("/api/events", eventsRoutes);
+app.use("/api/admin", adminRoutes); // Admin routes for Excel export
+app.use("/api/donations", donationsRoutes);
 
 // ==================== ERROR HANDLING MIDDLEWARE (must be AFTER routes) ====================
 app.use(globalErrorHandler);
-
 
 export default app;
