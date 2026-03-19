@@ -1,6 +1,5 @@
 import React, { lazy, Suspense } from "react";
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
@@ -87,7 +86,6 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
-          <Router>
             <div className="App">
               <Layout>
                 <Suspense fallback={<PageLoader />}>
@@ -215,7 +213,6 @@ function App() {
                 </Suspense>
               </Layout>
             </div>
-          </Router>
         </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
