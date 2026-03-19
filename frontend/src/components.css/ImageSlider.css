@@ -1,0 +1,201 @@
+.image-slider {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Background Images */
+.slider-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transform: scale(1.1);
+  transition: opacity 1s ease-in-out, transform 6s ease-out;
+}
+
+.slider-image.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Dark Overlay */
+.slider-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(220, 38, 38, 0.85) 0%,
+    rgba(127, 29, 29, 0.9) 50%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  z-index: 1;
+}
+
+/* Text Content */
+.slider-text-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 2;
+  color: white;
+  width: 90%;
+  max-width: 500px;
+}
+
+.slider-text-content .brand-logo {
+  font-family: 'Montserrat', 'Segoe UI', 'Arial Black', sans-serif;
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin-bottom: 0.3rem;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+  letter-spacing: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #ffebee 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.slider-text-content .brand-tagline {
+  font-family: 'Raleway', 'Segoe UI', sans-serif;
+  font-size: 1rem;
+  font-weight: 300;
+  letter-spacing: 2px;
+  margin-bottom: 1.5rem;
+  opacity: 0.9;
+}
+
+/* Slide Caption */
+.slide-caption {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: fadeInUp 0.8s ease;
+}
+
+.slide-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+.slide-subtitle {
+  font-size: 1rem;
+  font-weight: 300;
+  opacity: 0.9;
+  letter-spacing: 1px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dots Indicator */
+.slider-dots {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 3;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.dot:hover {
+  border-color: white;
+  transform: scale(1.2);
+}
+
+.dot.active {
+  background: white;
+  border-color: white;
+  transform: scale(1.2);
+}
+
+/* Progress Bar */
+.slider-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  z-index: 3;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ffffff);
+  transition: width 0.5s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .slider-text-content .brand-logo {
+    font-size: 3rem;
+    letter-spacing: 4px;
+  }
+
+  .slider-text-content .brand-tagline {
+    font-size: 1rem;
+  }
+
+  .slide-title {
+    font-size: 1.5rem;
+  }
+
+  .slide-subtitle {
+    font-size: 1rem;
+  }
+
+  .slider-dots {
+    bottom: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .slider-text-content .brand-logo {
+    font-size: 2.5rem;
+  }
+
+  .slide-caption {
+    padding: 1rem;
+  }
+
+  .slide-title {
+    font-size: 1.2rem;
+  }
+}

@@ -1,0 +1,452 @@
+/* Page Container */
+.page-container {
+  padding: 2rem;
+  background: transparent;
+  min-height: 100vh;
+}
+
+/* Page Subtitle */
+.page-subtitle {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  margin-top: 0.5rem;
+}
+
+/* Tab Navigation */
+.events-tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 0.5rem;
+  background: var(--input-bg);
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(230, 57, 70, 0.1);
+  color: #e63946;
+}
+
+.tab-btn.active {
+  background: var(--card-bg);
+  color: #e63946;
+  box-shadow: var(--shadow-sm);
+}
+
+.tab-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Section Title */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.5rem;
+  color: var(--text-main);
+  margin-bottom: 1.5rem;
+}
+
+.section-title svg {
+  width: 28px;
+  height: 28px;
+  color: #e63946;
+}
+
+/* Camps Section */
+.camps-section {
+  margin-bottom: 3rem;
+}
+
+.camps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.camp-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.camp-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(230, 57, 70, 0.15);
+  border-color: #e63946;
+}
+
+.camp-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #e63946, #d62828);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.camp-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.camp-card h3 {
+  font-size: 1.3rem;
+  color: var(--text-main);
+  margin: 0 0 0.75rem 0;
+}
+
+.camp-description {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.camp-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.camp-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.camp-info-item svg {
+  width: 18px;
+  height: 18px;
+  color: #e63946;
+  flex-shrink: 0;
+}
+
+.camp-target {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--input-bg);
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.camp-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.camp-status.upcoming {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.camp-status.scheduled {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.camp-status.completed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Events Section */
+.events-section {
+  margin-bottom: 2rem;
+}
+
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.event-card {
+  background: var(--card-bg);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.event-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 25px rgba(230, 57, 70, 0.15);
+  border-color: #e63946;
+}
+
+.event-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.event-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.event-card h3 {
+  font-size: 1.3rem;
+  color: var(--text-main);
+  margin: 0 0 0.75rem 0;
+}
+
+.event-description {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.event-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.event-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.event-info-item svg {
+  width: 18px;
+  height: 18px;
+  color: #4f46e5;
+  flex-shrink: 0;
+}
+
+.event-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--input-bg);
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.event-type-badge {
+  font-weight: 600;
+  color: #4f46e5;
+}
+
+.event-registered {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Button Styles */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #4f46e5, #5b21b6);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.btn-success:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-success:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.btn:disabled {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: var(--card-bg);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.empty-state svg {
+  width: 64px;
+  height: 64px;
+  color: #ccc;
+  margin-bottom: 1rem;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.empty-subtitle {
+  font-size: 0.95rem !important;
+  color: #888 !important;
+  margin-top: 0.5rem !important;
+}
+
+/* Message */
+.message {
+  padding: 1rem 1.5rem;
+  border-radius: 10px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+.success-message {
+  background: #dcfce7;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .events-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+  
+  .tab-btn {
+    padding: 0.6rem 1rem;
+    white-space: nowrap;
+  }
+  
+  .camps-grid,
+  .events-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .camp-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .events-page {
+    padding: 1rem;
+  }
+
+  .events-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .events-tabs {
+    gap: 0.25rem;
+    padding: 0.25rem;
+  }
+
+  .tab-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .camp-card,
+  .event-card {
+    padding: 1rem;
+  }
+
+  .camp-card h3,
+  .event-card h3 {
+    font-size: 1.1rem;
+  }
+
+  .btn-register {
+    width: 100%;
+    justify-content: center;
+  }
+}

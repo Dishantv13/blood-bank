@@ -1,0 +1,450 @@
+
+.page-container {
+  padding: 2rem;
+  background: var(--bg-gradient);
+  min-height: 100vh;
+  color: var(--text-main);
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.page-header h1 {
+  font-size: 2.5rem;
+  background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 800;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.form-control {
+  padding: 0.8rem 1.5rem;
+  border-radius: 10px;
+  border: 2px solid var(--input-border);
+  background-color: var(--input-bg);
+  color: var(--text-main);
+  font-size: 1rem;
+  min-width: 200px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus {
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+.gallery-section {
+  margin-bottom: 3rem;
+}
+
+.gallery-section h2 {
+  color: var(--text-main);
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  border-left: 4px solid #e63946;
+  padding-left: 1rem;
+  font-weight: 700;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.gallery-item {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  cursor: pointer;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.gallery-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  color: white;
+}
+
+.gallery-item:hover img {
+  transform: scale(1.1);
+}
+
+.gallery-item:hover .gallery-overlay {
+  opacity: 1;
+}
+
+.blood-banks-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.blood-bank-card {
+  background: var(--card-bg);
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+  height: 320px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  position: relative;
+}
+
+.blood-bank-card::after {
+  content: 'Click to view inventory';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(230, 57, 70, 0.3);
+}
+
+.blood-bank-card:hover::after {
+  opacity: 1;
+}
+
+.blood-bank-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 35px rgba(230, 57, 70, 0.2);
+  border-color: #e63946;
+}
+
+.bank-left-section {
+  width: 35%;
+  position: relative;
+}
+
+.bank-image-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.bank-cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bank-rating {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(4px);
+  color: white;
+}
+
+.star {
+  color: #f1c40f;
+}
+
+.bank-right-section {
+  flex: 1;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.bank-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.bank-name {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--text-main);
+  margin-bottom: 0.3rem;
+  font-weight: 700;
+}
+
+.bank-type {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.feature-badge {
+  background: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: #2ecc71;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.bank-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+  margin: 1rem 0;
+}
+
+.bank-stats-row {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stat-icon {
+  font-size: 1.5rem;
+  background: var(--input-bg);
+  padding: 8px;
+  border-radius: 10px;
+  color: #e63946;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-weight: bold;
+  color: var(--text-main);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.bank-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: auto;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  font-weight: 500;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.detail-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.bank-actions {
+  margin-top: 1rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-contact, .btn-view-inventory {
+  padding: 0.8rem 1.5rem;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+.btn-contact {
+  background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
+  color: white;
+  flex: 1;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+}
+
+.btn-contact:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+}
+
+.btn-view-inventory {
+  background: var(--card-bg);
+  color: #e63946;
+  flex: 1;
+  border: 2px solid #e63946;
+}
+
+.btn-view-inventory:hover {
+  background: #e63946;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.btn-icon-only {
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-bg);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  color: #e63946;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-icon-only:hover {
+  background: #e63946;
+  border-color: #e63946;
+  color: white;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 968px) {
+  .blood-bank-card {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .bank-left-section {
+    width: 100%;
+    height: 200px;
+  }
+
+  .bank-right-section {
+    padding: 1.5rem;
+  }
+
+  .bank-stats-row {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  
+  .bank-details-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .detail-item {
+    font-size: 0.85rem;
+    word-break: break-all;
+  }
+  
+  .bank-name {
+    font-size: 1.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .bank-left-section {
+    height: 160px;
+  }
+
+  .bank-right-section {
+    padding: 1rem;
+  }
+
+  .bank-name {
+    font-size: 1.2rem;
+  }
+
+  .bank-stat-item {
+    padding: 0.5rem;
+    min-width: 60px;
+  }
+
+  .bank-stat-value {
+    font-size: 1rem;
+  }
+
+  .bank-stat-label {
+    font-size: 0.7rem;
+  }
+
+  .detail-item {
+    font-size: 0.8rem;
+    padding: 0.4rem;
+  }
+
+  .bank-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .bank-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
