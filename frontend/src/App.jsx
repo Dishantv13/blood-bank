@@ -129,81 +129,81 @@ function App() {
                     <Route
                       path="/"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <Dashboard />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/dashboard"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <Dashboard />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/blood-banks"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <BloodBanks />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/donors"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <Donors />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/events"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <Events />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/events/:eventId"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <EventDetails />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/create-request"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <CreateRequest />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/profile"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <Profile />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/change-password"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <ChangePassword />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
                     <Route
                       path="/donor-form"
                       element={
-                        // <PrivateRoute>
+                        <PrivateRoute>
                           <DonorHealthForm />
-                        // </PrivateRoute>
+                        </PrivateRoute>
                       }
                     />
 

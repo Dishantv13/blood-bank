@@ -4,7 +4,7 @@
 
 ### Real-Time Blood Management System
 
-CI=false npm run build git 
+CI=false npm run build
 
 *Modernizing blood donation and connecting donors with those in need*
 
