@@ -25,20 +25,25 @@ app.set("trust proxy", 1);
 // ==================== CORS CONFIGURATION ====================
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "https://blood-bank-main-tau.vercel.app/",
+  "https://blood-bank-main-tau.vercel.app",
   "http://localhost:3000",
   "http://localhost:3001",
   "http://127.0.0.1:3000",
-].filter(Boolean);
+  "http://127.0.0.1:3001"
+].filter(Boolean).map(url => url.replace(/\/$/, "")); // Remove trailing slashes
 
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin)) {
+    // Clean the incoming origin to match our list
+    const cleanOrigin = origin.replace(/\/$/, "");
+
+    if (allowedOrigins.includes(cleanOrigin) || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
+      console.warn(`CORS blocked for origin: ${origin}`);
       callback(new Error("Not allowed by CORS"));
     }
   },
@@ -47,9 +52,7 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
+    "Authorization"
   ],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
   maxAge: 86400, // 24 hours
