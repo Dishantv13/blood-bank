@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { useLoginMutation, useRegisterMutation, useGoogleLoginMutation } from '../store/authApi';
 import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '../config/firebase';
+import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 
 const AuthContext = createContext();
 
@@ -98,22 +98,28 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithGoogle = useCallback(async () => {
     // Check if Firebase is configured
-    if (!auth || !googleProvider) {
+    if (!isFirebaseConfigured || !auth || !googleProvider) {
+      console.error('Firebase configuration is incomplete. Check your .env file.');
       return {
         success: false,
-        message: 'Google login is not configured. Please add Firebase credentials to enable this feature.',
+        message: 'Google login is not properly configured. Please check server logs and configuration.',
       };
     }
 
     try {
       // Sign in with Google popup
       const result = await signInWithPopup(auth, googleProvider);
+      
+      if (!result.user) {
+        throw new Error('No user data received from Google');
+      }
+
       const googleUser = result.user;
       
       // Send Google user info to backend for verification and user creation
       const response = await googleLoginMutation({
         email: googleUser.email,
-        name: googleUser.displayName,
+        name: googleUser.displayName || googleUser.email.split('@')[0],
         googleId: googleUser.uid,
         photoURL: googleUser.photoURL,
       }).unwrap();
@@ -129,12 +135,29 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Google login error:', error);
+      
+      // Handle Firebase specific errors
+      if (error.code === 'auth/popup-closed-by-user') {
+        return {
+          success: false,
+          message: 'Login popup was closed before completion. Please try again.',
+        };
+      }
+      
+      if (error.code === 'auth/cancelled-by-user') {
+          return {
+            success: false,
+            message: 'Login was cancelled. Please try again.',
+          };
+      }
+
       return {
         success: false,
         message: error.data?.message || error.message || 'Google login failed',
       };
     }
   }, [setUser, googleLoginMutation]);
+
 
   // Memoize context value to prevent unnecessary re-renders of all consumers
   const value = useMemo(() => ({
