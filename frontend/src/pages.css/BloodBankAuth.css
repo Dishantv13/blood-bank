@@ -1,14 +1,19 @@
 /* Blood Bank Authentication Styles */
 .blood-bank-auth-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-color);
 }
 
 .login-page-wrapper {
-  min-height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  position: relative;
+}
+
+.guest-theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9991;
 }
 
 .blood-bank-auth-container * {

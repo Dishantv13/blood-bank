@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useLoginBloodBankMutation } from '../store/bloodBankApi';
 import { useToast } from '../components/ToastContainer';
+import ThemeToggle from "../components/ThemeToggle";
 import '../pages.css/BloodBankAuth.css';
 
 const BloodBankLogin = () => {
@@ -60,6 +61,9 @@ const BloodBankLogin = () => {
 
   return (
     <div className="login-page-wrapper">
+      <div className="guest-theme-toggle">
+        <ThemeToggle />
+      </div>
       <div className="blood-bank-auth-container">
       <div className="auth-left-panel">
         <div className="auth-branding">
@@ -232,3 +236,4 @@ const BloodBankLogin = () => {
 };
 
 export default BloodBankLogin;
+
