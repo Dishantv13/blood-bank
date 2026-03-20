@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { apiSlice } from '../store/apiSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery } from '../store/bloodBankApi';
 import { useGetBloodBankRequestsQuery, useGetBloodBankApprovedRequestsQuery, useApproveRequestMutation, useRejectRequestMutation } from '../store/requestApi';
@@ -13,6 +15,7 @@ import '../pages.css/BloodBankDashboard.css';
 
 const BloodBankDashboard = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { success, error, info, warning } = useToast();
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('bloodBankDashboardTab') || 'overview';
@@ -106,11 +109,11 @@ const BloodBankDashboard = () => {
   const [triggerGetRegistrations] = useLazyGetCampRegistrationsQuery();
 
   // Only show full-screen loader if we have NO data at all
-  const loading = (loadingInventory && !inventoryData) || 
-                  (loadingRequests && !requestsData) || 
-                  (loadingApprovedRequests && requestsSubTab === 'approved' && !approvedRequestsData) || 
-                  (loadingCamps && !campsData) || 
-                  (loadingBloodBanks && !bloodBanksData);
+  const loading = (loadingInventory && !inventoryData) ||
+    (loadingRequests && !requestsData) ||
+    (loadingApprovedRequests && requestsSubTab === 'approved' && !approvedRequestsData) ||
+    (loadingCamps && !campsData) ||
+    (loadingBloodBanks && !bloodBanksData);
 
   // Map inventory from query
   useEffect(() => {
@@ -123,7 +126,7 @@ const BloodBankDashboard = () => {
         lastUpdated: item.lastUpdated
       }));
       setInventory(mappedInventory);
-      
+
       const bloodBankId = bloodBank?.id || bloodBank?._id || 'default';
       localStorage.setItem(`inventory_${bloodBankId}`, JSON.stringify(mappedInventory));
     }
@@ -189,7 +192,7 @@ const BloodBankDashboard = () => {
     // Check if blood bank is logged in
     const token = localStorage.getItem('bloodBankToken');
     const data = localStorage.getItem('bloodBankData');
-    
+
     if (!token || !data) {
       navigate('/blood-bank/login');
       return;
@@ -197,7 +200,7 @@ const BloodBankDashboard = () => {
 
     const bloodBankData = JSON.parse(data);
     setBloodBank(bloodBankData);
-    
+
     // Initial inventory from localStorage for snappiness
     const bloodBankId = bloodBankData.id || bloodBankData._id || 'default';
     const savedInventory = localStorage.getItem(`inventory_${bloodBankId}`);
@@ -207,13 +210,15 @@ const BloodBankDashboard = () => {
         if (parsedInventory && parsedInventory.length > 0) {
           setInventory(parsedInventory);
         }
-      } catch (e) {}
+      } catch (e) { }
     }
   }, [navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('bloodBankToken');
     localStorage.removeItem('bloodBankData');
+    // Reset RTK Query cache to clear data from previous session
+    dispatch(apiSlice.util.resetApiState());
     navigate('/blood-bank/login');
   };
 
@@ -229,13 +234,13 @@ const BloodBankDashboard = () => {
       error('Geolocation is not supported by your browser');
       return;
     }
-    
+
     setFetchingLocation(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
         setCampForm(prev => ({ ...prev, latitude, longitude }));
-        
+
         // Reverse geocode to get address
         try {
           const response = await fetch(
@@ -246,13 +251,13 @@ const BloodBankDashboard = () => {
               }
             }
           );
-          
+
           if (!response.ok) {
             throw new Error('Failed to fetch address');
           }
-          
+
           const data = await response.json();
-          
+
           if (data && data.address) {
             setCampForm(prev => ({
               ...prev,
@@ -275,8 +280,8 @@ const BloodBankDashboard = () => {
       (error) => {
         console.error('Error getting location:', error);
         let errorMessage = 'Unable to retrieve your location. ';
-        
-        switch(error.code) {
+
+        switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage += 'Please allow location access in your browser settings.';
             break;
@@ -289,7 +294,7 @@ const BloodBankDashboard = () => {
           default:
             errorMessage += 'An unknown error occurred.';
         }
-        
+
         error(errorMessage);
         setFetchingLocation(false);
       },
@@ -306,13 +311,13 @@ const BloodBankDashboard = () => {
       error('Geolocation is not supported by your browser');
       return;
     }
-    
+
     setGettingBankLocation(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
         setBankLocation({ type: 'Point', coordinates: [longitude, latitude] });
-        
+
         try {
           // Update profile with new location
           await updateProfile({
@@ -359,7 +364,7 @@ const BloodBankDashboard = () => {
     try {
       // Fetch the latest camp data with registrations using RTK Query lazy trigger
       const response = await triggerGetRegistrations(camp._id).unwrap();
-      
+
       const updatedCamp = {
         ...camp,
         registeredDonors: response.registrations || response || []
@@ -370,7 +375,7 @@ const BloodBankDashboard = () => {
       // Fallback to camp data we have
       setSelectedCamp(camp);
     }
-    
+
     setShowRegistrations(true);
   };
 
@@ -393,11 +398,11 @@ const BloodBankDashboard = () => {
     if (!window.confirm('Are you sure you want to approve this blood request?')) {
       return;
     }
-    
+
     try {
-      await approveRequestMutation({ 
-        id: requestId, 
-        data: { responseNote: 'Request approved. Blood units are available.' } 
+      await approveRequestMutation({
+        id: requestId,
+        data: { responseNote: 'Request approved. Blood units are available.' }
       }).unwrap();
 
       addNotification('Blood request approved successfully');
@@ -414,16 +419,16 @@ const BloodBankDashboard = () => {
   const handleSaveInventory = async () => {
     setSavingInventory(true);
     setInventorySaveError('');
-    
+
     try {
       const backendInventory = inventory.map(item => ({
         bloodGroup: item.type || item.bloodGroup,
         units: item.units,
         lastUpdated: new Date()
       }));
-      
+
       await updateInventoryMutation({ inventory: backendInventory }).unwrap();
-      
+
       setInventoryChanged(false);
       addNotification('Inventory saved successfully!');
     } catch (err) {
@@ -480,9 +485,9 @@ const BloodBankDashboard = () => {
 
   const handleRejectRequest = async (requestId) => {
     const reason = window.prompt('Please provide a reason for rejection (optional):');
-    
+
     if (reason === null) return;
-    
+
     try {
       await rejectRequestMutation({
         id: requestId,
@@ -502,7 +507,7 @@ const BloodBankDashboard = () => {
   const handleCreateCamp = async (e) => {
     e.preventDefault();
     console.log('Submitting camp form...', campForm);
-    
+
     try {
       const campData = {
         name: campForm.name,
@@ -597,10 +602,10 @@ const BloodBankDashboard = () => {
         }
         return item;
       });
-      
+
       // Mark as changed (do NOT save to backend automatically anymore)
       setInventoryChanged(true);
-      
+
       return updated;
     });
   };
@@ -680,7 +685,7 @@ const BloodBankDashboard = () => {
       if (!window.confirm('You have unsaved inventory changes. Are you sure you want to leave this tab?')) {
         return;
       }
-      
+
       // Reset inventory state to match server data
       const dataToUse = inventoryData?.data || inventoryData?.inventory;
       if (dataToUse) {
@@ -756,36 +761,36 @@ const BloodBankDashboard = () => {
         <div className="event-info-grid">
           <div className="info-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
             <span>{new Date(camp.date).toLocaleDateString()}</span>
           </div>
 
           <div className="info-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
             </svg>
             <span>{camp.startTime || '09:00'} - {camp.endTime || '17:00'}</span>
           </div>
 
           <div className="info-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-              <circle cx="12" cy="10" r="3"/>
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+              <circle cx="12" cy="10" r="3" />
             </svg>
             <span>{camp.venue}, {camp.city}</span>
           </div>
 
           <div className="info-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
             <span>{registeredCount} / {camp.targetUnits} donors</span>
           </div>
@@ -824,8 +829,8 @@ const BloodBankDashboard = () => {
             onClick={() => handleViewCamp(camp)}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-              <circle cx="12" cy="12" r="3"/>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
             Details
           </button>
@@ -836,7 +841,7 @@ const BloodBankDashboard = () => {
             title={isPastCamp ? 'Cannot edit past camps' : 'Edit camp'}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
             </svg>
             Edit
           </button>
@@ -845,9 +850,9 @@ const BloodBankDashboard = () => {
             onClick={() => handleViewRegistrations(camp)}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
             </svg>
             Regs
           </button>
@@ -858,8 +863,8 @@ const BloodBankDashboard = () => {
             title={isPastCamp ? 'Cannot delete past camps' : 'Delete camp'}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
             </svg>
             Delete
           </button>
@@ -872,8 +877,8 @@ const BloodBankDashboard = () => {
     <div className="blood-bank-dashboard">
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div 
-          className="mobile-menu-overlay" 
+        <div
+          className="mobile-menu-overlay"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -883,105 +888,105 @@ const BloodBankDashboard = () => {
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
           </div>
           <h2>{bloodBank?.name || 'Blood Bank'}</h2>
         </div>
 
         <nav className="sidebar-nav">
-          <button 
+          <button
             className={`nav-item ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => handleTabChange('overview')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="7" height="7"/>
-              <rect x="14" y="3" width="7" height="7"/>
-              <rect x="14" y="14" width="7" height="7"/>
-              <rect x="3" y="14" width="7" height="7"/>
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
             </svg>
             Overview
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
             onClick={() => handleTabChange('inventory')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-              <path d="M2 17l10 5 10-5"/>
-              <path d="M2 12l10 5 10-5"/>
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
             </svg>
             Inventory
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activeTab === 'camps' ? 'active' : ''}`}
             onClick={() => handleTabChange('camps')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
             Blood Camps
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activeTab === 'requests' ? 'active' : ''}`}
             onClick={() => handleTabChange('requests')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
             Requests
           </button>
 
-          <button 
+          <button
             className={`nav-item ${activeTab === 'donations' ? 'active' : ''}`}
             onClick={() => handleTabChange('donations')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
             Donations
           </button>
-          
-          <button  
+
+          <button
             className={`nav-item ${activeTab === 'bloodbanks' ? 'active' : ''}`}
             onClick={() => handleTabChange('bloodbanks')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-              <polyline points="9 22 9 12 15 12 15 22"/>
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
             Blood Banks
           </button>
 
-          <button 
+          <button
             className={`nav-item ${activeTab === 'events' ? 'active' : ''}`}
             onClick={() => handleTabChange('events')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
             Events
           </button>
-          
-          <button 
+
+          <button
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => handleTabChange('settings')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
             </svg>
             Settings
           </button>
@@ -990,9 +995,9 @@ const BloodBankDashboard = () => {
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={handleLogout}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
+              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
             Logout
           </button>
@@ -1002,15 +1007,15 @@ const BloodBankDashboard = () => {
       {/* Main Content */}
       <main className="dashboard-main">
         <header className="dashboard-header">
-          <button 
+          <button
             className="mobile-menu-btn"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
           <div className="header-left">
@@ -1029,13 +1034,13 @@ const BloodBankDashboard = () => {
           <div className="header-right">
             <ThemeToggle />
             <div className="notification-wrapper">
-              <button 
-                className="notification-btn" 
+              <button
+                className="notification-btn"
                 onClick={() => setShowNotifications(!showNotifications)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 01-3.46 0" />
                 </svg>
                 {notifications.length > 0 && <span className="notification-badge">{notifications.length}</span>}
               </button>
@@ -1055,8 +1060,8 @@ const BloodBankDashboard = () => {
                         <div key={index} className="notification-item">
                           <div className="notif-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-                              <circle cx="12" cy="7" r="4"/>
+                              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
                             </svg>
                           </div>
                           <div className="notif-content">
@@ -1072,8 +1077,8 @@ const BloodBankDashboard = () => {
             </div>
             <Link to="/login" className="header-btn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                <polyline points="9 22 9 12 15 12 15 22"/>
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
               Home
             </Link>
@@ -1088,9 +1093,9 @@ const BloodBankDashboard = () => {
                 <div className="stat-card">
                   <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #e63946, #d62828)' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                      <path d="M2 17l10 5 10-5"/>
-                      <path d="M2 12l10 5 10-5"/>
+                      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                      <path d="M2 17l10 5 10-5" />
+                      <path d="M2 12l10 5 10-5" />
                     </svg>
                   </div>
                   <div className="stat-info">
@@ -1102,9 +1107,9 @@ const BloodBankDashboard = () => {
                 <div className="stat-card">
                   <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                      <line x1="12" y1="9" x2="12" y2="13"/>
-                      <line x1="12" y1="17" x2="12.01" y2="17"/>
+                      <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                   </div>
                   <div className="stat-info">
@@ -1116,10 +1121,10 @@ const BloodBankDashboard = () => {
                 <div className="stat-card">
                   <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="16" y1="2" x2="16" y2="6"/>
-                      <line x1="8" y1="2" x2="8" y2="6"/>
-                      <line x1="3" y1="10" x2="21" y2="10"/>
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
                     </svg>
                   </div>
                   <div className="stat-info">
@@ -1131,11 +1136,11 @@ const BloodBankDashboard = () => {
                 <div className="stat-card">
                   <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="16" y1="2" x2="16" y2="6"/>
-                      <line x1="8" y1="2" x2="8" y2="6"/>
-                      <line x1="3" y1="10" x2="21" y2="10"/>
-                      <circle cx="12" cy="16" r="2"/>
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                      <circle cx="12" cy="16" r="2" />
                     </svg>
                   </div>
                   <div className="stat-info">
@@ -1147,10 +1152,10 @@ const BloodBankDashboard = () => {
                 <div className="stat-card">
                   <div className="stat-icon" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-                      <path d="M16 3.13a4 4 0 010 7.75"/>
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 00-3-3.87" />
+                      <path d="M16 3.13a4 4 0 010 7.75" />
                     </svg>
                   </div>
                   <div className="stat-info">
@@ -1168,9 +1173,9 @@ const BloodBankDashboard = () => {
                       <div key={item.type} className="mini-inv-item">
                         <span className="blood-type">{item.type}</span>
                         <div className="inv-bar">
-                          <div 
-                            className="inv-bar-fill" 
-                            style={{ 
+                          <div
+                            className="inv-bar-fill"
+                            style={{
                               width: `${Math.min(100, (item.units / 50) * 100)}%`,
                               background: getStatusColor(item.status)
                             }}
@@ -1231,7 +1236,7 @@ const BloodBankDashboard = () => {
           {activeTab === 'inventory' && (
             <div className="inventory-content">
               <div className="inventory-actions">
-                <button 
+                <button
                   className={`save-inventory-btn ${inventoryChanged ? 'has-changes' : ''} ${savingInventory ? 'saving' : ''}`}
                   onClick={handleSaveInventory}
                   disabled={savingInventory}
@@ -1244,9 +1249,9 @@ const BloodBankDashboard = () => {
                   ) : (
                     <>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                        <polyline points="17 21 17 13 7 13 7 21"/>
-                        <polyline points="7 3 7 8 15 8"/>
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
                       </svg>
                       Save Inventory
                     </>
@@ -1255,9 +1260,9 @@ const BloodBankDashboard = () => {
                 {inventorySaveError && (
                   <div className="inventory-error">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                      <circle cx="12" cy="12" r="10"/>
-                      <line x1="12" y1="8" x2="12" y2="12"/>
-                      <line x1="12" y1="16" x2="12.01" y2="16"/>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
                     {inventorySaveError}
                   </div>
@@ -1271,19 +1276,19 @@ const BloodBankDashboard = () => {
                       <span className={`status-badge ${item.status}`}>{item.status}</span>
                     </div>
                     <div className="inv-controls">
-                      <button 
+                      <button
                         className="inv-btn inv-btn-decrease"
                         onClick={() => updateInventory(item.type, -1)}
                         disabled={item.units <= 0}
                         title="Decrease by 1"
                       >
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <line x1="5" y1="12" x2="19" y2="12"/>
+                          <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                       </button>
                       <div className="inv-value">
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           className="inv-input"
                           value={item.units === 0 ? '' : item.units}
                           placeholder="0"
@@ -1293,15 +1298,15 @@ const BloodBankDashboard = () => {
                         />
                         <span className="units-label">units</span>
                       </div>
-                      <button 
+                      <button
                         className="inv-btn inv-btn-increase"
                         onClick={() => updateInventory(item.type, 1)}
                         disabled={item.units >= 100}
                         title="Increase by 1"
                       >
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                          <line x1="12" y1="5" x2="12" y2="19"/>
-                          <line x1="5" y1="12" x2="19" y2="12"/>
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                       </button>
                     </div>
@@ -1318,8 +1323,8 @@ const BloodBankDashboard = () => {
                 <h2>Manage Blood Camps</h2>
                 <button className="create-camp-btn" onClick={() => setShowCampModal(true)}>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
                   Create New Camp
                 </button>
@@ -1336,10 +1341,10 @@ const BloodBankDashboard = () => {
                 ) : upcomingCampsList.length === 0 && pastCampsList.length === 0 ? (
                   <div className="empty-state">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                      <line x1="16" y1="2" x2="16" y2="6"/>
-                      <line x1="8" y1="2" x2="8" y2="6"/>
-                      <line x1="3" y1="10" x2="21" y2="10"/>
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
                     </svg>
                     <h3>No Upcoming Camps</h3>
                     <p>Create a new blood camp to get started</p>
@@ -1373,16 +1378,16 @@ const BloodBankDashboard = () => {
           {activeTab === 'requests' && (
             <div className="requests-content">
               <h2>Blood Requests</h2>
-              
+
               {/* Sub Navigation for Pending/Approved */}
               <div className="requests-sub-nav requests-sub-nav--status">
-                <button 
+                <button
                   className={`sub-nav-btn ${requestsSubTab === 'pending' ? 'active' : ''}`}
                   onClick={() => setRequestsSubTab('pending')}
                 >
                   Pending Requests
                 </button>
-                <button 
+                <button
                   className={`sub-nav-btn ${requestsSubTab === 'approved' ? 'active' : ''}`}
                   onClick={() => setRequestsSubTab('approved')}
                 >
@@ -1391,19 +1396,19 @@ const BloodBankDashboard = () => {
               </div>
 
               <div className="requests-sub-nav requests-sub-nav--source">
-                <button 
+                <button
                   className={`sub-nav-btn ${requestSourceTab === 'user' ? 'active' : ''}`}
                   onClick={() => setRequestSourceTab('user')}
                 >
                   From User
                 </button>
-                <button 
+                <button
                   className={`sub-nav-btn ${requestSourceTab === 'bank' ? 'active' : ''}`}
                   onClick={() => setRequestSourceTab('bank')}
                 >
                   From Bank
                 </button>
-                <button 
+                <button
                   className={`sub-nav-btn ${requestSourceTab === 'my' ? 'active' : ''}`}
                   onClick={() => setRequestSourceTab('my')}
                 >
@@ -1422,8 +1427,8 @@ const BloodBankDashboard = () => {
                   ) : requests.length === 0 ? (
                     <div className="empty-state">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 11l3 3L22 4"/>
-                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                        <path d="M9 11l3 3L22 4" />
+                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
                       </svg>
                       <h3>No Pending Requests</h3>
                       <p>{requestSourceTab === 'bank' ? 'No pending blood bank requests at the moment' : requestSourceTab === 'my' ? 'No pending requests sent by your blood bank' : 'No pending user blood requests at the moment'}</p>
@@ -1435,70 +1440,70 @@ const BloodBankDashboard = () => {
                         const responseStatus = request.bloodBankResponse?.status || request.status || 'pending';
 
                         return (
-                        <div key={request._id || request.id} className="request-card">
-                          <div className="request-header">
-                            <span className="blood-type-badge">{request.bloodGroup}</span>
-                            {isMyOutgoingRequest ? (
-                              <span className={`request-status-badge ${responseStatus}`}>{responseStatus}</span>
-                            ) : (
-                              <span className={`urgency-badge ${request.urgency}`}>{request.urgency}</span>
-                            )}
-                          </div>
-                          <div className="request-details">
-                            {isInterBankRequest(request) ? (
-                              isOutgoingInterBankRequest(request) ? (
-                                <>
-                                  <p><strong>Request Type:</strong> Blood Bank Transfer</p>
-                                  <p><strong>Requested To:</strong> {request.targetBloodBank?.name || 'N/A'}</p>
-                                  <p><strong>Supplier Contact:</strong> {request.targetBloodBank?.phone || 'N/A'}</p>
-                                  <p><strong>Supplier Address:</strong> {request.targetBloodBank?.address?.street || 'N/A'}</p>
-                                </>
+                          <div key={request._id || request.id} className="request-card">
+                            <div className="request-header">
+                              <span className="blood-type-badge">{request.bloodGroup}</span>
+                              {isMyOutgoingRequest ? (
+                                <span className={`request-status-badge ${responseStatus}`}>{responseStatus}</span>
+                              ) : (
+                                <span className={`urgency-badge ${request.urgency}`}>{request.urgency}</span>
+                              )}
+                            </div>
+                            <div className="request-details">
+                              {isInterBankRequest(request) ? (
+                                isOutgoingInterBankRequest(request) ? (
+                                  <>
+                                    <p><strong>Request Type:</strong> Blood Bank Transfer</p>
+                                    <p><strong>Requested To:</strong> {request.targetBloodBank?.name || 'N/A'}</p>
+                                    <p><strong>Supplier Contact:</strong> {request.targetBloodBank?.phone || 'N/A'}</p>
+                                    <p><strong>Supplier Address:</strong> {request.targetBloodBank?.address?.street || 'N/A'}</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <p><strong>Request Type:</strong> Blood Bank Transfer</p>
+                                    <p><strong>Requested By:</strong> {request.requestingBloodBank?.name || request.patientName}</p>
+                                    <p><strong>Requester Contact:</strong> {request.requestingBloodBank?.phone || request.contactNumber || 'N/A'}</p>
+                                    <p><strong>Requester Address:</strong> {request.requestingBloodBank?.address?.street || request.hospital?.address || 'N/A'}</p>
+                                  </>
+                                )
                               ) : (
                                 <>
-                                  <p><strong>Request Type:</strong> Blood Bank Transfer</p>
-                                  <p><strong>Requested By:</strong> {request.requestingBloodBank?.name || request.patientName}</p>
-                                  <p><strong>Requester Contact:</strong> {request.requestingBloodBank?.phone || request.contactNumber || 'N/A'}</p>
-                                  <p><strong>Requester Address:</strong> {request.requestingBloodBank?.address?.street || request.hospital?.address || 'N/A'}</p>
+                                  <p><strong>Patient:</strong> {request.patientName}</p>
+                                  <p><strong>Hospital:</strong> {request.hospital?.name || 'N/A'}</p>
+                                  <p><strong>Address:</strong> {request.hospital?.address || 'N/A'}</p>
                                 </>
-                              )
-                            ) : (
-                              <>
-                                <p><strong>Patient:</strong> {request.patientName}</p>
-                                <p><strong>Hospital:</strong> {request.hospital?.name || 'N/A'}</p>
-                                <p><strong>Address:</strong> {request.hospital?.address || 'N/A'}</p>
-                              </>
-                            )}
-                            <p><strong>Blood Group:</strong> {request.bloodGroup}</p>
-                            <p><strong>Units Required:</strong> {request.units}</p>
-                            <p><strong>Contact:</strong> {request.contactNumber}</p>
-                            <p><strong>Required By:</strong> {new Date(request.requiredBy).toLocaleDateString()}</p>
-                            {request.description && (
-                              <p><strong>Description:</strong> {request.description}</p>
+                              )}
+                              <p><strong>Blood Group:</strong> {request.bloodGroup}</p>
+                              <p><strong>Units Required:</strong> {request.units}</p>
+                              <p><strong>Contact:</strong> {request.contactNumber}</p>
+                              <p><strong>Required By:</strong> {new Date(request.requiredBy).toLocaleDateString()}</p>
+                              {request.description && (
+                                <p><strong>Description:</strong> {request.description}</p>
+                              )}
+                            </div>
+                            {!(isInterBankRequest(request) && isOutgoingInterBankRequest(request)) && (
+                              <div className="request-actions">
+                                <button
+                                  className="action-btn approve"
+                                  onClick={() => handleApproveRequest(request._id || request.id)}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                    <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                  Approve
+                                </button>
+                                <button
+                                  className="action-btn reject"
+                                  onClick={() => handleRejectRequest(request._id || request.id)}
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                                    <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                  </svg>
+                                  Reject
+                                </button>
+                              </div>
                             )}
                           </div>
-                          {!(isInterBankRequest(request) && isOutgoingInterBankRequest(request)) && (
-                            <div className="request-actions">
-                              <button 
-                                className="action-btn approve"
-                                onClick={() => handleApproveRequest(request._id || request.id)}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                  <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                                Approve
-                              </button>
-                              <button 
-                                className="action-btn reject"
-                                onClick={() => handleRejectRequest(request._id || request.id)}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                                </svg>
-                                Reject
-                              </button>
-                            </div>
-                          )}
-                        </div>
                         );
                       })}
                     </div>
@@ -1517,8 +1522,8 @@ const BloodBankDashboard = () => {
                   ) : approvedRequests.length === 0 ? (
                     <div className="empty-state">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 11l3 3L22 4"/>
-                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                        <path d="M9 11l3 3L22 4" />
+                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
                       </svg>
                       <h3>No Approved Requests</h3>
                       <p>{requestSourceTab === 'bank' ? 'No approved blood bank transfer requests yet' : requestSourceTab === 'my' ? 'No approved requests sent by your blood bank yet' : 'You have not approved any user requests yet'}</p>
@@ -1586,8 +1591,8 @@ const BloodBankDashboard = () => {
               ) : directoryBloodBanks.length === 0 ? (
                 <div className="empty-state">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                    <polyline points="9 22 9 12 15 12 15 22"/>
+                    <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                   <h3>No Other Blood Banks Found</h3>
                   <p>Other registered blood banks will appear here</p>
@@ -1600,8 +1605,8 @@ const BloodBankDashboard = () => {
                       <div className="bloodbank-header">
                         <div className="bloodbank-icon">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                            <polyline points="9 22 9 12 15 12 15 22"/>
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
                           </svg>
                         </div>
                         <div>
@@ -1612,19 +1617,19 @@ const BloodBankDashboard = () => {
                       <div className="bloodbank-quick-info">
                         <div className="info-item">
                           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-                            <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C7.82 21 2 15.18 2 8V5z" strokeWidth="2"/>
+                            <path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C7.82 21 2 15.18 2 8V5z" strokeWidth="2" />
                           </svg>
                           {bloodBankItem.phone}
                         </div>
                         <div className="info-item">
                           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-                            <circle cx="10" cy="10" r="7" strokeWidth="2"/>
-                            <path d="M10 6v4l2 2" strokeWidth="2"/>
+                            <circle cx="10" cy="10" r="7" strokeWidth="2" />
+                            <path d="M10 6v4l2 2" strokeWidth="2" />
                           </svg>
                           {formatOperatingHours(bloodBankItem.operatingHours)}
                         </div>
                       </div>
-                      <button 
+                      <button
                         className="btn-view-details"
                         onClick={() => handleViewBloodBankDetails(bloodBankItem)}
                       >
@@ -1651,7 +1656,7 @@ const BloodBankDashboard = () => {
           {activeTab === 'settings' && (
             <div className="settings-content">
               <h2>Hospital Settings</h2>
-              
+
               {/* Hospital Photo Upload Section */}
               <div className="settings-section">
                 <h3>Hospital Photo</h3>
@@ -1663,8 +1668,8 @@ const BloodBankDashboard = () => {
                       ) : (
                         <div className="no-photo-placeholder">
                           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                            <polyline points="9 22 9 12 15 12 15 22"/>
+                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                            <polyline points="9 22 9 12 15 12 15 22" />
                           </svg>
                           <p>No photo uploaded</p>
                         </div>
@@ -1680,13 +1685,13 @@ const BloodBankDashboard = () => {
                       />
                       <label htmlFor="bloodBankPhotoInput" className="btn-upload-photo">
                         <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                          <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" stroke="currentColor" strokeWidth="2"/>
-                          <polyline points="13 2 13 9 20 9" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" stroke="currentColor" strokeWidth="2" />
+                          <polyline points="13 2 13 9 20 9" stroke="currentColor" strokeWidth="2" />
                         </svg>
                         Choose Photo
                       </label>
                       {photoPreview && (
-                        <button 
+                        <button
                           onClick={handlePhotoUpload}
                           disabled={uploadingPhoto}
                           className="btn-save-photo"
@@ -1699,7 +1704,7 @@ const BloodBankDashboard = () => {
                           ) : (
                             <>
                               <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                               Save Photo
                             </>
@@ -1716,19 +1721,19 @@ const BloodBankDashboard = () => {
               <div className="settings-section">
                 <h3>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
-                    <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                    <circle cx="12" cy="7" r="2"/>
+                    <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z" />
+                    <circle cx="12" cy="7" r="2" />
                   </svg>
                   Hospital Location
                 </h3>
                 <div className="settings-form">
-                  {bankLocation?.coordinates && 
-                   (bankLocation.coordinates[0] !== 0 || bankLocation.coordinates[1] !== 0) ? (
+                  {bankLocation?.coordinates &&
+                    (bankLocation.coordinates[0] !== 0 || bankLocation.coordinates[1] !== 0) ? (
                     <div className="location-info-display">
                       <div className="location-status location-saved">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-                          <polyline points="22 4 12 14.01 9 11.01"/>
+                          <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                          <polyline points="22 4 12 14.01 9 11.01" />
                         </svg>
                         <span>Location saved</span>
                       </div>
@@ -1736,18 +1741,18 @@ const BloodBankDashboard = () => {
                         <strong>Coordinates:</strong> {bankLocation.coordinates[1].toFixed(6)}, {bankLocation.coordinates[0].toFixed(6)}
                       </p>
                       <div className="location-actions">
-                        <button 
+                        <button
                           type="button"
                           className="btn-view-location"
                           onClick={() => setShowBankMapModal(true)}
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                            <circle cx="12" cy="12" r="3"/>
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
                           </svg>
                           View on Map
                         </button>
-                        <button 
+                        <button
                           type="button"
                           className="btn-update-location"
                           onClick={handleGetBankLocation}
@@ -1761,8 +1766,8 @@ const BloodBankDashboard = () => {
                           ) : (
                             <>
                               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                                <circle cx="12" cy="10" r="3"/>
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                                <circle cx="12" cy="10" r="3" />
                               </svg>
                               Update Location
                             </>
@@ -1774,13 +1779,13 @@ const BloodBankDashboard = () => {
                     <div className="no-location-display">
                       <div className="no-location-icon">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                          <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                          <circle cx="12" cy="7" r="2"/>
-                          <line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round"/>
+                          <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z" />
+                          <circle cx="12" cy="7" r="2" />
+                          <line x1="1" y1="1" x2="23" y2="23" strokeLinecap="round" />
                         </svg>
                       </div>
                       <p>No location set. Share your hospital location so patients can find you easily.</p>
-                      <button 
+                      <button
                         type="button"
                         className="btn-capture-location"
                         onClick={handleGetBankLocation}
@@ -1794,8 +1799,8 @@ const BloodBankDashboard = () => {
                         ) : (
                           <>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                              <circle cx="12" cy="10" r="3"/>
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                              <circle cx="12" cy="10" r="3" />
                             </svg>
                             Capture Current Location
                           </>
@@ -1868,7 +1873,7 @@ const BloodBankDashboard = () => {
 
                   <button className="btn-save-settings">
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     Save Profile
                   </button>
@@ -1913,7 +1918,7 @@ const BloodBankDashboard = () => {
 
                   <button className="btn-save-settings">
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     Save Hours
                   </button>
@@ -1953,7 +1958,7 @@ const BloodBankDashboard = () => {
 
                   <button className="btn-save-settings">
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                     Save Preferences
                   </button>
@@ -1992,8 +1997,8 @@ const BloodBankDashboard = () => {
 
                   <button className="btn-save-settings btn-danger">
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M7 5V4a3 3 0 016 0v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      <rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="2" />
+                      <path d="M7 5V4a3 3 0 016 0v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                     </svg>
                     Change Password
                   </button>
@@ -2006,23 +2011,23 @@ const BloodBankDashboard = () => {
                   <p className="settings-description">
                     Export your hospital data and reports for backup or analysis.
                   </p>
-                  
+
                   <div className="data-export-options">
                     <button className="btn-export">
                       <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                        <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       Export Inventory Data
                     </button>
                     <button className="btn-export">
                       <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                        <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       Export Camp Reports
                     </button>
                     <button className="btn-export">
                       <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                        <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                       Export All Data
                     </button>
@@ -2042,8 +2047,8 @@ const BloodBankDashboard = () => {
               <h2>{editingCamp ? 'Edit Blood Camp' : 'Create Blood Camp'}</h2>
               <button className="modal-close" onClick={() => { setShowCampModal(false); setEditingCamp(null); }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
@@ -2059,7 +2064,7 @@ const BloodBankDashboard = () => {
                   required
                 />
               </div>
-              
+
               <div className="form-row">
                 <div className="form-group">
                   <label>Date</label>
@@ -2121,15 +2126,15 @@ const BloodBankDashboard = () => {
 
               <div className="form-group location-group">
                 <label>Location</label>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="fetch-location-btn"
                   onClick={fetchLocation}
                   disabled={fetchingLocation}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="10" r="3"/>
-                    <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 7 8 11.7z"/>
+                    <circle cx="12" cy="10" r="3" />
+                    <path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 7 8 11.7z" />
                   </svg>
                   {fetchingLocation ? 'Fetching Location...' : 'Auto-Fetch Location'}
                 </button>
@@ -2267,7 +2272,7 @@ const BloodBankDashboard = () => {
                   <span>{selectedCamp.collectedUnits} units</span>
                 </div>
                 <div className="progress-bar-large">
-                  <div 
+                  <div
                     className="progress-fill-large"
                     style={{ width: `${(selectedCamp.collectedUnits / selectedCamp.targetUnits) * 100}%` }}
                   ></div>
@@ -2317,7 +2322,7 @@ const BloodBankDashboard = () => {
                         const eventDate = new Date(selectedCamp.date);
                         const today = new Date();
                         const isPastEvent = eventDate < today.setHours(0, 0, 0, 0);
-                        
+
                         return (
                           <tr key={index}>
                             <td>{index + 1}</td>
@@ -2333,7 +2338,7 @@ const BloodBankDashboard = () => {
                               </span>
                             </td>
                             <td>
-                              <button 
+                              <button
                                 className="delete-donor-btn"
                                 onClick={() => handleDeleteDonor(selectedCamp._id, donor._id || donor.donor)}
                                 title="Remove registration"
@@ -2352,10 +2357,10 @@ const BloodBankDashboard = () => {
                                 onMouseLeave={(e) => e.currentTarget.style.color = '#e63946'}
                               >
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <polyline points="3 6 5 6 21 6"/>
-                                  <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                                  <line x1="10" y1="11" x2="10" y2="17"/>
-                                  <line x1="14" y1="11" x2="14" y2="17"/>
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                  <line x1="10" y1="11" x2="10" y2="17" />
+                                  <line x1="14" y1="11" x2="14" y2="17" />
                                 </svg>
                               </button>
                             </td>
@@ -2369,7 +2374,7 @@ const BloodBankDashboard = () => {
                       const eventDate = new Date(selectedCamp.date);
                       const today = new Date();
                       const isPastEvent = eventDate < today.setHours(0, 0, 0, 0);
-                      
+
                       if (isPastEvent) {
                         return (
                           <>
@@ -2392,9 +2397,9 @@ const BloodBankDashboard = () => {
               ) : (
                 <div className="empty-state">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                    <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
                   </svg>
                   <h3>No Registrations Yet</h3>
                   <p>No donors have registered for this camp yet.</p>
