@@ -100,7 +100,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border: none;
+  border: 2px solid var(--input-border);
 }
 
 .btn-primary {

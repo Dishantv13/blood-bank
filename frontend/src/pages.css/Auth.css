@@ -2,6 +2,14 @@
 .login-page-wrapper {
   overflow: hidden;
   height: 100vh;
+  position: relative;
+}
+
+.guest-theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9991;
 }
 
 .login-container {
@@ -362,42 +370,7 @@
   text-decoration: underline;
 }
 
-.alert {
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  animation: slideDown 0.3s ease-out;
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.alert-error {
-  background: #fee;
-  color: #c33;
-  border: 1px solid #fcc;
-}
-
-.alert-success {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid #c8e6c9;
-}
-
-.alert-icon {
-  font-size: 1.2rem;
-}
+/* Alert styles are handled globally in index.css */
 
 .btn-login {
   width: 100%;

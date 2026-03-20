@@ -204,7 +204,7 @@
 
 .aadhar-upload-box:hover {
   border-color: #e63946;
-  background: #fef9f9;
+  background: rgba(230, 57, 70, 0.05);
   transform: translateY(-2px);
 }
 
@@ -323,17 +323,7 @@
   gap: 0.75rem;
 }
 
-.alert-error {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
-}
-
-.alert-success {
-  background: #dcfce7;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-}
+/* Alert styles are handled globally in index.css */
 
 /* Form Actions */
 .form-actions {

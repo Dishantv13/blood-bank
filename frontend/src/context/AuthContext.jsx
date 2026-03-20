@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { useLoginMutation, useRegisterMutation, useGoogleLoginMutation } from '../store/authApi';
+import { useDispatch } from 'react-redux';
+import { apiSlice } from '../store/apiSlice';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 
@@ -17,6 +19,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
 
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
@@ -94,7 +97,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
-  }, [setUser]);
+    // Reset RTK Query cache to clear data from previous session
+    dispatch(apiSlice.util.resetApiState());
+  }, [setUser, dispatch]);
 
   const loginWithGoogle = useCallback(async () => {
     // Check if Firebase is configured

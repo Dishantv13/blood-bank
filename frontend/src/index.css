@@ -106,13 +106,55 @@ a {
 }
 
 /* Utility Classes */
-.text-center {
-  text-align: center;
-}
-
+.text-center { text-align: center; }
 .mt-1 { margin-top: 1rem; }
 .mt-2 { margin-top: 2rem; }
 .mb-1 { margin-bottom: 1rem; }
 .mb-2 { margin-bottom: 2rem; }
 .p-1 { padding: 1rem; }
 .p-2 { padding: 2rem; }
+
+/* Global Alert & Error Styles - Theme Responsive */
+.alert, .error-message, .success-message-text {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.alert-error, .error-message {
+  background-color: rgba(230, 57, 70, 0.1) !important;
+  color: #e63946 !important;
+  border: 1px solid rgba(230, 57, 70, 0.2) !important;
+}
+
+.alert-success, .success-message-text {
+  background-color: rgba(40, 167, 69, 0.1) !important;
+  color: #28a745 !important;
+  border: 1px solid rgba(40, 167, 69, 0.2) !important;
+}
+
+[data-theme='dark'] .alert-error, [data-theme='dark'] .error-message {
+  background-color: rgba(230, 57, 70, 0.2) !important;
+  border-color: rgba(230, 57, 70, 0.3) !important;
+}
+
+[data-theme='dark'] .alert-success, [data-theme='dark'] .success-message-text {
+  background-color: rgba(40, 167, 69, 0.2) !important;
+  border-color: rgba(40, 167, 69, 0.3) !important;
+}
+
+/* Fix for Browser Autofill background color in Dark Mode */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--input-bg) inset !important;
+  -webkit-text-fill-color: var(--text-main) !important;
+  caret-color: var(--text-main) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}

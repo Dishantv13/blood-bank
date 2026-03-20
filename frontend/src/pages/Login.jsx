@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContainer";
 import ImageSlider from "../components/ImageSlider";
 import SignupModal from "../components/SignupModal";
+import ThemeToggle from "../components/ThemeToggle";
 import "../pages.css/Auth.css";
 
 const Login = () => {
@@ -96,6 +97,9 @@ const Login = () => {
 
   return (
     <div className="login-page-wrapper">
+      <div className="guest-theme-toggle">
+        <ThemeToggle />
+      </div>
       <div className="login-container">
         {/* Left Side - Image Slider */}
         <div className="login-slider">
