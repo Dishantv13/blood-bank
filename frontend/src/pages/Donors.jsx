@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGetDonorsQuery } from '../store/userApi';
 import { useAuth } from '../context/AuthContext';
@@ -11,12 +11,41 @@ const Donors = () => {
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [selectedDonor, setSelectedDonor] = useState(null);
-  const [donorPhotos, setDonorPhotos] = useState({});
+  const [availabilityTab, setAvailabilityTab] = useState('available');
 
   // RTK Query fetches data and automatically refetches when filterBloodGroup changes
   const params = filterBloodGroup ? { bloodGroup: filterBloodGroup } : {};
   const { data: donorsResponse, isLoading: loadingDonors } = useGetDonorsQuery(params);
-  const donors = donorsResponse?.data || [];
+  const allDonors = donorsResponse?.data || [];
+
+  // Calculate donor eligibility (3 months since last donation)
+  const calculateDonorEligibility = (donor) => {
+    const lastDonation = donor.lastDonationDate || donor.donorInfo?.lastDonationDate;
+    if (!lastDonation) return true; // No donation history = eligible
+    
+    const lastDonationDate = new Date(lastDonation);
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    
+    return lastDonationDate < threeMonthsAgo; // Eligible if donated more than 3 months ago
+  };
+
+  // Separate donors into available and recently donated
+  const availableDonors = allDonors.filter(donor => donor.isDonor && calculateDonorEligibility(donor));
+  const recentlyDonatedDonors = allDonors.filter(donor => donor.isDonor && !calculateDonorEligibility(donor));
+  
+  const donors = availabilityTab === 'available' ? availableDonors : recentlyDonatedDonors;
+
+  const donorPhotos = useMemo(() => {
+    const photos = {};
+    donors.forEach((donor) => {
+      const donorId = donor?._id || donor?.id;
+      if (!donorId) return;
+      const savedPhoto = localStorage.getItem(`userPhoto_${donorId}`);
+      if (savedPhoto) photos[donorId] = savedPhoto;
+    });
+    return photos;
+  }, [donors]);
 
   // Helper function to check if a donor has valid location
   const hasValidLocation = (donor) => {
@@ -26,20 +55,6 @@ const Donors = () => {
     const [lng, lat] = donor.location.coordinates;
     return (lng !== 0 || lat !== 0) && !isNaN(lng) && !isNaN(lat);
   };
-
-  useEffect(() => {
-    if (donors.length > 0) {
-      // Load photos from localStorage for each donor
-      const photos = {};
-      donors.forEach(donor => {
-        const savedPhoto = localStorage.getItem(`userPhoto_${donor._id}`);
-        if (savedPhoto) {
-          photos[donor._id] = savedPhoto;
-        }
-      });
-      setDonorPhotos(photos);
-    }
-  }, [donors]);
 
   const handleContactDonor = (donor) => {
     setSelectedDonor(donor);
@@ -83,92 +98,151 @@ const Donors = () => {
         </div>
       </div>
 
+      {/* Availability Tabs - Top Row */}
+      <div className="donors-tabs-row">
+        <div className="tabs-label">Filter by Status:</div>
+        <div className="availability-tabs-horizontal">
+            <button 
+              className={`availability-tab-vertical ${availabilityTab === 'available' ? 'active' : ''}`}
+              onClick={() => setAvailabilityTab('available')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <div>
+                <div className="tab-label">Available to Donate</div>
+                <div className="tab-count">{availableDonors.length} donors</div>
+              </div>
+            </button>
+            <button 
+              className={`availability-tab-vertical ${availabilityTab === 'recently' ? 'active' : ''}`}
+              onClick={() => setAvailabilityTab('recently')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="8" y1="8" x2="16" y2="16"/>
+                <line x1="16" y1="8" x2="8" y2="16"/>
+              </svg>
+              <div>
+                <div className="tab-label">Recently Donated</div>
+                <div className="tab-count">{recentlyDonatedDonors.length} donors</div>
+              </div>
+            </button>
+        </div>
+      </div>
+
+      {/* Donor Grid */}
       <div className="donors-grid">
         {donors.length === 0 ? (
           <div className="empty-state">
-            <p>No donors found for the selected criteria.</p>
+            {availabilityTab === 'available' ? (
+              <>
+                <p>No donors currently available to donate.</p>
+                <p className="empty-state-subtext">All verified donors have donated recently. Please check back soon!</p>
+              </>
+            ) : (
+              <>
+                <p>No donors have donated recently.</p>
+                <p className="empty-state-subtext">Check the "Available to Donate" tab to find donors ready to help.</p>
+              </>
+            )}
           </div>
         ) : (
-          donors.map((donor) => (
-            <div key={donor._id} className="donor-card-modern">
-              {/* Profile Image Section */}
-              <div className={`donor-image-section ${donorPhotos[donor._id] ? 'has-photo' : ''}`}>
-                {donorPhotos[donor._id] ? (
-                  <img src={donorPhotos[donor._id]} alt={donor.name} className="donor-full-image" />
-                ) : (
-                  <div className="donor-profile-image">
-                    <svg width="100%" height="100%" viewBox="0 0 200 200" fill="none">
-                      <circle cx="100" cy="80" r="40" stroke="white" strokeWidth="4" opacity="0.8"/>
-                      <path d="M40 180C40 140 65 120 100 120C135 120 160 140 160 180" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.8"/>
-                    </svg>
+          donors.map((donor) => {
+            const lastDonation = donor.lastDonationDate || donor.donorInfo?.lastDonationDate;
+            const nextEligibleDate = lastDonation 
+              ? new Date(new Date(lastDonation).setMonth(new Date(lastDonation).getMonth() + 3))
+              : null;
+            
+            return (
+              <div key={donor._id} className="donor-card-modern">
+                {/* Status Badge for Recently Donated */}
+                {availabilityTab === 'recently' && lastDonation && (
+                  <div className="donor-status-badge recently-donated">
+                    <span>Available again: {nextEligibleDate?.toLocaleDateString()}</span>
                   </div>
                 )}
-              </div>
 
-              {/* Content Section */}
-              <div className="donor-content-section">
-                <div className="donor-info-header">
-                  <h3 className="donor-card-name">{donor.name}</h3>
-                  <svg className="verified-icon" width="20" height="20" viewBox="0 0 24 24" fill="#10b981">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
+                {/* Profile Image Section */}
+                <div className={`donor-image-section ${donorPhotos[donor._id] ? 'has-photo' : ''}`}>
+                  {donorPhotos[donor._id] ? (
+                    <img src={donorPhotos[donor._id]} alt={donor.name} className="donor-full-image" />
+                  ) : (
+                    <div className="donor-profile-image">
+                      <svg width="100%" height="100%" viewBox="0 0 200 200" fill="none">
+                        <circle cx="100" cy="80" r="40" stroke="white" strokeWidth="4" opacity="0.8"/>
+                        <path d="M40 180C40 140 65 120 100 120C135 120 160 140 160 180" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.8"/>
+                      </svg>
+                    </div>
+                  )}
                 </div>
 
-                <p className="donor-card-description">
-                  {donor.isDonor ? 'Verified blood donor committed to saving lives through regular donations' : 'Active donor ready to help in emergencies'}
-                </p>
-
-                {/* Stats Row */}
-                <div className="donor-card-stats">
-                  <div className="stat-item-card">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-                      <circle cx="9" cy="7" r="4"/>
-                      <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                {/* Content Section */}
+                <div className="donor-content-section">
+                  <div className="donor-info-header">
+                    <h3 className="donor-card-name">{donor.name}</h3>
+                    <svg className="verified-icon" width="20" height="20" viewBox="0 0 24 24" fill="#10b981">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <span className="stat-value">{donor.donorInfo?.totalDonations || donor.totalDonations || 0}</span>
                   </div>
 
-                  <div className="stat-item-card">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
-                    </svg>
-                    <span className="stat-value">{donor.donorInfo?.eventsAttended || donor.eventsAttended || 0}</span>
-                  </div>
+                  <p className="donor-card-description">
+                    {donor.isDonor ? 'Verified blood donor committed to saving lives through regular donations' : 'Active donor ready to help in emergencies'}
+                  </p>
 
-                  <span className="blood-group-badge-card">{donor.bloodGroup}</span>
+                  {/* Stats Row */}
+                  <div className="donor-card-stats">
+                    <div className="stat-item-card">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+                      </svg>
+                      <span className="stat-value">{donor.donorInfo?.totalDonations || donor.totalDonations || 0}</span>
+                    </div>
 
-                  {/* Location Button - Show if donor has valid coordinates */}
-                  {hasValidLocation(donor) && (
+                    <div className="stat-item-card">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                      </svg>
+                      <span className="stat-value">{donor.donorInfo?.eventsAttended || donor.eventsAttended || 0}</span>
+                    </div>
+
+                    <span className="blood-group-badge-card">{donor.bloodGroup}</span>
+
+                    {/* Location Button - Show if donor has valid coordinates */}
+                    {hasValidLocation(donor) && (
+                      <button 
+                        className="location-btn-card"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedLocation({ location: donor.location, name: donor.name });
+                        }}
+                        title="View Location"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
+                          <circle cx="12" cy="7" r="2"/>
+                        </svg>
+                      </button>
+                    )}
+
                     <button 
-                      className="location-btn-card"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedLocation({ location: donor.location, name: donor.name });
-                      }}
-                      title="View Location"
+                      className="contact-btn-card"
+                      onClick={() => handleContactDonor(donor)}
                     >
+                      Contact
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                        <circle cx="12" cy="7" r="2"/>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
                       </svg>
                     </button>
-                  )}
-
-                  <button 
-                    className="contact-btn-card"
-                    onClick={() => handleContactDonor(donor)}
-                  >
-                    Contact
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                      <polyline points="12 5 19 12 12 19"></polyline>
-                    </svg>
-                  </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
       

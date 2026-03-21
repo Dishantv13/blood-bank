@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { auth } from '../middleware/auth.js';
+import { requestCreationLimiter } from '../middleware/rateLimiter.js';
 import {
   getAllRequests,
   getMyRequests,
@@ -23,7 +24,7 @@ router.route('/my-requests').get(auth, getMyRequests);
 // @route   POST /api/requests
 // @desc    Create a new blood request
 // @access  Private
-router.route('/').post(auth, createRequest);
+router.route('/').post(auth, requestCreationLimiter, createRequest);
 
 // @route   PUT /api/requests/:id
 // @desc    Update blood request status

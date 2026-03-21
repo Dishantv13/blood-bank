@@ -38,6 +38,10 @@ const DonationSchema = new mongoose.Schema({
   },
   notes: {
     type: String
+  },
+  isFake: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
@@ -48,5 +52,8 @@ DonationSchema.index({ donor: 1 });
 DonationSchema.index({ bloodBank: 1 });
 DonationSchema.index({ status: 1 });
 DonationSchema.index({ type: 1 });
+DonationSchema.index({ donor: 1, createdAt: -1 });
+DonationSchema.index({ bloodBank: 1, status: 1, createdAt: -1 });
+DonationSchema.index({ camp: 1, status: 1 });
 
 export default mongoose.model('Donation', DonationSchema);

@@ -16,7 +16,7 @@ export const BLOODBANK_API_URLS = {
     REGISTER_BLOOD_BANK: '/blood-banks/register',
     FORGOT_PASSWORD: '/blood-banks/forgot-password',
     RESET_PASSWORD: (token) => `/blood-banks/reset-password/${token}`,
-    VERIFY_RESET_TOKEN: '/api/blood-banks/verify-reset-token',
+    VERIFY_RESET_TOKEN: '/blood-banks/verify-reset-token',
 
     // Dashboard & Profile
     GET_DASHBOARD: '/bloodbank/dashboard',

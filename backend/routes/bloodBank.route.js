@@ -1,26 +1,21 @@
 import { Router } from 'express';
 import { auth } from '../middleware/auth.js';
-import { protectBloodBank } from '../middleware/auth.js';
+import { cacheResponse } from '../middleware/cache.js';
 import {
-  generateToken,
   register,
   login,
-  getProfile,
-  updateProfile,
-  getInventory,
-  updateInventory,
   getAllBloodBanks,
   getBloodBankById,
   createBloodBank,
   updateBloodBankInventory,
   forgotPassword,
   resetPassword,
-  verifyResetToken,
-  changePassword
-
+  verifyResetToken
 } from '../controller/bloodBank.controller.js';
 
 const router = Router();
+
+// ==================== BLOOD BANK REGISTRATION & AUTHENTICATION ====================
 
 // @route   POST /api/blood-banks/register
 // @desc    Register a new blood bank
@@ -32,42 +27,24 @@ router.route('/register').post(register);
 // @access  Public
 router.route('/login').post(login);
 
-// @route   GET /api/blood-banks/profile
-// @desc    Get blood bank profile
-// @access  Private (Blood Bank)
-router.route('/profile').get(protectBloodBank, getProfile);
-
-// @route   PUT /api/blood-banks/profile
-// @desc    Update blood bank profile
-// @access  Private (Blood Bank)
-router.route('/profile').put(protectBloodBank, updateProfile);
-
-// @route   GET /api/blood-banks/inventory
-// @desc    Get blood bank inventory
-// @access  Private (Blood Bank)
-router.route('/inventory').get(protectBloodBank, getInventory);
-
-// @route   PUT /api/blood-banks/inventory
-// @desc    Update blood bank inventory
-// @access  Private (Blood Bank)
-router.route('/inventory').put(protectBloodBank, updateInventory);
+// ==================== PUBLIC BLOOD BANK INFORMATION ====================
 
 // @route   GET /api/blood-banks
 // @desc    Get all blood banks or nearby ones
 // @access  Public
-router.route('/').get(getAllBloodBanks);
+router.route('/').get(cacheResponse(120), getAllBloodBanks);
 
-// @route   GET /api/bloodbanks/:id
+// @route   GET /api/blood-banks/:id
 // @desc    Get blood bank by ID
 // @access  Public
-router.route('/:id').get(getBloodBankById);
+router.route('/:id').get(cacheResponse(120), getBloodBankById);
 
-// @route   POST /api/bloodbanks
+// @route   POST /api/blood-banks
 // @desc    Create a new blood bank (Admin only)
 // @access  Private
 router.route('/').post(auth, createBloodBank);
 
-// @route   PUT /api/bloodbanks/:id/inventory
+// @route   PUT /api/blood-banks/:id/inventory
 // @desc    Update blood bank inventory
 // @access  Private
 router.route('/:id/inventory').put(auth, updateBloodBankInventory);
@@ -88,10 +65,5 @@ router.route('/reset-password').post(resetPassword);
 // @desc    Verify if reset token is valid for blood bank
 // @access  Public
 router.route('/verify-reset-token').post(verifyResetToken);
-
-// @route   POST /api/blood-banks/change-password
-// @desc    Change password for authenticated blood bank
-// @access  Private
-router.route('/change-password').post(protectBloodBank, changePassword);
 
 export default router;

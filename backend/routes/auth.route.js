@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { auth } from '../middleware/auth.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 import {
     register,
     login,
@@ -22,7 +23,7 @@ router.route('/register').post([
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('phone').trim().notEmpty().withMessage('Phone number is required'),
   body('bloodGroup').isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).withMessage('Invalid blood group')
-], register);
+], authLimiter, register);
 
 // @route   POST /api/auth/login
 // @desc    Login user
@@ -30,19 +31,19 @@ router.route('/register').post([
 router.route('/login').post([
   body('email').isEmail().withMessage('Please enter a valid email'),
   body('password').notEmpty().withMessage('Password is required')
-], login);
+], authLimiter, login);
 
 // @route   POST /api/auth/google
 // @desc    Google OAuth login
 // @access  Public
-router.route('/google').post(googleLogin);
+router.route('/google').post(authLimiter, googleLogin);
 
 // @route   POST /api/auth/forgot-password
 // @desc    Send password reset email to user
 // @access  Public
 router.route('/forgot-password').post([
   body('email').isEmail().withMessage('Please enter a valid email')
-], forgotPassword);
+], authLimiter, forgotPassword);
 
 // @route   POST /api/auth/reset-password
 // @desc    Reset user password with token

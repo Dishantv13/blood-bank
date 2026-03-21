@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { auth } from '../middleware/auth.js';
+import { cacheResponse } from '../middleware/cache.js';
 import {
     getAllEvents,
     createEvent,
@@ -12,7 +13,7 @@ const router = Router();
 // @route   GET /api/events
 // @desc    Get all upcoming events (public and donors-only)
 // @access  Public
-router.route('/').get(getAllEvents);
+router.route('/').get(cacheResponse(120), getAllEvents);
 
 // @route   POST /api/events
 // @desc    Create a new event

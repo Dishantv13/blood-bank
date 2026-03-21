@@ -41,4 +41,7 @@ InventorySchema.pre('save', function(next) {
   next();
 });
 
+InventorySchema.index({ 'items.bloodGroup': 1 });
+InventorySchema.index({ updatedAt: -1 });
+
 export default mongoose.model('Inventory', InventorySchema);

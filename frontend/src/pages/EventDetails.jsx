@@ -10,16 +10,19 @@ const EventDetails = () => {
   const { success, error } = useToast();
   
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [hasJustRegistered, setHasJustRegistered] = useState(false);
 
   // RTK Queries automatically fetch and cache data
-  const { data: eventsResponse, isLoading: loading, refetch: refetchEventDetails } = useGetAllEventsQuery({ id: eventId });
+  const { data: eventsResponse, isLoading: loading, refetch: refetchEventDetails } = useGetAllEventsQuery();
   const [registerForEvent, { isLoading: registering }] = useRegisterForEventMutation();
-  
-  const eventData = Array.isArray(eventsResponse?.data) ? eventsResponse.data[0] : eventsResponse?.data;
+
+  const events = Array.isArray(eventsResponse?.data) ? eventsResponse.data : [];
+  const eventData = events.find((item) => String(item?._id || item?.id) === String(eventId)) || null;
   const event = eventData || null;
 
   useEffect(() => {
     checkUserLogin();
+    setHasJustRegistered(false);
   }, [eventId]);
 
   const checkUserLogin = () => {
@@ -34,9 +37,20 @@ const EventDetails = () => {
     }
   };
 
-  const isRegistered = eventData?.registeredDonors && currentUserId 
-    ? eventData.registeredDonors.some(donor => donor === currentUserId || donor._id === currentUserId)
+  const getRegistrantId = (entry) => {
+    if (!entry) return null;
+    if (typeof entry === 'string') return entry;
+    return entry.donor?._id || entry.donor || entry._id || entry.id || null;
+  };
+
+  const isRegisteredFromServer = eventData?.registeredDonors && currentUserId
+    ? eventData.registeredDonors.some((donor) => {
+        const donorId = getRegistrantId(donor);
+        return donorId && String(donorId) === String(currentUserId);
+      })
     : false;
+
+  const isRegistered = hasJustRegistered || isRegisteredFromServer;
 
   const handleRegister = async () => {
     if (!currentUserId) {
@@ -47,6 +61,7 @@ const EventDetails = () => {
 
     try {
       await registerForEvent(eventId).unwrap();
+      setHasJustRegistered(true);
       success('Successfully registered for the event!');
       refetchEventDetails();
     } catch (err) {

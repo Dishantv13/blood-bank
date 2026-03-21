@@ -1,7 +1,5 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
-import BloodBank from '../models/BloodBank.model.js';
-import { auth } from '../middleware/auth.js';
+import { auth, protectBloodBank } from '../middleware/auth.js';
 import {
   submitHealthForm,
   getMyForms,
@@ -14,31 +12,6 @@ import {
 } from '../controller/donorHealth.controller.js';
 
 const router = Router();
-
-// Middleware to protect blood bank routes
-const protectBloodBank = async (req, res, next) => {
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      if (decoded.type !== 'bloodbank') {
-        return res.status(401).json({ message: 'Not authorized as blood bank' });
-      }
-      
-      req.bloodBank = await BloodBank.findById(decoded.id).select('-password');
-      next();
-    } catch (error) {
-      return res.status(401).json({ message: 'Not authorized, token failed' });
-    }
-  }
-
-  if (!token) {
-    return res.status(401).json({ message: 'Not authorized, no token' });
-  }
-};
 
 // @route   POST /api/donor-health
 // @desc    Submit a donor health form

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { auth } from "../middleware/auth.js";
 import { bloodBankAuth } from "../middleware/auth.js";
+import { donationCreationLimiter } from '../middleware/rateLimiter.js';
 import {
   createDonationRequest,
   getMyDonations,
@@ -19,7 +20,7 @@ const router = Router();
 // @route   POST /api/donations/request
 // @desc    Submit a request to donate blood at a specific bank
 // @access  Private (Donor)
-router.route("/request").post(auth, createDonationRequest);
+router.route("/request").post(auth, donationCreationLimiter, createDonationRequest);
 
 // @route   GET /api/donations/my
 // @desc    Get logged in user's donations

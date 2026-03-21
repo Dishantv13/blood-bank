@@ -43,20 +43,25 @@ const Dashboard = () => {
   const { data: profileRes, isLoading: loadingProfile } = useGetProfileQuery(undefined, { refetchOnMountOrArgChange: true });
 
   useEffect(() => {
-    if (profileRes && profileRes.data) {
-      if (JSON.stringify(user) !== JSON.stringify(profileRes.data)) {
-        setUser(profileRes.data);
-      }
+    const profileData = profileRes?.data;
+    if (!profileData) return;
+
+    const isSameUser = user?._id === profileData?._id;
+    const isSameVersion = user?.updatedAt && profileData?.updatedAt && user.updatedAt === profileData.updatedAt;
+
+    if (!isSameUser || !isSameVersion) {
+      setUser(profileData);
     }
-  }, [profileRes, user, setUser]);
+  }, [profileRes?.data, setUser]);
 
   const requests = allRequestsRes?.data || [];
   const myRequests = myRequestsRes?.data || [];
   const dashboardStats = dashboardStatsRes?.data?.stats || null;
 
-  const { data: myDonations = [] } = useGetMyDonationsQuery(undefined, {
+  const { data: myDonationsRes } = useGetMyDonationsQuery(undefined, {
     skip: user?.activeMode !== 'donor' || !user?.isDonor
   });
+  const myDonations = myDonationsRes?.data || [];
 
   const { data: campsRes, isLoading: loadingCamps } = useGetAllCampsQuery({}, {
     skip: !user // ensure we only fetch when authorized
@@ -86,22 +91,41 @@ const Dashboard = () => {
   const toast = useToast();
 
   const fetchDonorStats = useCallback(() => {
-    // Registered events depend on dashboardStats
     const registeredEvents = dashboardStats?.overview?.registeredEvents || 0;
-    
-    // Donor profile fields
     const info = user?.donorInfo || {};
-    
-    setDonorStats({
+
+    const nextStats = {
       totalDonations: dashboardStats?.overview?.personalStats?.totalDonations || info.totalDonations || 0,
       eventsAttended: registeredEvents,
       bloodDonated: dashboardStats?.overview?.personalStats?.totalDonatedVolume || info.totalDonatedVolume || 0,
       lastDonation: dashboardStats?.overview?.personalStats?.lastDonationDate || info.lastDonationDate || user?.lastDonationDate || null,
       upcomingEvents: dashboardStats?.overview?.upcomingEvents || 0
+    };
+
+    setDonorStats((prev) => {
+      const unchanged =
+        prev.totalDonations === nextStats.totalDonations &&
+        prev.eventsAttended === nextStats.eventsAttended &&
+        prev.bloodDonated === nextStats.bloodDonated &&
+        prev.lastDonation === nextStats.lastDonation &&
+        prev.upcomingEvents === nextStats.upcomingEvents;
+
+      return unchanged ? prev : nextStats;
     });
   }, [dashboardStats, user]);
 
   const lastDonationDate = donorStats.lastDonation;
+  const totalBloodDonatedLiters = (() => {
+    const raw = Number(donorStats.bloodDonated) || 0;
+    // Backward-compatible: if legacy data is stored in mL, convert to L.
+    return raw > 50 ? raw / 1000 : raw;
+  })();
+  const getDonationVolumeLiters = (volume) => {
+    const raw = Number(volume) || 0;
+    // Backward-compatible: if legacy per-donation volume is in mL, convert to L.
+    return raw > 5 ? raw / 1000 : raw;
+  };
+
   let nextEligibleDate = null;
   let isWaitingPeriod = false;
   
@@ -121,7 +145,7 @@ const Dashboard = () => {
     if (user?.activeMode === 'donor' && user?.isDonor) {
       fetchDonorStats();
     }
-  }, [dashboardStats, user?.activeMode, user?.isDonor, fetchDonorStats, myDonations]);
+  }, [dashboardStats, user?.activeMode, user?.isDonor, fetchDonorStats]);
 
   const checkProfileCompletion = useCallback(() => {
     if (!user) return;
@@ -275,7 +299,7 @@ const Dashboard = () => {
                 </svg>
               </div>
               <div className="stat-content">
-                <h3>{(Number(donorStats.bloodDonated) / 1000).toFixed(2)}L</h3>
+                <h3>{totalBloodDonatedLiters.toFixed(2)}L</h3>
                 <p>Total Blood Donated</p>
               </div>
             </div>
@@ -399,7 +423,14 @@ const Dashboard = () => {
                         <p><strong>Date:</strong> {new Date(donation.donationDate).toLocaleDateString()}</p>
                         {donation.bloodBank && <p><strong>Blood Bank:</strong> {donation.bloodBank.name}</p>}
                         {donation.camp && <p><strong>Camp:</strong> {donation.camp.name}</p>}
-                        {donation.volumeDonated > 0 && <p><strong>Volume:</strong> {(Number(donation.volumeDonated) / 1000).toFixed(2)}L</p>}
+                        {donation.status === 'completed' && (
+                          <p>
+                            <strong>Volume:</strong>{' '}
+                            {getDonationVolumeLiters(donation.volumeDonated) > 0
+                              ? `${getDonationVolumeLiters(donation.volumeDonated).toFixed(2)}L`
+                              : 'Not recorded'}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

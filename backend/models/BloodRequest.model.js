@@ -93,6 +93,10 @@ const BloodRequestSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  isFake: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

@@ -63,6 +63,47 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+const normalizeApiPayload = (rawResponse) => {
+  const isObject = rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse);
+  const isWrappedSuccess =
+    isObject &&
+    Object.prototype.hasOwnProperty.call(rawResponse, 'success') &&
+    Object.prototype.hasOwnProperty.call(rawResponse, 'data');
+
+  const payload = isWrappedSuccess ? rawResponse.data : rawResponse;
+  const meta = isWrappedSuccess
+    ? { success: rawResponse.success, message: rawResponse.message }
+    : {};
+
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    let normalizedData;
+    if (Object.prototype.hasOwnProperty.call(payload, 'data')) {
+      normalizedData = payload.data;
+    } else if (Array.isArray(payload.requests)) {
+      normalizedData = payload.requests;
+    } else if (Array.isArray(payload.events)) {
+      normalizedData = payload.events;
+    } else if (Array.isArray(payload.camps)) {
+      normalizedData = payload.camps;
+    } else {
+      normalizedData = payload;
+    }
+
+    const { pagination, ...payloadWithoutPagination } = payload;
+
+    return {
+      ...meta,
+      ...payloadWithoutPagination,
+      data: normalizedData,
+    };
+  }
+
+  return {
+    ...meta,
+    data: payload,
+  };
+};
+
 // Custom wrapper to handle 401 unauth auto-logouts across all endpoints
 const baseQueryWithReauth = async (args, api, extraOptions) => {
   const result = await baseQuery(args, api, extraOptions);
@@ -86,6 +127,11 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
       }
     }
   }
+
+  if (result.data !== undefined) {
+    result.data = normalizeApiPayload(result.data);
+  }
+
   return result;
 };
 
