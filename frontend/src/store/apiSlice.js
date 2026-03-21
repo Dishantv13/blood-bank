@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { TAGS } from './tagType';
+import { TAGS } from '../enum/tagType';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -9,33 +9,33 @@ const checkIsBloodBankEndpoint = (endpoint) => {
   // Use a more specific check. Blood bank portal endpoints typically 
   // explicitly use the bloodbank route prefix or include 'bloodbank' in the endpoint name.
   const name = endpoint.toLowerCase();
-  
+
   // These specific endpoints are clearly for the Blood Bank Portal
-  if (name.includes('bloodbank') || 
-      name.includes('getbloodbank') || 
-      name.includes('createcamp') || 
-      name.includes('createevent') ||
-      name.includes('updatecamp') ||
-      name.includes('updateevent') ||
-      name.includes('deletecamp') ||
-      name.includes('deleteevent') ||
-      name.includes('getcampregistrations') ||
-      name.includes('geteventregistrations') ||
-      name.includes('exporteventregistrations') ||
-      name.includes('exportcampregistrations') ||
-      name.includes('exportregistrations') ||
-      name.includes('approverequest') ||
-      name.includes('rejectrequest') ||
-      name.includes('interbankrequest') ||
-      name.includes('inventory') ||
-      name.includes('bloodgroup') ||
-      name.includes('getbloodbankdonations') ||
-      name.includes('recorddonation') ||
-      name.includes('updatedonationstatus') ||
-      name.includes('createdonation')) {
+  if (name.includes('bloodbank') ||
+    name.includes('getbloodbank') ||
+    name.includes('createcamp') ||
+    name.includes('createevent') ||
+    name.includes('updatecamp') ||
+    name.includes('updateevent') ||
+    name.includes('deletecamp') ||
+    name.includes('deleteevent') ||
+    name.includes('getcampregistrations') ||
+    name.includes('geteventregistrations') ||
+    name.includes('exporteventregistrations') ||
+    name.includes('exportcampregistrations') ||
+    name.includes('exportregistrations') ||
+    name.includes('approverequest') ||
+    name.includes('rejectrequest') ||
+    name.includes('interbankrequest') ||
+    name.includes('inventory') ||
+    name.includes('bloodgroup') ||
+    name.includes('getbloodbankdonations') ||
+    name.includes('recorddonation') ||
+    name.includes('updatedonationstatus') ||
+    name.includes('createdonation')) {
     return true;
   }
-  
+
   // If it's a general camp/event/request endpoint, it might be for a standard user.
   // We check if it explicitly starts with 'bloodbank' in the URL context
   return false;

@@ -200,6 +200,27 @@
   color: #155724;
 }
 
+/* Dark Theme Overrides for Status Indicators */
+[data-theme='dark'] .status-empty {
+  background: rgba(220, 38, 38, 0.2);
+  color: #f87171;
+}
+
+[data-theme='dark'] .status-critical {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+[data-theme='dark'] .status-low {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .status-good {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
 .last-updated {
   margin-top: 0.75rem;
   font-size: 0.75rem;

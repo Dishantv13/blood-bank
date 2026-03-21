@@ -1,23 +1,24 @@
 import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from './tagType';
+import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
+import { REQUEST_API_URLS } from '../enum/apiUrl';
 
 export const requestApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Standard User endpoints
     getAllRequests: builder.query({
       query: (params) => ({
-        url: '/requests',
+        url: REQUEST_API_URLS.GET_ALL_REQUESTS,
         params,
       }),
       providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.data?.requests || result?.data),
     }),
     getMyRequests: builder.query({
-      query: () => '/requests/my-requests',
+      query: () => REQUEST_API_URLS.GET_MY_REQUESTS,
       providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.data),
     }),
     createRequest: builder.mutation({
       query: (data) => ({
-        url: '/requests',
+        url: REQUEST_API_URLS.CREATE_REQUEST,
         method: 'POST',
         body: data,
       }),
@@ -25,7 +26,7 @@ export const requestApi = apiSlice.injectEndpoints({
     }),
     updateRequest: builder.mutation({
       query: ({ id, ...data }) => ({
-        url: `/requests/${id}`,
+        url: REQUEST_API_URLS.UPDATE_REQUEST(id),
         method: 'PUT',
         body: data,
       }),
@@ -36,7 +37,7 @@ export const requestApi = apiSlice.injectEndpoints({
     }),
     updateRequestStatusUser: builder.mutation({
       query: ({ id, status }) => ({
-        url: `/requests/${id}/status`,
+        url: REQUEST_API_URLS.UPDATE_REQUEST_STATUS_USER(id),
         method: 'PATCH',
         body: { status },
       }),
@@ -49,25 +50,25 @@ export const requestApi = apiSlice.injectEndpoints({
     // Blood Bank Portal endpoints
     getBloodBankRequests: builder.query({
       query: (params) => ({
-        url: '/bloodbank/requests',
+        url: REQUEST_API_URLS.GET_BLOOD_BANK_REQUESTS,
         params,
       }),
       providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.data?.requests || result?.data),
     }),
     getBloodBankApprovedRequests: builder.query({
       query: (params) => ({
-        url: '/bloodbank/requests/approved',
+        url: REQUEST_API_URLS.GET_BLOOD_BANK_APPROVED_REQUESTS,
         params,
       }),
       providesTags: tagList(TAGS.REQUEST), // general tag, list drops ID for pagination usually
     }),
     getBloodBankRequestById: builder.query({
-      query: (id) => `/bloodbank/requests/${id}`,
+      query: (id) => REQUEST_API_URLS.GET_BLOOD_BANK_REQUEST_BY_ID(id),
       providesTags: (result, error, id) => tagById(TAGS.REQUEST, id),
     }),
     createInterBankRequest: builder.mutation({
       query: (data) => ({
-        url: '/bloodbank/requests/inter-bank',
+        url: REQUEST_API_URLS.CREATE_INTER_BANK_REQUEST,
         method: 'POST',
         body: data,
       }),
@@ -75,7 +76,7 @@ export const requestApi = apiSlice.injectEndpoints({
     }),
     approveRequest: builder.mutation({
       query: ({ id, data }) => ({
-        url: `/bloodbank/requests/${id}/approve`,
+        url: REQUEST_API_URLS.APPROVE_REQUEST(id),
         method: 'POST',
         body: data,
       }),
@@ -87,7 +88,7 @@ export const requestApi = apiSlice.injectEndpoints({
     }),
     rejectRequest: builder.mutation({
       query: ({ id, data }) => ({
-        url: `/bloodbank/requests/${id}/reject`,
+        url: REQUEST_API_URLS.REJECT_REQUEST(id),
         method: 'POST',
         body: data,
       }),

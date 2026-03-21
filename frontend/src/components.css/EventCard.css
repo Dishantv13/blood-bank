@@ -16,7 +16,8 @@
 
 .event-card.past-event {
   opacity: 0.75;
-  background: linear-gradient(135deg, #f5f5f5 0%, #f9f9f9 100%);
+  background: var(--bg-gradient);
+  filter: grayscale(0.5);
 }
 
 .past-event-overlay {
@@ -78,6 +79,7 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   overflow: hidden;
 }
 
@@ -125,7 +127,7 @@
 
 .contact-info strong,
 .organizer-info strong {
-  color: #333;
+  color: var(--text-main);
   font-weight: 600;
 }
 
@@ -135,7 +137,7 @@
   flex-wrap: nowrap;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--border-color);
 }
 
 .action-btn {
@@ -189,6 +191,10 @@
   border: 1px solid #ff6b6b;
 }
 
+[data-theme='dark'] .edit-btn {
+  background-color: rgba(255, 107, 107, 0.1);
+}
+
 .edit-btn:hover:not(:disabled) {
   background-color: #ff6b6b;
   color: white;
@@ -208,6 +214,10 @@
   border: 1px solid #7c3aed;
 }
 
+[data-theme='dark'] .details-event-btn {
+  background-color: rgba(124, 58, 237, 0.1);
+}
+
 .details-event-btn:hover {
   background-color: #7c3aed;
   color: white;
@@ -219,6 +229,10 @@
   border: 1px solid #2196f3;
 }
 
+[data-theme='dark'] .registrations-btn {
+  background-color: rgba(33, 150, 243, 0.1);
+}
+
 .registrations-btn:hover {
   background-color: #2196f3;
   color: white;
@@ -228,6 +242,10 @@
   background-color: #ffe0e0;
   color: #d32f2f;
   border: 1px solid #d32f2f;
+}
+
+[data-theme='dark'] .delete-btn {
+  background-color: rgba(211, 47, 47, 0.1);
 }
 
 .delete-btn:hover {

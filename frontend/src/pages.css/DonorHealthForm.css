@@ -115,6 +115,20 @@
   margin-top: 0.25rem;
 }
 
+.form-group input:disabled,
+.form-group input.input-disabled-locked {
+  background-color: var(--input-bg);
+  opacity: 0.75 !important;
+  cursor: not-allowed;
+  border-color: var(--border-color);
+  color: var(--text-main) !important;
+}
+
+[data-theme='dark'] .form-group input:disabled,
+[data-theme='dark'] .form-group input.input-disabled-locked {
+  background-color: rgba(255, 255, 255, 0.05); /* Very subtle background for dark mode */
+}
+
 /* Checkbox Grid */
 .checkbox-grid {
   display: grid;

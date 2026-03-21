@@ -22,31 +22,6 @@ import {
 
 const router = Router();
 
-// Middleware to protect blood bank routes
-// const protectBloodBank = async (req, res, next) => {
-//   let token;
-
-//   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-//     try {
-//       token = req.headers.authorization.split(' ')[1];
-//       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-//       if (decoded.type !== 'bloodbank') {
-//         return res.status(401).json({ message: 'Not authorized as blood bank' });
-//       }
-      
-//       req.bloodBank = await BloodBank.findById(decoded.bloodBankId).select('-password');
-//       next();
-//     } catch (error) {
-//       return res.status(401).json({ message: 'Not authorized, token failed' });
-//     }
-//   }
-
-//   if (!token) {
-//     return res.status(401).json({ message: 'Not authorized, no token' });
-//   }
-// };
-
 // @route   POST /api/blood-banks/register
 // @desc    Register a new blood bank
 // @access  Public

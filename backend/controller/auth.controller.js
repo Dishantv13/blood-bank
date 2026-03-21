@@ -104,20 +104,7 @@ const login = asyncHandler(async (req, res) => {
         isDonor: user.isDonor
       }
     });
-    // successResponse(res, {
-    //   token,
-    //   user: {   
-    //     id: user._id,
-    //     name: user.name,
-    //     email: user.email,
-    //     bloodGroup: user.bloodGroup,
-    //     role: user.role,
-    //     isDonor: user.isDonor
-    //   }
-    // }, 200, 'Login successful');
-
 });
-
 
 // Google OAuth login
 const googleLogin = asyncHandler(async (req, res) => {

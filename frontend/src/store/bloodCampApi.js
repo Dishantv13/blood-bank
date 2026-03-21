@@ -1,23 +1,24 @@
 import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from './tagType';
+import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
+import { BLOOD_CAMP_API_URLS } from '../enum/apiUrl';
 
 export const bloodCampApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Standard User Endpoints
     getAllCamps: builder.query({
       query: (params) => ({
-        url: '/blood-camps',
+        url: BLOOD_CAMP_API_URLS.GET_ALL_CAMPS,
         params,
       }),
       providesTags: (result) => tagListWithIds(TAGS.BLOOD_CAMP, result?.data),
     }),
     getCampById: builder.query({
-      query: (id) => `/blood-camps/${id}`,
+      query: (id) => BLOOD_CAMP_API_URLS.GET_CAMP_BY_ID(id),
       providesTags: (result, error, id) => tagById(TAGS.BLOOD_CAMP, id),
     }),
     registerForCamp: builder.mutation({
       query: ({ id, data }) => ({
-        url: `/blood-camps/${id}/register`,
+        url: BLOOD_CAMP_API_URLS.REGISTER_FOR_CAMP(id),
         method: 'POST',
         body: data, // expecting timeSlot etc
       }),
@@ -26,16 +27,16 @@ export const bloodCampApi = apiSlice.injectEndpoints({
 
     // Blood Bank Portal Endpoints
     getBloodBankCamps: builder.query({
-      query: () => '/bloodbank/camps',
+      query: () => BLOOD_CAMP_API_URLS.GET_BLOOD_BANK_CAMPS,
       providesTags: (result) => tagListWithIds(TAGS.BLOOD_CAMP, result?.data),
     }),
     getCampRegistrations: builder.query({
-      query: (campId) => `/bloodbank/camps/${campId}/registrations`,
+      query: (campId) => BLOOD_CAMP_API_URLS.GET_CAMP_REGISTRATIONS(campId),
       providesTags: (result, error, campId) => [{ type: TAGS.BLOOD_CAMP, id: `${campId}_regs` }],
     }),
     createCamp: builder.mutation({
       query: (data) => ({
-        url: '/blood-camps',
+        url: BLOOD_CAMP_API_URLS.CREATE_CAMP,
         method: 'POST',
         body: data,
       }),
@@ -43,7 +44,7 @@ export const bloodCampApi = apiSlice.injectEndpoints({
     }),
     updateCamp: builder.mutation({
       query: ({ id, ...data }) => ({
-        url: `/blood-camps/${id}`,
+        url: BLOOD_CAMP_API_URLS.UPDATE_CAMP(id),
         method: 'PUT',
         body: data,
       }),
@@ -51,14 +52,14 @@ export const bloodCampApi = apiSlice.injectEndpoints({
     }),
     deleteCamp: builder.mutation({
       query: (id) => ({
-        url: `/blood-camps/${id}`,
+        url: BLOOD_CAMP_API_URLS.DELETE_CAMP(id),
         method: 'DELETE',
       }),
       invalidatesTags: tagList(TAGS.BLOOD_CAMP),
     }),
     deleteCampRegistration: builder.mutation({
       query: ({ campId, donorId }) => ({
-        url: `/bloodbank/camps/${campId}/registrations/${donorId}`,
+        url: BLOOD_CAMP_API_URLS.DELETE_CAMP_REGISTRATION(campId, donorId),
         method: 'DELETE',
       }),
       // Invalidate the specific camp's registration list

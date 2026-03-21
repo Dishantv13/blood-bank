@@ -275,7 +275,7 @@ const Dashboard = () => {
                 </svg>
               </div>
               <div className="stat-content">
-                <h3>{(Number(donorStats.bloodDonated) || 0).toFixed(2)}L</h3>
+                <h3>{(Number(donorStats.bloodDonated) / 1000).toFixed(2)}L</h3>
                 <p>Total Blood Donated</p>
               </div>
             </div>
@@ -399,7 +399,7 @@ const Dashboard = () => {
                         <p><strong>Date:</strong> {new Date(donation.donationDate).toLocaleDateString()}</p>
                         {donation.bloodBank && <p><strong>Blood Bank:</strong> {donation.bloodBank.name}</p>}
                         {donation.camp && <p><strong>Camp:</strong> {donation.camp.name}</p>}
-                        {donation.volumeDonated > 0 && <p><strong>Volume:</strong> {donation.volumeDonated}L</p>}
+                        {donation.volumeDonated > 0 && <p><strong>Volume:</strong> {(Number(donation.volumeDonated) / 1000).toFixed(2)}L</p>}
                       </div>
                     </div>
                   ))}
