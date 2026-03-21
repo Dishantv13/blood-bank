@@ -171,6 +171,7 @@ export const loginBloodBank = async (email, password) => {
 // Get all public blood banks or nearby ones
 export const getAllBloodBanks = async (query) => {
   const { latitude, longitude, maxDistance, bloodGroup } = query;
+  const listProjection = 'name email phone logo imageUrl address location inventory';
 
   let bloodBanks;
   if (latitude && longitude) {
@@ -188,18 +189,37 @@ export const getAllBloodBanks = async (query) => {
       }
     };
 
-    bloodBanks = await BloodBank.find(geoQuery).select('-password').lean();
+    bloodBanks = await BloodBank.find(geoQuery).select(listProjection).lean();
   } else {
-    bloodBanks = await BloodBank.find({ isActive: true }).select('-password').lean();
+    bloodBanks = await BloodBank.find({ isActive: true }).select(listProjection).lean();
   }
 
   // Batch fetch inventories (avoid N+1)
   const bankIds = bloodBanks.map(bank => bank._id);
-  const inventories = await Inventory.find({ bloodBank: { $in: bankIds } }).lean();
+  const inventories = bankIds.length
+    ? await Inventory.find({ bloodBank: { $in: bankIds } })
+      .select('bloodBank items.bloodGroup items.units')
+      .lean()
+    : [];
   const inventoryMap = new Map(inventories.map(inv => [inv.bloodBank.toString(), inv.items || []]));
+
+  const resolveLightweightLogo = (bank) => {
+    const imageCandidate = typeof bank.imageUrl === 'string' ? bank.imageUrl.trim() : '';
+    if (imageCandidate && !imageCandidate.startsWith('data:')) {
+      return imageCandidate;
+    }
+
+    const logoCandidate = typeof bank.logo === 'string' ? bank.logo.trim() : '';
+    if (!logoCandidate || logoCandidate.startsWith('data:')) {
+      return '';
+    }
+
+    return logoCandidate;
+  };
 
   const bloodBanksWithInventory = bloodBanks.map(bank => ({
     ...bank,
+    logo: resolveLightweightLogo(bank),
     inventory: inventoryMap.get(bank._id.toString()) || bank.inventory || []
   }));
 

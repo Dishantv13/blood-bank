@@ -60,7 +60,7 @@ const deleteEvent = asyncHandler(async (req, res) => {
 });
 
 const getEventRegistrations = asyncHandler(async (req, res) => {
-  const result = await bloodBankPortalService.getEventRegistrations(req.params.id, getBloodBankId(req));
+  const result = await bloodBankPortalService.getEventRegistrations(req.params.id, getBloodBankId(req), req.query);
   successResponse(res, result, 200, 'Event registrations fetched successfully');
 });
 

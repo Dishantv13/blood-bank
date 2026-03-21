@@ -349,7 +349,9 @@ export const getEventRegistrations = async (eventId, bloodBankId) => {
 
 export const exportEventRegistrations = async (eventId, bloodBankId) => {
   const event = await Event.findOne({ _id: eventId, organizedBy: bloodBankId })
-    .populate('registeredDonors', 'name email phone bloodGroup address lastDonationDate isDonor donorInfo createdAt');
+    .select('title registeredDonors')
+    .populate('registeredDonors', 'name email phone bloodGroup createdAt')
+    .lean();
 
   if (!event) throw new ApiError(404, 'Event not found or unauthorized');
 

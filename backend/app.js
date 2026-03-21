@@ -2,6 +2,7 @@ import express, { json, urlencoded } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
+import compression from "compression";
 import mongoose from "mongoose";
 import { globalErrorHandler } from "./middleware/globalErrorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
@@ -65,6 +66,7 @@ app.options("*", cors(corsOptions));
 // ==================== SECURITY MIDDLEWARE ====================
 app.use(helmet()); // Set security headers
 app.use(mongoSanitize()); // Prevent MongoDB injection
+app.use(compression()); // Compress response payloads for faster network transfer
 app.use(requestLogger(1000));
 
 // ==================== RATE LIMITING ====================
