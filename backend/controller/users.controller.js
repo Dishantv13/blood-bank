@@ -2,13 +2,16 @@ import User from '../models/User.model.js';
 import Event from '../models/Event.model.js';
 import BloodRequest from '../models/BloodRequest.model.js';
 import Donation from '../models/Donation.model.js';
+import DonorHealth from '../models/DonorHealth.model.js';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import mongoose from 'mongoose';
 
 // Get user profile
 const getProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.userId).select('-password');
+  const user = await User.findById(req.user.userId)
+    .select('-password')
+    .populate('healthForm');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -98,25 +101,77 @@ const updateDonorInfo = asyncHandler(async (req, res) => {
 
   const eligibility = calculateBackendEligibility(incomingDonorInfo);
 
-  // Preserve stats fields while updating metadata
-  const updatedDonorInfo = {
-    ...user.donorInfo?.toObject?.() || user.donorInfo || {},
-    ...incomingDonorInfo,
-    isEligible: eligibility.eligible,
-    eligibilityReasons: eligibility.reasons,
-    lastUpdated: new Date()
+  // Create/Update separate DonorHealth record as requested (ID link)
+  let healthForm = await DonorHealth.findOne({ donor: userId }).sort({ submittedAt: -1 });
+
+  const mappingData = {
+    donor: userId,
+    fullName: user.name,
+    weight: parseFloat(incomingDonorInfo.weight),
+    phone: user.phone || incomingDonorInfo.emergencyContact?.phone || '',
+    email: user.email,
+    dateOfBirth: new Date(incomingDonorInfo.dateOfBirth),
+    gender: incomingDonorInfo.gender,
+    bloodGroup: user.bloodGroup || 'unknown',
+    medicalConditions: {
+      hivAids: incomingDonorInfo.diseases?.hiv || false,
+      hepatitisBC: incomingDonorInfo.diseases?.hepatitisB || incomingDonorInfo.diseases?.hepatitisC || false,
+      malaria: incomingDonorInfo.diseases?.malaria || false,
+      tuberculosis: incomingDonorInfo.diseases?.tuberculosis || false,
+      heartDisease: incomingDonorInfo.diseases?.heartDisease || false,
+      cancer: incomingDonorInfo.diseases?.cancer || false,
+      diabetes: incomingDonorInfo.diseases?.diabetes || false,
+      epilepsy: incomingDonorInfo.diseases?.epilepsy || false,
+    },
+    recentActivities: {
+      tattooOrPiercing: incomingDonorInfo.recentConditions?.tattooOrPiercing || false,
+      surgeryOrTransfusion: incomingDonorInfo.recentConditions?.surgery || false,
+      vaccination: incomingDonorInfo.recentConditions?.vaccination || false,
+      pregnancyOrBreastfeeding: incomingDonorInfo.recentConditions?.pregnancy || false,
+    },
+    currentHealth: {
+      recentFeverOrIllness: incomingDonorInfo.recentConditions?.fever || incomingDonorInfo.recentConditions?.coldOrFlu || false,
+    },
+    lifestyle: {
+      alcohol: incomingDonorInfo.lifestyle?.alcohol || 'never',
+      smoking: incomingDonorInfo.lifestyle?.smoking || 'never',
+      drugUse: incomingDonorInfo.lifestyle?.drugUse || false,
+    },
+    donationHistory: {
+      previouslyDonated: (user.donorInfo?.totalDonations || 0) > 0,
+      lastDonationDate: user.donorInfo?.lastDonationDate || incomingDonorInfo.lastDonationDate,
+      totalDonations: user.donorInfo?.totalDonations || 0,
+    },
+    consent: {
+      informationAccurate: incomingDonorInfo.consent?.informationAccurate || incomingDonorInfo.accuracyDeclaration || false,
+      consentToDonate: incomingDonorInfo.consent?.consentToDonate || incomingDonorInfo.consent || false,
+      understandsProcess: incomingDonorInfo.consent?.understandsProcess || true
+    },
+    status: eligibility.eligible ? 'approved' : 'requires_review'
   };
 
-  // Ensure stats aren't accidentally cleared if they weren't in the request
-  updatedDonorInfo.totalDonations = user.donorInfo?.totalDonations || 0;
-  updatedDonorInfo.totalDonatedVolume = user.donorInfo?.totalDonatedVolume || 0;
-  updatedDonorInfo.donationCount = user.donorInfo?.donationCount || 0;
-  // Use system lastDonationDate if form one is older or missing
-  if (user.donorInfo?.lastDonationDate && (!incomingDonorInfo.lastDonationDate || new Date(user.donorInfo.lastDonationDate) > new Date(incomingDonorInfo.lastDonationDate))) {
-    updatedDonorInfo.lastDonationDate = user.donorInfo.lastDonationDate;
+  if (healthForm) {
+    Object.assign(healthForm, mappingData);
+    await healthForm.save();
+  } else {
+    healthForm = new DonorHealth(mappingData);
+    await healthForm.save();
   }
 
-  user.donorInfo = updatedDonorInfo;
+  // Update summary stats in User model for fast profile/dashboard access
+  user.healthForm = healthForm._id;
+  user.donorInfo = {
+    totalDonations: user.donorInfo?.totalDonations || 0,
+    totalDonatedVolume: user.donorInfo?.totalDonatedVolume || 0,
+    lastDonationDate: healthForm.donationHistory.lastDonationDate,
+    isEligible: eligibility.eligible,
+    eligibilityReasons: eligibility.reasons,
+    lastUpdated: new Date(),
+    dateOfBirth: mappingData.dateOfBirth,
+    gender: mappingData.gender,
+    bloodGroup: user.bloodGroup
+  };
+
   user.isDonor = true;
   if (location) user.location = location;
   

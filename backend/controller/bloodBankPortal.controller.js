@@ -978,6 +978,10 @@ const changePassword = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: 'Please provide current and new password' });
     }
 
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ message: 'New password must be different from current password' });
+    }
+
     if (newPassword.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }

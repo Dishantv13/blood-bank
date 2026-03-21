@@ -91,6 +91,11 @@
   font-weight: 600;
 }
 
+[data-theme='dark'] .card-chip {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
 .details-list {
   display: flex;
   flex-direction: column;
@@ -146,6 +151,12 @@
   color: #b91c1c;
   font-size: 0.88rem;
   font-weight: 600;
+}
+
+[data-theme='dark'] .service-pill {
+  background: rgba(230, 57, 70, 0.1);
+  border-color: rgba(230, 57, 70, 0.3);
+  color: #fca5a5;
 }
 
 .services-empty {
@@ -279,6 +290,43 @@
   color: #b91c1c;
 }
 
+/* Dark Theme Overrides for Inventory Cards */
+[data-theme='dark'] .inventory-group-card.good {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme='dark'] .inventory-group-card.good .group-meta {
+  color: #34d399;
+}
+
+[data-theme='dark'] .inventory-group-card.moderate {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme='dark'] .inventory-group-card.moderate .group-meta {
+  color: #60a5fa;
+}
+
+[data-theme='dark'] .inventory-group-card.low {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme='dark'] .inventory-group-card.low .group-meta {
+  color: #fbbf24;
+}
+
+[data-theme='dark'] .inventory-group-card.critical {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+[data-theme='dark'] .inventory-group-card.critical .group-meta {
+  color: #f87171;
+}
+
 .loading-page {
   display: flex;
   flex-direction: column;
@@ -311,6 +359,19 @@
 .details-error-card p {
   color: #7f1d1d;
   margin: 0.7rem 0 1rem;
+}
+
+[data-theme='dark'] .details-error-card {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+[data-theme='dark'] .details-error-card h2 {
+  color: #fca5a5;
+}
+
+[data-theme='dark'] .details-error-card p {
+  color: #fecaca;
 }
 
 .request-modal-overlay {

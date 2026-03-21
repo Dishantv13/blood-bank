@@ -1,30 +1,31 @@
 import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from './tagType';
+import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
+import { DONATION_API_URLS } from '../enum/apiUrl';
 
 export const donationApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // For Donors
     requestDonation: builder.mutation({
       query: (data) => ({
-        url: '/donations/request',
+        url: DONATION_API_URLS.REQUEST_DONATION,
         method: 'POST',
         body: data,
       }),
       invalidatesTags: tagList(TAGS.DONATION),
     }),
     getMyDonations: builder.query({
-      query: () => '/donations/my',
+      query: () => DONATION_API_URLS.GET_MY_DONATIONS,
       providesTags: (result) => tagListWithIds(TAGS.DONATION, result),
     }),
 
     // For Blood Banks
     getBloodBankDonations: builder.query({
-      query: () => '/donations/bank',
+      query: () => DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS,
       providesTags: (result) => tagListWithIds(TAGS.DONATION, result),
     }),
     recordDonation: builder.mutation({
       query: ({ donationId, volumeDonated }) => ({
-        url: `/donations/bank/${donationId}/record`,
+        url: DONATION_API_URLS.RECORD_DONATION(donationId),
         method: 'PUT',
         body: { volumeDonated },
       }),
@@ -36,7 +37,7 @@ export const donationApi = apiSlice.injectEndpoints({
     }),
     updateDonationStatus: builder.mutation({
       query: ({ donationId, status }) => ({
-        url: `/donations/bank/${donationId}/status`,
+        url: DONATION_API_URLS.UPDATE_DONATION_STATUS(donationId),
         method: 'PUT',
         body: { status },
       }),
@@ -48,7 +49,7 @@ export const donationApi = apiSlice.injectEndpoints({
     }),
     createDonation: builder.mutation({
       query: (data) => ({
-        url: '/donations/bank/create',
+        url: DONATION_API_URLS.CREATE_DONATION,
         method: 'POST',
         body: data,
       }),

@@ -1,19 +1,20 @@
 import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from './tagType';
+import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
+import { EVENT_API_URLS } from '../enum/apiUrl';
 
 export const eventApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Standard User Endpoints
     getAllEvents: builder.query({
       query: (params) => ({
-        url: '/events',
+        url: EVENT_API_URLS.GET_ALL_EVENTS,
         params,
       }),
       providesTags: (result) => tagListWithIds(TAGS.EVENT, result?.data),
     }),
     registerForEvent: builder.mutation({
       query: (id) => ({
-        url: `/events/${id}/register`,
+        url: EVENT_API_URLS.REGISTER_FOR_EVENT(id),
         method: 'POST',
       }),
       // Invalidating EVENT refreshes the registered attendee count
@@ -22,16 +23,16 @@ export const eventApi = apiSlice.injectEndpoints({
 
     // Blood Bank Portal Endpoints
     getBloodBankEvents: builder.query({
-      query: () => '/bloodbank/events',
+      query: () => EVENT_API_URLS.GET_BLOOD_BANK_EVENTS,
       providesTags: (result) => tagListWithIds(TAGS.EVENT, result?.data),
     }),
     getEventRegistrations: builder.query({
-      query: (eventId) => `/bloodbank/events/${eventId}/registrations`,
+      query: (eventId) => EVENT_API_URLS.GET_EVENT_REGISTRATIONS(eventId),
       providesTags: (result, error, eventId) => [{ type: TAGS.EVENT, id: `${eventId}_regs` }],
     }),
     createEvent: builder.mutation({
       query: (data) => ({
-        url: '/bloodbank/events',
+        url: EVENT_API_URLS.CREATE_EVENT,
         method: 'POST',
         body: data,
       }),
@@ -39,7 +40,7 @@ export const eventApi = apiSlice.injectEndpoints({
     }),
     updateEvent: builder.mutation({
       query: ({ id, ...data }) => ({
-        url: `/bloodbank/events/${id}`,
+        url: EVENT_API_URLS.UPDATE_EVENT(id),
         method: 'PUT',
         body: data,
       }),
@@ -47,14 +48,14 @@ export const eventApi = apiSlice.injectEndpoints({
     }),
     deleteEvent: builder.mutation({
       query: (id) => ({
-        url: `/bloodbank/events/${id}`,
+        url: EVENT_API_URLS.DELETE_EVENT(id),
         method: 'DELETE',
       }),
       invalidatesTags: tagList(TAGS.EVENT),
     }),
     exportEventRegistrations: builder.mutation({
       query: (id) => ({
-        url: `/bloodbank/events/${id}/export-registrations`,
+        url: EVENT_API_URLS.EXPORT_EVENT_REGISTRATIONS(id),
         method: 'GET',
         responseHandler: (response) => response.arrayBuffer(),
       }),

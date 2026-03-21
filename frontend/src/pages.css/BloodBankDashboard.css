@@ -1875,28 +1875,34 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.875rem 2rem;
-  background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
-  color: white;
+  background: var(--border-color);
+  color: var(--text-muted);
   border: none;
   border-radius: 10px;
   font-size: 1rem;
   font-weight: 600;
-  cursor: pointer;
+  cursor: not-allowed;
   transition: all 0.3s;
   margin-top: 0.5rem;
   align-self: flex-start;
 }
 
-.btn-save-settings:hover {
+.btn-save-settings.has-changes:not(:disabled) {
+  background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
+  color: white;
+  cursor: pointer;
+}
+
+.btn-save-settings.has-changes:not(:disabled):hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
 }
 
-.btn-save-settings.btn-danger {
+.btn-save-settings.btn-danger.has-changes:not(:disabled) {
   background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
 }
 
-.btn-save-settings.btn-danger:hover {
+.btn-save-settings.btn-danger.has-changes:not(:disabled):hover {
   box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
 }
 

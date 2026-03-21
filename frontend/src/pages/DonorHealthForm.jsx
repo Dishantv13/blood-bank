@@ -16,7 +16,7 @@ const defaultFormValues = {
 
   // Last Donation Info
   lastDonationDate: '',
-  donationCount: 0,
+  totalDonations: 0,
 
   // Medical History
   bloodPressure: '',
@@ -67,8 +67,11 @@ const defaultFormValues = {
   },
 
   // Consent
-  consent: false,
-  accuracyDeclaration: false,
+  consent: {
+    informationAccurate: false,
+    consentToDonate: false,
+    understandsProcess: false,
+  },
 };
 
 const keepOnlyDigits = (event, maxLength) => {
@@ -106,39 +109,36 @@ const DonorHealthForm = () => {
   }, [user, navigate]);
 
   useEffect(() => {
-    // Load existing donor info if available
-    if (user?.donorInfo) {
+    // Load existing donor info/health form if available
+    const infoSource = user?.healthForm || user?.donorInfo;
+    if (infoSource) {
       const formatDate = (dateStr) => {
         if (!dateStr) return '';
         const d = new Date(dateStr);
         return isNaN(d) ? '' : d.toISOString().split('T')[0];
       };
 
+      const healthData = user?.healthForm || {};
+      // Handle mapping from healthForm naming (medicalConditions) back to frontend (diseases) if needed
+      // or simply rely on the populated object's fields.
+      
       reset({
         ...defaultFormValues,
         ...user.donorInfo,
-        dateOfBirth: formatDate(user.donorInfo.dateOfBirth),
-        lastDonationDate: formatDate(user.donorInfo.lastDonationDate),
-        diseases: {
-          ...defaultFormValues.diseases,
-          ...(user.donorInfo.diseases || {}),
-        },
-        recentConditions: {
-          ...defaultFormValues.recentConditions,
-          ...(user.donorInfo.recentConditions || {}),
-        },
-        lifestyle: {
-          ...defaultFormValues.lifestyle,
-          ...(user.donorInfo.lifestyle || {}),
-        },
-        emergencyContact: {
-          ...defaultFormValues.emergencyContact,
-          ...(user.donorInfo.emergencyContact || {}),
-        },
-        address: {
-          ...defaultFormValues.address,
-          ...(user.donorInfo.address || {}),
-        },
+        ...healthData,
+        // Reverse mapping for diseases/conditions if they differ
+        diseases: healthData.medicalConditions ? {
+          hiv: healthData.medicalConditions.hivAids,
+          hepatitisB: healthData.medicalConditions.hepatitisBC,
+          hepatitisC: healthData.medicalConditions.hepatitisBC,
+          malaria: healthData.medicalConditions.malaria,
+          tuberculosis: healthData.medicalConditions.tuberculosis,
+          heartDisease: healthData.medicalConditions.heartDisease,
+          diabetes: healthData.medicalConditions.diabetes,
+          cancer: healthData.medicalConditions.cancer,
+        } : (user.donorInfo?.diseases || defaultFormValues.diseases),
+        dateOfBirth: formatDate(user.donorInfo?.dateOfBirth || healthData.dateOfBirth),
+        lastDonationDate: formatDate(user.donorInfo?.lastDonationDate || healthData.donationHistory?.lastDonationDate),
       });
     }
   }, [user, reset]);
@@ -236,8 +236,9 @@ const DonorHealthForm = () => {
     setError('');
     setSuccess('');
 
-    if (!data.consent || !data.accuracyDeclaration) {
-      setError('Please accept both consent and accuracy declaration');
+    // Fixed consent validation - check the nested object structure
+    if (!data.consent?.informationAccurate || !data.consent?.consentToDonate || !data.consent?.understandsProcess) {
+      setError('Please accept all consent declarations');
       return;
     }
 
@@ -440,7 +441,7 @@ const DonorHealthForm = () => {
                 type="date"
                 {...register('lastDonationDate')}
                 disabled={!!user?.donorInfo?.lastDonationDate}
-                style={user?.donorInfo?.lastDonationDate ? { backgroundColor: '#f3f4f6', cursor: 'not-allowed' } : {}}
+                className={user?.donorInfo?.lastDonationDate ? 'input-disabled-locked' : ''}
               />
               <small>{user?.donorInfo?.lastDonationDate ? "Date is locked to your latest recorded donation." : "Leave empty if first-time donor"}</small>
             </div>
@@ -449,11 +450,11 @@ const DonorHealthForm = () => {
               <label>Total Donations Made</label>
               <input
                 type="number"
-                {...register('donationCount', {
+                {...register('totalDonations', {
                   valueAsNumber: true,
                 })}
                 disabled={!!user?.donorInfo?.totalDonations && user?.donorInfo?.totalDonations > 0}
-                style={(user?.donorInfo?.totalDonations && user?.donorInfo?.totalDonations > 0) ? { backgroundColor: '#f3f4f6', cursor: 'not-allowed' } : {}}
+                className={(user?.donorInfo?.totalDonations && user?.donorInfo?.totalDonations > 0) ? 'input-disabled-locked' : ''}
                 min="0"
                 placeholder="0"
               />
@@ -760,29 +761,40 @@ const DonorHealthForm = () => {
           <label className="checkbox-label consent-checkbox">
             <input
               type="checkbox"
-              {...register('consent', {
-                required: 'Consent is required',
+              {...register('consent.informationAccurate', {
+                required: 'You must confirm the accuracy of your information',
               })}
             />
             <span className="checkmark"></span>
-            I consent to donate blood and understand that my blood will be tested for infectious diseases. I agree to the terms and conditions of blood donation.
+            I declare that all the information provided above is true and accurate to the best of my knowledge.
           </label>
 
           <label className="checkbox-label consent-checkbox">
             <input
               type="checkbox"
-              {...register('accuracyDeclaration', {
-                required: 'Accuracy declaration is required',
+              {...register('consent.consentToDonate', {
+                required: 'You must consent to donate blood',
               })}
             />
             <span className="checkmark"></span>
-            I declare that all the information provided above is true and accurate to the best of my knowledge. I understand that providing false information may have serious consequences.
+            I consent to donate blood and understand that my blood will be tested for infectious diseases.
+          </label>
+
+          <label className="checkbox-label consent-checkbox">
+            <input
+              type="checkbox"
+              {...register('consent.understandsProcess', {
+                required: 'You must acknowledge understanding the donation process',
+              })}
+            />
+            <span className="checkmark"></span>
+            I understand the blood donation process and the health implications involved.
           </label>
         </section>
 
-        {(errors.consent || errors.accuracyDeclaration) && (
+        {(errors.consent?.informationAccurate || errors.consent?.consentToDonate || errors.consent?.understandsProcess) && (
           <div className="alert alert-error">
-            {errors.consent?.message || errors.accuracyDeclaration?.message}
+            Please accept all consent declarations to continue.
           </div>
         )}
 

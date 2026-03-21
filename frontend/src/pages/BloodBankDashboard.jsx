@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
 import { Link, useNavigate } from 'react-router-dom';
-import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery } from '../store/bloodBankApi';
+import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { useGetBloodBankRequestsQuery, useGetBloodBankApprovedRequestsQuery, useApproveRequestMutation, useRejectRequestMutation } from '../store/requestApi';
 import { useGetBloodBankCampsQuery, useDeleteCampMutation, useLazyGetCampRegistrationsQuery, useDeleteCampRegistrationMutation, useCreateCampMutation, useUpdateCampMutation } from '../store/bloodCampApi';
 import { useGetBloodBankEventsQuery } from '../store/eventApi';
@@ -20,18 +20,41 @@ const BloodBankDashboard = () => {
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('bloodBankDashboardTab') || 'overview';
   });
-  const [bloodBank, setBloodBank] = useState(null);
+  const [bloodBank, setBloodBank] = useState(() => {
+    try {
+      const cached = localStorage.getItem('bloodBankData');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [inventory, setInventory] = useState([
-    { type: 'A+', units: 0, status: 'critical' },
-    { type: 'A-', units: 0, status: 'critical' },
-    { type: 'B+', units: 0, status: 'critical' },
-    { type: 'B-', units: 0, status: 'critical' },
-    { type: 'AB+', units: 0, status: 'critical' },
-    { type: 'AB-', units: 0, status: 'critical' },
-    { type: 'O+', units: 0, status: 'critical' },
-    { type: 'O-', units: 0, status: 'critical' }
-  ]);
+  const [inventory, setInventory] = useState(() => {
+    try {
+      const cached = localStorage.getItem('inventory_last');
+      return cached ? JSON.parse(cached) : [
+        { type: 'A+', units: 0, status: 'critical' },
+        { type: 'A-', units: 0, status: 'critical' },
+        { type: 'B+', units: 0, status: 'critical' },
+        { type: 'B-', units: 0, status: 'critical' },
+        { type: 'AB+', units: 0, status: 'critical' },
+        { type: 'AB-', units: 0, status: 'critical' },
+        { type: 'O+', units: 0, status: 'critical' },
+        { type: 'O-', units: 0, status: 'critical' }
+      ];
+    } catch (e) {
+      return [
+        { type: 'A+', units: 0, status: 'critical' },
+        { type: 'A-', units: 0, status: 'critical' },
+        { type: 'B+', units: 0, status: 'critical' },
+        { type: 'B-', units: 0, status: 'critical' },
+        { type: 'AB+', units: 0, status: 'critical' },
+        { type: 'AB-', units: 0, status: 'critical' },
+        { type: 'O+', units: 0, status: 'critical' },
+        { type: 'O-', units: 0, status: 'critical' }
+      ];
+    }
+  });
   const [camps, setCamps] = useState([]);
   const [events, setEvents] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -47,6 +70,7 @@ const BloodBankDashboard = () => {
   const [bloodBankPhoto, setBloodBankPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [savingInventory, setSavingInventory] = useState(false);
+  const [savingSection, setSavingSection] = useState(null); // 'profile', 'hours', 'preferences'
   const [inventoryChanged, setInventoryChanged] = useState(false);
   const [inventorySaveError, setInventorySaveError] = useState('');
   const [requestsSubTab, setRequestsSubTab] = useState('pending'); // 'pending' or 'approved'
@@ -71,9 +95,37 @@ const BloodBankDashboard = () => {
   const [bankLocation, setBankLocation] = useState(null);
   const [showBankMapModal, setShowBankMapModal] = useState(false);
 
-  // RTK Queries
-  const { data: inventoryData, isFetching: loadingInventory } = useGetBloodBankInventoryQuery();
-  const { data: profileData } = useGetBloodBankProfileQuery();
+  // Settings States
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    phone: '',
+    address: ''
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [operatingHours, setOperatingHours] = useState({
+    open: '09:00',
+    close: '17:00',
+    openOnWeekends: true,
+    emergency247: true
+  });
+  const [preferences, setPreferences] = useState({
+    emailNotify: true,
+    smsNotify: true,
+    weeklyReport: true,
+    donorNotify: false
+  });
+
+  // RTK Queries - Optimized with skipping to improve load times
+  const { data: profileData, isFetching: loadingProfile } = useGetBloodBankProfileQuery();
+
+  const { data: inventoryData, isFetching: loadingInventory } = useGetBloodBankInventoryQuery(undefined, {
+    skip: activeTab !== 'inventory' && activeTab !== 'overview'
+  });
+
   const { data: requestsData, isFetching: loadingRequests } = useGetBloodBankRequestsQuery({
     status: 'pending',
     ...(requestSourceTab === 'user'
@@ -82,7 +134,10 @@ const BloodBankDashboard = () => {
         ? { requestType: 'bloodbank', direction: 'received' }
         : { requestType: 'bloodbank', direction: 'sent' }),
     limit: 500
+  }, {
+    skip: activeTab !== 'requests' && activeTab !== 'overview'
   });
+
   const { data: approvedRequestsData, isFetching: loadingApprovedRequests } = useGetBloodBankApprovedRequestsQuery({
     ...(requestSourceTab === 'user'
       ? { requestType: 'user' }
@@ -90,13 +145,24 @@ const BloodBankDashboard = () => {
         ? { requestType: 'bloodbank', direction: 'received' }
         : { requestType: 'bloodbank', direction: 'sent' }),
     limit: 4
-  }, { skip: requestsSubTab !== 'approved' });
-  const { data: campsData, isFetching: loadingCamps } = useGetBloodBankCampsQuery();
-  const { data: eventsData } = useGetBloodBankEventsQuery();
-  const { data: bloodBanksData, isFetching: loadingBloodBanks } = useGetAllBloodBanksQuery();
+  }, {
+    skip: activeTab !== 'requests' || requestsSubTab !== 'approved'
+  });
+
+  const { data: campsData, isFetching: loadingCamps } = useGetBloodBankCampsQuery(undefined, {
+    skip: activeTab !== 'camps' && activeTab !== 'overview'
+  });
+
+  const { data: eventsData, isFetching: loadingEvents } = useGetBloodBankEventsQuery(undefined, {
+    skip: activeTab !== 'events' && activeTab !== 'overview'
+  });
+
+  const { data: bloodBanksData, isFetching: loadingBloodBanks } = useGetAllBloodBanksQuery(undefined, {
+    skip: activeTab !== 'inventory' // Only used for bank-to-bank search/transfer
+  });
 
   // RTK Mutations
-  const [updateProfile] = useUpdateBloodBankProfileMutation();
+  const [updateProfile, { isLoading: updatingProfile }] = useUpdateBloodBankProfileMutation();
   const [updateInventoryMutation] = useUpdateBloodBankInventoryMutation();
   const [uploadPhoto, { isLoading: uploadingPhoto }] = useUploadBloodBankPhotoMutation();
   const [approveRequestMutation] = useApproveRequestMutation();
@@ -105,15 +171,34 @@ const BloodBankDashboard = () => {
   const [updateCampMutation] = useUpdateCampMutation();
   const [deleteCampMutation] = useDeleteCampMutation();
   const [deleteCampRegistrationMutation] = useDeleteCampRegistrationMutation();
-
   const [triggerGetRegistrations] = useLazyGetCampRegistrationsQuery();
+  const [changePassword, { isLoading: changingPassword }] = useChangeBloodBankPasswordMutation();
 
-  // Only show full-screen loader if we have NO data at all
-  const loading = (loadingInventory && !inventoryData) ||
-    (loadingRequests && !requestsData) ||
-    (loadingApprovedRequests && requestsSubTab === 'approved' && !approvedRequestsData) ||
-    (loadingCamps && !campsData) ||
-    (loadingBloodBanks && !bloodBanksData);
+  // Only show full-screen loader if we have NO profile data
+  const loading = (loadingProfile && !bloodBank);
+
+  // Settings Dirty Status Detection
+  const isProfileChanged = bloodBank && (
+    profileForm.name !== (bloodBank.name || '') ||
+    profileForm.phone !== (bloodBank.phone || '') ||
+    profileForm.address !== (bloodBank.address || '')
+  );
+
+  const isHoursChanged = bloodBank && bloodBank.operatingHours && (
+    operatingHours.open !== (bloodBank.operatingHours.open || '09:00') ||
+    operatingHours.close !== (bloodBank.operatingHours.close || '17:00') ||
+    operatingHours.openOnWeekends !== (bloodBank.operatingHours.openOnWeekends ?? true) ||
+    operatingHours.emergency247 !== (bloodBank.operatingHours.emergency247 ?? true)
+  );
+
+  const isPreferencesChanged = bloodBank && bloodBank.preferences && (
+    preferences.emailNotify !== (bloodBank.preferences.emailNotify ?? true) ||
+    preferences.smsNotify !== (bloodBank.preferences.smsNotify ?? true) ||
+    preferences.weeklyReport !== (bloodBank.preferences.weeklyReport ?? true) ||
+    preferences.donorNotify !== (bloodBank.preferences.donorNotify ?? false)
+  );
+
+  const isPasswordReady = passwordForm.currentPassword && passwordForm.newPassword && passwordForm.confirmPassword;
 
   // Map inventory from query
   useEffect(() => {
@@ -129,8 +214,27 @@ const BloodBankDashboard = () => {
 
       const bloodBankId = bloodBank?.id || bloodBank?._id || 'default';
       localStorage.setItem(`inventory_${bloodBankId}`, JSON.stringify(mappedInventory));
+      localStorage.setItem('inventory_last', JSON.stringify(mappedInventory));
     }
   }, [inventoryData, bloodBank, inventoryChanged]);
+
+  // Effect to automatically determine if inventory has changed based on server data
+  useEffect(() => {
+    const dataToUse = inventoryData?.data || inventoryData?.inventory;
+    if (!dataToUse || !inventory.length) {
+      setInventoryChanged(false);
+      return;
+    }
+
+    // Compare current state with data from the server
+    const differencesFound = inventory.some(item => {
+      const serverItem = dataToUse.find(s => (s.bloodGroup || s.type) === item.type);
+      if (!serverItem) return false;
+      return (serverItem.units || 0) !== item.units;
+    });
+
+    setInventoryChanged(differencesFound);
+  }, [inventory, inventoryData]);
 
   // Map requests from query
   useEffect(() => {
@@ -172,6 +276,32 @@ const BloodBankDashboard = () => {
     if (profileData) {
       const bb = profileData.data || profileData.bloodBank || profileData;
       setBloodBank(bb);
+
+      // Sync form states
+      setProfileForm({
+        name: bb.name || '',
+        phone: bb.phone || '',
+        address: bb.address || ''
+      });
+
+      if (bb.operatingHours) {
+        setOperatingHours({
+          open: bb.operatingHours.open || '09:00',
+          close: bb.operatingHours.close || '17:00',
+          openOnWeekends: bb.operatingHours.openOnWeekends ?? true,
+          emergency247: bb.operatingHours.emergency247 ?? true
+        });
+      }
+
+      if (bb.preferences) {
+        setPreferences({
+          emailNotify: bb.preferences.emailNotify ?? true,
+          smsNotify: bb.preferences.smsNotify ?? true,
+          weeklyReport: bb.preferences.weeklyReport ?? true,
+          donorNotify: bb.preferences.donorNotify ?? false
+        });
+      }
+
       if (bb.profileImage) {
         setPhotoPreview(bb.profileImage);
       }
@@ -429,7 +559,7 @@ const BloodBankDashboard = () => {
 
       await updateInventoryMutation({ inventory: backendInventory }).unwrap();
 
-      setInventoryChanged(false);
+      success('Inventory saved successfully!');
       addNotification('Inventory saved successfully!');
     } catch (err) {
       console.error('Error saving inventory:', err);
@@ -582,6 +712,85 @@ const BloodBankDashboard = () => {
     setShowCampModal(true);
   };
 
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    setSavingSection('profile');
+    try {
+      await updateProfile(profileForm).unwrap();
+      success('Hospital profile updated successfully!');
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      const msg = err.data?.message || err.data?.error || err.message || 'Failed to update profile';
+      error(msg);
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleSaveHours = async () => {
+    setSavingSection('hours');
+    try {
+      await updateProfile({ operatingHours }).unwrap();
+      success('Operating hours updated successfully!');
+    } catch (err) {
+      console.error('Error saving hours:', err);
+      const msg = err.data?.message || err.data?.error || err.message || 'Failed to update operating hours';
+      error(msg);
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    setSavingSection('preferences');
+    try {
+      await updateProfile({ preferences }).unwrap();
+      success('Notification preferences updated successfully!');
+    } catch (err) {
+      console.error('Error saving preferences:', err);
+      const msg = err.data?.message || err.data?.error || err.message || 'Failed to update preferences';
+      error(msg);
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      error('New password must be different from current password');
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      error('Passwords do not match');
+      return;
+    }
+    if (!passwordForm.currentPassword || !passwordForm.newPassword) {
+      error('Please fill in all password fields');
+      return;
+    }
+    try {
+      // First unwrap the mutation result to ensure errors are caught
+      const result = await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      }).unwrap();
+
+      // Only proceed to success if the mutation didn't throw
+      success('Password changed successfully! Please login again with your new password.');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+      // Auto logout after change
+      setTimeout(() => {
+        handleLogout();
+      }, 2000);
+    } catch (err) {
+      console.error('Password change error details:', err);
+      const msg = err.data?.message || err.data?.error || err.message || 'Failed to change password';
+      error(msg);
+    }
+  };
+
   const addNotification = (message) => {
     const newNotif = {
       message,
@@ -603,9 +812,6 @@ const BloodBankDashboard = () => {
         return item;
       });
 
-      // Mark as changed (do NOT save to backend automatically anymore)
-      setInventoryChanged(true);
-
       return updated;
     });
   };
@@ -625,7 +831,6 @@ const BloodBankDashboard = () => {
         }
         return item;
       });
-      setInventoryChanged(true);
       return updated;
     });
   };
@@ -695,7 +900,6 @@ const BloodBankDashboard = () => {
           status: item.units > 10 ? 'good' : item.units > 5 ? 'low' : 'critical',
           lastUpdated: item.lastUpdated
         })));
-        setInventoryChanged(false);
       }
     }
     setActiveTab(tab);
@@ -1813,71 +2017,97 @@ const BloodBankDashboard = () => {
 
               <div className="settings-section">
                 <h3>Hospital Profile</h3>
-                <div className="settings-form">
+                <form className="settings-form" onSubmit={handleSaveProfile}>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Hospital Name</label>
+                      <label htmlFor="hospitalName">Hospital Name</label>
                       <input
                         type="text"
+                        id="hospitalName"
                         className="form-control"
-                        value={bloodBank?.name || ''}
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
                         placeholder="Enter hospital name"
-                        readOnly
+                        disabled={updatingProfile}
+                        required
                       />
                     </div>
                     <div className="form-group">
-                      <label>Registration Number</label>
+                      <label htmlFor="regNum">Registration Number</label>
                       <input
                         type="text"
+                        id="regNum"
                         className="form-control"
                         value={bloodBank?.registrationNumber || ''}
                         placeholder="Hospital registration number"
                         readOnly
+                        style={{ background: 'var(--input-bg)', cursor: 'not-allowed' }}
                       />
                     </div>
                   </div>
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Email</label>
+                      <label htmlFor="hospitalEmail">Email</label>
                       <input
                         type="email"
+                        id="hospitalEmail"
                         className="form-control"
                         value={bloodBank?.email || ''}
                         placeholder="Hospital email"
                         readOnly
+                        style={{ background: 'var(--input-bg)', cursor: 'not-allowed' }}
                       />
                     </div>
                     <div className="form-group">
-                      <label>Phone</label>
+                      <label htmlFor="hospitalPhone">Phone</label>
                       <input
                         type="tel"
+                        id="hospitalPhone"
                         className="form-control"
-                        value={bloodBank?.phone || ''}
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
                         placeholder="Contact number"
-                        readOnly
+                        disabled={updatingProfile}
+                        required
                       />
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label>Address</label>
+                    <label htmlFor="hospitalAddress">Address</label>
                     <textarea
+                      id="hospitalAddress"
                       className="form-control"
                       rows="3"
-                      value={bloodBank?.address || ''}
+                      value={profileForm.address}
+                      onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
                       placeholder="Hospital address"
-                      readOnly
+                      disabled={updatingProfile}
+                      required
                     />
                   </div>
 
-                  <button className="btn-save-settings">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Save Profile
+                  <button 
+                    type="submit" 
+                    className={`btn-save-settings ${isProfileChanged ? 'has-changes' : ''}`} 
+                    disabled={!isProfileChanged || updatingProfile}
+                  >
+                    {updatingProfile && savingSection === 'profile' ? (
+                      <>
+                        <span className="spinner-small"></span>
+                        Saving Profile...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                          <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Save Profile
+                      </>
+                    )}
                   </button>
-                </div>
+                </form>
               </div>
 
               <div className="settings-section">
@@ -1885,42 +2115,73 @@ const BloodBankDashboard = () => {
                 <div className="settings-form">
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Opening Time</label>
+                      <label htmlFor="openTime">Opening Time</label>
                       <input
                         type="time"
+                        id="openTime"
                         className="form-control"
-                        defaultValue="09:00"
+                        value={operatingHours.open}
+                        onChange={(e) => setOperatingHours({ ...operatingHours, open: e.target.value })}
+                        disabled={updatingProfile}
                       />
                     </div>
                     <div className="form-group">
-                      <label>Closing Time</label>
+                      <label htmlFor="closeTime">Closing Time</label>
                       <input
                         type="time"
+                        id="closeTime"
                         className="form-control"
-                        defaultValue="17:00"
+                        value={operatingHours.close}
+                        onChange={(e) => setOperatingHours({ ...operatingHours, close: e.target.value })}
+                        disabled={updatingProfile}
                       />
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label className="checkbox-label">
-                      <input type="checkbox" defaultChecked />
+                    <label className="checkbox-label" htmlFor="openWeekends">
+                      <input
+                        type="checkbox"
+                        id="openWeekends"
+                        checked={operatingHours.openOnWeekends}
+                        onChange={(e) => setOperatingHours({ ...operatingHours, openOnWeekends: e.target.checked })}
+                        disabled={updatingProfile}
+                      />
                       <span>Open on Weekends</span>
                     </label>
                   </div>
 
                   <div className="form-group">
-                    <label className="checkbox-label">
-                      <input type="checkbox" defaultChecked />
+                    <label className="checkbox-label" htmlFor="emergency247">
+                      <input
+                        type="checkbox"
+                        id="emergency247"
+                        checked={operatingHours.emergency247}
+                        onChange={(e) => setOperatingHours({ ...operatingHours, emergency247: e.target.checked })}
+                        disabled={updatingProfile}
+                      />
                       <span>24/7 Emergency Service</span>
                     </label>
                   </div>
 
-                  <button className="btn-save-settings">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Save Hours
+                  <button 
+                    className={`btn-save-settings ${isHoursChanged ? 'has-changes' : ''}`} 
+                    onClick={handleSaveHours}
+                    disabled={!isHoursChanged || updatingProfile}
+                  >
+                    {updatingProfile && savingSection === 'hours' ? (
+                      <>
+                        <span className="spinner-small"></span>
+                        Saving Hours...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                          <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Save Hours
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1929,80 +2190,146 @@ const BloodBankDashboard = () => {
                 <h3>Notification Preferences</h3>
                 <div className="settings-form">
                   <div className="form-group">
-                    <label className="checkbox-label">
-                      <input type="checkbox" defaultChecked />
+                    <label className="checkbox-label" htmlFor="emailNotify">
+                      <input
+                        type="checkbox"
+                        id="emailNotify"
+                        checked={preferences.emailNotify}
+                        onChange={(e) => setPreferences({ ...preferences, emailNotify: e.target.checked })}
+                        disabled={updatingProfile}
+                      />
                       <span>Email notifications for new blood requests</span>
                     </label>
                   </div>
 
                   <div className="form-group">
-                    <label className="checkbox-label">
-                      <input type="checkbox" defaultChecked />
+                    <label className="checkbox-label" htmlFor="smsNotify">
+                      <input
+                        type="checkbox"
+                        id="smsNotify"
+                        checked={preferences.smsNotify}
+                        onChange={(e) => setPreferences({ ...preferences, smsNotify: e.target.checked })}
+                        disabled={updatingProfile}
+                      />
                       <span>SMS alerts for critical blood shortages</span>
                     </label>
                   </div>
 
                   <div className="form-group">
-                    <label className="checkbox-label">
-                      <input type="checkbox" defaultChecked />
+                    <label className="checkbox-label" htmlFor="weeklyReport">
+                      <input
+                        type="checkbox"
+                        id="weeklyReport"
+                        checked={preferences.weeklyReport}
+                        onChange={(e) => setPreferences({ ...preferences, weeklyReport: e.target.checked })}
+                        disabled={updatingProfile}
+                      />
                       <span>Weekly inventory reports</span>
                     </label>
                   </div>
 
                   <div className="form-group">
-                    <label className="checkbox-label">
-                      <input type="checkbox" />
+                    <label className="checkbox-label" htmlFor="donorNotify">
+                      <input
+                        type="checkbox"
+                        id="donorNotify"
+                        checked={preferences.donorNotify}
+                        onChange={(e) => setPreferences({ ...preferences, donorNotify: e.target.checked })}
+                        disabled={updatingProfile}
+                      />
                       <span>Donor registration notifications</span>
                     </label>
                   </div>
 
-                  <button className="btn-save-settings">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Save Preferences
-                  </button>
+                  {/* <button 
+                    className={`btn-save-settings ${isPreferencesChanged ? 'has-changes' : ''}`} 
+                    onClick={handleSavePreferences}
+                    disabled={!isPreferencesChanged || updatingProfile}
+                  >
+                    {updatingProfile && savingSection === 'preferences' ? (
+                      <>
+                        <span className="spinner-small"></span>
+                        Saving Preferences...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                          <path d="M16 4L6 14L2 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        Save Preferences
+                      </>
+                    )}
+                  </button> */}
                 </div>
               </div>
 
               <div className="settings-section">
                 <h3>Security</h3>
-                <div className="settings-form">
+                <form className="settings-form" onSubmit={handleChangePassword}>
                   <div className="form-group">
-                    <label>Current Password</label>
+                    <label htmlFor="currentPwd">Current Password</label>
                     <input
                       type="password"
+                      id="currentPwd"
                       className="form-control"
+                      value={passwordForm.currentPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
                       placeholder="Enter current password"
+                      disabled={changingPassword}
+                      required
                     />
                   </div>
 
                   <div className="form-group">
-                    <label>New Password</label>
+                    <label htmlFor="newPwd">New Password</label>
                     <input
                       type="password"
+                      id="newPwd"
                       className="form-control"
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                       placeholder="Enter new password"
+                      disabled={changingPassword}
+                      required
+                      minLength="6"
                     />
                   </div>
 
                   <div className="form-group">
-                    <label>Confirm New Password</label>
+                    <label htmlFor="confirmPwd">Confirm New Password</label>
                     <input
                       type="password"
+                      id="confirmPwd"
                       className="form-control"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
                       placeholder="Confirm new password"
+                      disabled={changingPassword}
+                      required
                     />
                   </div>
 
-                  <button className="btn-save-settings btn-danger">
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                      <rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="2" />
-                      <path d="M7 5V4a3 3 0 016 0v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
-                    Change Password
+                  <button 
+                    type="submit" 
+                    className={`btn-save-settings btn-danger ${isPasswordReady ? 'has-changes' : ''}`} 
+                    disabled={!isPasswordReady || changingPassword}
+                  >
+                    {changingPassword ? (
+                      <>
+                        <span className="spinner-small"></span>
+                        Updating Password...
+                      </>
+                    ) : (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                          <rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="2" />
+                          <path d="M7 5V4a3 3 0 016 0v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        Change Password
+                      </>
+                    )}
                   </button>
-                </div>
+                </form>
               </div>
 
               <div className="settings-section">

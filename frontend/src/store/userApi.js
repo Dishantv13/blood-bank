@@ -1,16 +1,17 @@
 import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from './tagType';
+import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
+import { USER_API_URLS } from '../enum/apiUrl';
 
 export const userApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     getProfile: builder.query({
-      query: () => '/users/profile',
+      query: () => USER_API_URLS.GET_PROFILE,
       providesTags: tagList(TAGS.USER),
     }),
     
     updateProfile: builder.mutation({
       query: (data) => ({
-        url: '/users/profile',
+        url: USER_API_URLS.UPDATE_PROFILE,
         method: 'PUT',
         body: data,
       }),
@@ -20,7 +21,7 @@ export const userApi = apiSlice.injectEndpoints({
     
     updateDonorInfo: builder.mutation({
       query: (data) => ({
-        url: '/users/donor-info',
+        url: USER_API_URLS.UPDATE_DONOR_INFO,
         method: 'PUT',
         body: data,
       }),
@@ -29,7 +30,7 @@ export const userApi = apiSlice.injectEndpoints({
     
     getDonors: builder.query({
       query: (params) => ({
-        url: '/users/donors',
+        url: USER_API_URLS.GET_DONORS,
         params,
       }),
       providesTags: (result) => tagListWithIds(TAGS.USER, result?.data),
@@ -37,7 +38,7 @@ export const userApi = apiSlice.injectEndpoints({
     
     toggleMode: builder.mutation({
       query: (modeOrObj) => ({
-        url: '/users/toggle-mode',
+        url: USER_API_URLS.TOGGLE_MODE,
         method: 'PUT',
         body: typeof modeOrObj === 'string' ? { mode: modeOrObj } : modeOrObj,
       }),
@@ -45,34 +46,34 @@ export const userApi = apiSlice.injectEndpoints({
     }),
     
     getDashboardStats: builder.query({
-      query: () => '/users/dashboard/stats',
+      query: () => USER_API_URLS.GET_DASHBOARD_STATS,
       providesTags: tagList(TAGS.USER),
     }),
     
     forgotPassword: builder.mutation({
       query: (data) => ({
-        url: '/api/auth/forgot-password',
+        url: USER_API_URLS.FORGOT_PASSWORD,
         method: 'POST',
         body: data,
       }),
     }),
     resetPassword: builder.mutation({
       query: ({ token, ...data }) => ({
-        url: `/api/auth/reset-password/${token}`,
+        url: USER_API_URLS.RESET_PASSWORD(token),
         method: 'POST',
         body: data,
       }),
     }),
     verifyResetToken: builder.mutation({
       query: (token) => ({
-        url: '/api/auth/verify-reset-token',
+        url: USER_API_URLS.VERIFY_RESET_TOKEN,
         method: 'POST',
         body: { token },
       }),
     }),
     changeUserPassword: builder.mutation({
       query: (data) => ({
-        url: '/api/auth/change-password',
+        url: USER_API_URLS.CHANGE_PASSWORD,
         method: 'POST',
         body: data,
       }),
