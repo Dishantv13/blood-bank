@@ -1,0 +1,235 @@
+/**
+ * Donation Service
+ * All donation management business logic
+ * Handles: create requests, record donations, update status, check eligibility
+ */
+
+import Donation from '../models/Donation.model.js';
+import User from '../models/User.model.js';
+import mongoose from 'mongoose';
+import { validateDonation, validateBloodGroup } from './validationService.js';
+import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
+import { ApiError } from '../utils/apiError.js';
+
+const DONATION_ELIGIBILITY_PERIOD = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months in ms
+
+// Create donation request
+export const createDonationRequest = async (donorId, bloodBankId, data) => {
+  validateDonation({ bloodBankId, date: data.date });
+
+  // Get user with optimized query
+  const user = await User.findById(donorId)
+    .select('_id name bloodGroup isDonor donorInfo')
+    .lean();
+  
+  if (!user || !user.isDonor) {
+    throw new ApiError(403, 'Only registered donors can request to donate');
+  }
+
+  // Check 3-month donation rule
+  if (user.donorInfo?.lastDonationDate) {
+    const lastDate = new Date(user.donorInfo.lastDonationDate);
+    const threeMonthsAgo = new Date(Date.now() - DONATION_ELIGIBILITY_PERIOD);
+
+    if (lastDate > threeMonthsAgo) {
+      throw new ApiError(400, 'You must wait 3 months after your last donation to donate again');
+    }
+  }
+
+  // Create donation request
+  const donation = new Donation({
+    donor: donorId,
+    bloodBank: bloodBankId,
+    type: 'request',
+    bloodGroup: user.bloodGroup,
+    donationDate: data.date || new Date(),
+    notes: data.notes || '',
+    status: 'pending'
+  });
+
+  await donation.save();
+
+  return donation;
+};
+
+// Get user's donation history (paginated, optimized)
+export const getUserDonations = async (donorId, query) => {
+  const { page, limit, skip } = getPaginationParams({ query });
+
+  // Optimized queries - parallel execution
+  const [donations, total] = await Promise.all([
+    Donation.find({ donor: donorId })
+      .select('_id bloodGroup status volumeDonated donationDate type createdAt')
+      .populate('bloodBank', 'name phone')
+      .populate('camp', 'name date')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Donation.countDocuments({ donor: donorId })
+  ]);
+
+  return buildPaginatedResponse(donations, total, page, limit);
+};
+
+// Get blood bank's donations (paginated, optimized)
+export const getBloodBankDonations = async (bloodBankId, query) => {
+  const { page, limit, skip } = getPaginationParams({ query });
+
+  // Optimized queries - parallel execution
+  const [donations, total] = await Promise.all([
+    Donation.find({ bloodBank: bloodBankId })
+      .select('_id donor bloodGroup status volumeDonated donationDate type createdAt')
+      .populate('donor', 'name phone email bloodGroup')
+      .populate('camp', 'name date')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Donation.countDocuments({ bloodBank: bloodBankId })
+  ]);
+
+  return buildPaginatedResponse(donations, total, page, limit);
+};
+
+// Record/approve donation (atomic operation)
+export const recordDonation = async (donationId, bloodBankId, volumeDonated) => {
+  if (!volumeDonated || volumeDonated <= 0) {
+    throw new ApiError(400, 'Volume donated must be greater than 0');
+  }
+
+  // Get donation with optimized query
+  const donation = await Donation.findById(donationId)
+    .select('_id bloodBank status donor')
+    .lean();
+  
+  if (!donation) {
+    throw new ApiError(404, 'Donation record not found');
+  }
+
+  if (donation.bloodBank.toString() !== bloodBankId.toString()) {
+    throw new ApiError(403, 'Not authorized to record this donation');
+  }
+
+  if (donation.status === 'completed') {
+    throw new ApiError(400, 'This donation has already been recorded');
+  }
+
+  // Update donation with atomic operation
+  const updatedDonation = await Donation.findByIdAndUpdate(
+    donationId,
+    {
+      $set: {
+        status: 'completed',
+        volumeDonated,
+        donationDate: new Date()
+      }
+    },
+    { new: true, runValidators: true }
+  ).lean();
+
+  // Update donor info asynchronously (non-blocking)
+  User.findByIdAndUpdate(
+    donation.donor,
+    {
+      $set: { 'donorInfo.lastDonationDate': new Date() },
+      $inc: {
+        'donorInfo.totalDonations': 1,
+        'donorInfo.totalDonatedVolume': volumeDonated
+      }
+    }
+  ).catch(err => console.error('Failed to update donor info:', err));
+
+  return updatedDonation;
+};
+
+// Update donation status
+export const updateDonationStatus = async (donationId, bloodBankId, status) => {
+  const validStatuses = ['pending', 'approved', 'rejected', 'completed'];
+  
+  if (!validStatuses.includes(status)) {
+    throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+  }
+
+  const donation = await Donation.findById(donationId)
+    .select('bloodBank status')
+    .lean();
+  
+  if (!donation) {
+    throw new ApiError(404, 'Donation record not found');
+  }
+
+  if (donation.bloodBank.toString() !== bloodBankId.toString()) {
+    throw new ApiError(403, 'Not authorized to update this donation');
+  }
+
+  // Atomic update
+  const updatedDonation = await Donation.findByIdAndUpdate(
+    donationId,
+    { $set: { status, updatedAt: new Date() } },
+    { new: true, runValidators: true }
+  ).lean();
+
+  return updatedDonation;
+};
+
+// Check donor eligibility
+export const checkDonorEligibility = async (donorId) => {
+  const user = await User.findById(donorId)
+    .select('donorInfo isDonor')
+    .lean();
+  
+  if (!user || !user.isDonor) {
+    throw new ApiError(403, 'User is not a registered donor');
+  }
+
+  if (!user.donorInfo?.lastDonationDate) {
+    return { eligible: true, message: 'Eligible to donate' };
+  }
+
+  const lastDate = new Date(user.donorInfo.lastDonationDate);
+  const threeMonthsAgo = new Date(Date.now() - DONATION_ELIGIBILITY_PERIOD);
+
+  if (lastDate > threeMonthsAgo) {
+    const daysRemaining = Math.ceil(
+      (lastDate.getTime() + DONATION_ELIGIBILITY_PERIOD - Date.now()) / (24 * 60 * 60 * 1000)
+    );
+    return {
+      eligible: false,
+      message: `You can donate again in ${daysRemaining} days`,
+      daysRemaining
+    };
+  }
+
+  return { eligible: true, message: 'Eligible to donate' };
+};
+
+// Get donation statistics
+export const getDonationStats = async (bloodBankId, query) => {
+  const stats = await Donation.aggregate([
+    { $match: { bloodBank: new mongoose.Types.ObjectId(bloodBankId) } },
+    {
+      $group: {
+        _id: '$status',
+        count: { $sum: 1 },
+        totalVolume: { $sum: '$volumeDonated' }
+      }
+    }
+  ]);
+
+  const formattedStats = {
+    total: 0,
+    completed: 0,
+    pending: 0,
+    rejected: 0,
+    totalVolume: 0
+  };
+
+  stats.forEach(stat => {
+    formattedStats.total += stat.count;
+    formattedStats[stat._id] = stat.count;
+    formattedStats.totalVolume += stat.totalVolume || 0;
+  });
+
+  return formattedStats;
+};

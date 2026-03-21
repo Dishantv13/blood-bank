@@ -1,390 +1,70 @@
-import User from '../models/User.model.js';
-import Event from '../models/Event.model.js';
-import BloodRequest from '../models/BloodRequest.model.js';
-import Donation from '../models/Donation.model.js';
-import DonorHealth from '../models/DonorHealth.model.js';
+import { validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
-import mongoose from 'mongoose';
+import * as userService from '../services/userService.js';
+
+/**
+ * ============================================
+ * CLEAN CONTROLLERS - Only handling req/res
+ * All business logic moved to services
+ * ============================================
+ */
 
 // Get user profile
 const getProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.userId)
-    .select('-password')
-    .populate('healthForm');
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    
-    // Set default activeMode if not set
-    if (!user.activeMode) {
-      user.activeMode = 'patient';
-      await user.save();
-    }
-    
-    successResponse(res, user, 200, 'User profile fetched successfully');
+  const userId = req.user.userId || req.user._id || req.user.id;
+  const result = await userService.getUserProfile(userId);
+  successResponse(res, result, 200, 'User profile fetched successfully');
 });
 
 // Update user profile
 const updateProfile = asyncHandler(async (req, res) => {
-  const { name, phone, bloodGroup, isDonor, address, isAvailable, location } = req.body;
-    
-    const updateFields = {};
-    if (name) updateFields.name = name;
-    if (phone) updateFields.phone = phone;
-    if (bloodGroup) updateFields.bloodGroup = bloodGroup;
-    if (isDonor !== undefined) updateFields.isDonor = isDonor;
-    if (address) updateFields.address = address;
-    if (isAvailable !== undefined) updateFields.isAvailable = isAvailable;
-    if (location) updateFields.location = location;
-
-    const user = await User.findByIdAndUpdate(
-      req.user.userId,
-      { $set: updateFields },
-      { new: true }
-    ).select('-password');
-
-    res.json({ message: 'Profile updated successfully', user });
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  
+  const userId = req.user.userId || req.user._id || req.user.id;
+  const result = await userService.updateUserProfile(userId, req.body);
+  successResponse(res, result, 200, 'Profile updated successfully');
 });
 
 // Update donor information
 const updateDonorInfo = asyncHandler(async (req, res) => {
-  const { location, ...incomingDonorInfo } = req.body;
-  const userId = req.user.userId;
-
-  const user = await User.findById(userId);
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
   }
-
-  // Calculate Eligibility on backend
-  const calculateBackendEligibility = (data) => {
-    // Check diseases
-    const hasDisease = data.diseases ? Object.values(data.diseases).some(v => v === true) : false;
-    const hasRecentCondition = data.recentConditions ? Object.values(data.recentConditions).some(v => v === true) : false;
-    
-    // Check weight (min 50kg) - handle string/number
-    const weight = parseFloat(data.weight);
-    const weightOk = !isNaN(weight) && weight >= 50;
-    
-    // Check age (18-65)
-    let ageOk = false;
-    if (data.dateOfBirth) {
-      const birthDate = new Date(data.dateOfBirth);
-      const age = Math.floor((new Date() - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
-      ageOk = age >= 18 && age <= 65;
-    }
-    
-    // Check last donation (3 months gap)
-    // Preference: System record > Form input
-    const lastDateStr = user.donorInfo?.lastDonationDate || data.lastDonationDate;
-    let donationGapOk = true;
-    if (lastDateStr) {
-      const lastDonation = new Date(lastDateStr);
-      const monthsGap = (new Date() - lastDonation) / (30 * 24 * 60 * 60 * 1000);
-      donationGapOk = monthsGap >= 3;
-    }
-    
-    const reasons = {
-      hasDisease,
-      hasRecentCondition,
-      weightOk,
-      ageOk,
-      donationGapOk
-    };
-
-    return {
-      eligible: !hasDisease && !hasRecentCondition && weightOk && ageOk && donationGapOk,
-      reasons
-    };
-  };
-
-  const eligibility = calculateBackendEligibility(incomingDonorInfo);
-
-  // Create/Update separate DonorHealth record as requested (ID link)
-  let healthForm = await DonorHealth.findOne({ donor: userId }).sort({ submittedAt: -1 });
-
-  const mappingData = {
-    donor: userId,
-    fullName: user.name,
-    weight: parseFloat(incomingDonorInfo.weight),
-    phone: user.phone || incomingDonorInfo.emergencyContact?.phone || '',
-    email: user.email,
-    dateOfBirth: new Date(incomingDonorInfo.dateOfBirth),
-    gender: incomingDonorInfo.gender,
-    bloodGroup: user.bloodGroup || 'unknown',
-    medicalConditions: {
-      hivAids: incomingDonorInfo.diseases?.hiv || false,
-      hepatitisBC: incomingDonorInfo.diseases?.hepatitisB || incomingDonorInfo.diseases?.hepatitisC || false,
-      malaria: incomingDonorInfo.diseases?.malaria || false,
-      tuberculosis: incomingDonorInfo.diseases?.tuberculosis || false,
-      heartDisease: incomingDonorInfo.diseases?.heartDisease || false,
-      cancer: incomingDonorInfo.diseases?.cancer || false,
-      diabetes: incomingDonorInfo.diseases?.diabetes || false,
-      epilepsy: incomingDonorInfo.diseases?.epilepsy || false,
-    },
-    recentActivities: {
-      tattooOrPiercing: incomingDonorInfo.recentConditions?.tattooOrPiercing || false,
-      surgeryOrTransfusion: incomingDonorInfo.recentConditions?.surgery || false,
-      vaccination: incomingDonorInfo.recentConditions?.vaccination || false,
-      pregnancyOrBreastfeeding: incomingDonorInfo.recentConditions?.pregnancy || false,
-    },
-    currentHealth: {
-      recentFeverOrIllness: incomingDonorInfo.recentConditions?.fever || incomingDonorInfo.recentConditions?.coldOrFlu || false,
-    },
-    lifestyle: {
-      alcohol: incomingDonorInfo.lifestyle?.alcohol || 'never',
-      smoking: incomingDonorInfo.lifestyle?.smoking || 'never',
-      drugUse: incomingDonorInfo.lifestyle?.drugUse || false,
-    },
-    donationHistory: {
-      previouslyDonated: (user.donorInfo?.totalDonations || 0) > 0,
-      lastDonationDate: user.donorInfo?.lastDonationDate || incomingDonorInfo.lastDonationDate,
-      totalDonations: user.donorInfo?.totalDonations || 0,
-    },
-    consent: {
-      informationAccurate: incomingDonorInfo.consent?.informationAccurate || incomingDonorInfo.accuracyDeclaration || false,
-      consentToDonate: incomingDonorInfo.consent?.consentToDonate || incomingDonorInfo.consent || false,
-      understandsProcess: incomingDonorInfo.consent?.understandsProcess || true
-    },
-    status: eligibility.eligible ? 'approved' : 'requires_review'
-  };
-
-  if (healthForm) {
-    Object.assign(healthForm, mappingData);
-    await healthForm.save();
-  } else {
-    healthForm = new DonorHealth(mappingData);
-    await healthForm.save();
-  }
-
-  // Update summary stats in User model for fast profile/dashboard access
-  user.healthForm = healthForm._id;
-  user.donorInfo = {
-    totalDonations: user.donorInfo?.totalDonations || 0,
-    totalDonatedVolume: user.donorInfo?.totalDonatedVolume || 0,
-    lastDonationDate: healthForm.donationHistory.lastDonationDate,
-    isEligible: eligibility.eligible,
-    eligibilityReasons: eligibility.reasons,
-    lastUpdated: new Date(),
-    dateOfBirth: mappingData.dateOfBirth,
-    gender: mappingData.gender,
-    bloodGroup: user.bloodGroup
-  };
-
-  user.isDonor = true;
-  if (location) user.location = location;
   
-  await user.save();
-
-  res.json({ message: 'Donor information saved successfully', user });
+  const userId = req.user.userId || req.user._id || req.user.id;
+  const result = await userService.updateDonorInfo(userId, req.body);
+  successResponse(res, result, 200, 'Donor information saved successfully');
 });
 
 // Get available donors by blood group
 const getDonors = asyncHandler(async (req, res) => {
-  const { bloodGroup, latitude, longitude, maxDistance } = req.query;
-    
-    let query = { isDonor: true, isAvailable: true };
-    if (bloodGroup) {
-      query.bloodGroup = bloodGroup;
-    }
-
-    let donors;
-    if (latitude && longitude) {
-      // Geospatial query for nearby donors
-      donors = await User.find({
-        ...query,
-        location: {
-          $near: {
-            $geometry: {
-              type: 'Point',
-              coordinates: [parseFloat(longitude), parseFloat(latitude)]
-            },
-            $maxDistance: maxDistance ? parseInt(maxDistance) : 10000 // 10km default
-          }
-        }
-      }).select('-password').lean();
-    } else {
-      donors = await User.find(query).select('-password').lean();
-    }
-
-    successResponse(res, donors, 200, 'Donors fetched successfully');
+  const result = await userService.getAvailableDonors(req.query);
+  successResponse(res, result, 200, 'Donors fetched successfully');
 });
 
 // Toggle between donor and patient mode
 const toggleMode = asyncHandler(async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  
+  const userId = req.user.userId || req.user._id || req.user.id;
   const { mode } = req.body;
-    
-    console.log('Toggle mode request received:', { userId: req.user.userId, mode, body: req.body });
-    
-    if (!mode) {
-      return res.status(400).json({ message: 'Mode parameter is required' });
-    }
-    
-    if (!['donor', 'patient'].includes(mode)) {
-      return res.status(400).json({ message: 'Invalid mode. Must be donor or patient' });
-    }
-
-    const user = await User.findById(req.user.userId).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Set default activeMode if not set
-    if (!user.activeMode) {
-      user.activeMode = 'patient';
-    }
-
-    // If switching to donor mode, ensure they have isDonor set
-    if (mode === 'donor' && !user.isDonor) {
-      return res.status(400).json({ 
-        message: 'Please complete donor registration first',
-        requiresRegistration: true
-      });
-    }
-
-    // Update mode
-    user.activeMode = mode;
-    await user.save();
-
-    res.json({ 
-      success: true,
-      message: `Switched to ${mode} mode successfully`, 
-      user,
-      activeMode: user.activeMode
-    });
+  const result = await userService.toggleMode(userId, mode);
+  successResponse(res, result, 200, `Switched to ${mode} mode successfully`);
 });
 
-// Get dashboard statistics for charts
+// Get dashboard statistics
 const getDashboardStats = asyncHandler(async (req, res) => {
-  const userId = req.user.userId;
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-
-    // Get user's requests statistics
-    const myRequestsStats = await BloodRequest.aggregate([
-      { $match: { requestedBy: userObjectId } },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    // Get blood group distribution of active requests
-    const bloodGroupStats = await BloodRequest.aggregate([
-      { $match: { status: 'pending' } },
-      {
-        $group: {
-          _id: '$bloodGroup',
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } }
-    ]);
-
-    // Get urgency distribution
-    const urgencyStats = await BloodRequest.aggregate([
-      { $match: { status: 'pending' } },
-      {
-        $group: {
-          _id: '$urgency',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    // Get monthly requests trend (last 6 months)
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-    const monthlyTrend = await BloodRequest.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]);
-
-    // Get total donors and patients
-    const donorCount = await User.countDocuments({ isDonor: true, isAvailable: true });
-    const totalUsers = await User.countDocuments({});
-
-    // Get upcoming events count
-    const upcomingEvents = await Event.countDocuments({
-      date: { $gte: new Date() },
-      isActive: true
-    });
-
-    // Get registered events count
-    const registeredEventsCount = await Event.countDocuments({
-      registeredDonors: userObjectId,
-      date: { $gte: new Date() }
-    });
-
-    // OPTIONAL: Ensure donor stats are totally up to date by summing their actual completed donations
-    // This fixed the issue where the cached stats in the User document might be zero
-    const donationStats = await Donation.aggregate([
-      { $match: { donor: userObjectId, status: 'completed' } },
-      { 
-        $group: { 
-          _id: null, 
-          totalCount: { $sum: 1 }, 
-          totalVolume: { $sum: '$volumeDonated' } 
-        } 
-      }
-    ]);
-
-    const user = await User.findById(userId); // Fetch user to get donorInfo
-    const realTotalDonations = donationStats[0]?.totalCount || user?.donorInfo?.totalDonations || 0;
-    const realTotalVolume = donationStats[0]?.totalVolume || user?.donorInfo?.totalDonatedVolume || 0;
-
-    // Get the actual latest donation date from history
-    const latestDonation = await Donation.findOne({ donor: userObjectId, status: 'completed' })
-      .sort({ donationDate: -1 });
-    const realLastDonationDate = latestDonation?.donationDate || user?.donorInfo?.lastDonationDate || user?.lastDonationDate;
-
-    // IMPORTANT: Sync back to user model if there's a disconnect
-    if (user.donorInfo && (
-      user.donorInfo.totalDonations !== realTotalDonations || 
-      user.donorInfo.totalDonatedVolume !== realTotalVolume ||
-      (realLastDonationDate && user.donorInfo.lastDonationDate?.toString() !== realLastDonationDate.toString())
-    )) {
-      user.donorInfo.totalDonations = realTotalDonations;
-      user.donorInfo.totalDonatedVolume = realTotalVolume;
-      if (realLastDonationDate) {
-        user.donorInfo.lastDonationDate = realLastDonationDate;
-        user.lastDonationDate = realLastDonationDate;
-      }
-      await user.save();
-    }
-
-    successResponse(res, {
-        stats: {
-          myRequests: myRequestsStats,
-          bloodGroups: bloodGroupStats,
-          urgency: urgencyStats,
-          monthlyTrend,
-          overview: {
-            totalDonors: donorCount,
-            totalUsers,
-            upcomingEvents,
-            registeredEvents: registeredEventsCount,
-            personalStats: {
-              totalDonations: realTotalDonations,
-              totalDonatedVolume: realTotalVolume,
-              lastDonationDate: realLastDonationDate
-            }
-          }
-        }
-      }, 200, 'Dashboard statistics fetched successfully');
+  const userId = req.user.userId || req.user._id || req.user.id;
+  const result = await userService.getDashboardStats(userId);
+  successResponse(res, result, 200, 'Dashboard statistics fetched successfully');
 });
 
 export {

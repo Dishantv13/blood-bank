@@ -21,7 +21,7 @@ export const tagList = (type) => [{ type, id: TAG_IDS.LIST }];
 export const tagById = (type, id) => [{ type, id }];
 
 export const tagListWithIds = (type, data) =>
-  data
+  Array.isArray(data)
     ? [
         ...data.map((item) => ({ type, id: item._id || item.id })),
         { type, id: TAG_IDS.LIST },

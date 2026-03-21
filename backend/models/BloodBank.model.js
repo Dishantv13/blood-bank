@@ -116,11 +116,17 @@ const BloodBankSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  isFake: {
+    type: Boolean,
+    default: false
   }
 });
 
 // Index for geospatial queries
 BloodBankSchema.index({ location: '2dsphere' });
+BloodBankSchema.index({ isActive: 1, isVerified: 1 });
+BloodBankSchema.index({ createdAt: -1 });
 
 // Hash password before saving
 BloodBankSchema.pre('save', async function(next) {

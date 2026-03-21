@@ -6,10 +6,21 @@ export const bloodBankApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Public/User facing endpoints
     getAllBloodBanks: builder.query({
+      serializeQueryArgs: ({ endpointName, queryArgs }) => {
+        if (!queryArgs || typeof queryArgs !== 'object') return `${endpointName}:all`;
+
+        const entries = Object.entries(queryArgs)
+          .filter(([, value]) => value !== undefined && value !== null && value !== '')
+          .sort(([a], [b]) => a.localeCompare(b));
+
+        if (entries.length === 0) return `${endpointName}:all`;
+        return `${endpointName}:${JSON.stringify(Object.fromEntries(entries))}`;
+      },
       query: (params) => ({
         url: BLOODBANK_API_URLS.GET_ALL_BLOOD_BANKS,
         params,
       }),
+      keepUnusedDataFor: 600,
       providesTags: (result) => tagListWithIds(TAGS.BLOOD_BANK, result?.data),
     }),
     getBloodBankById: builder.query({

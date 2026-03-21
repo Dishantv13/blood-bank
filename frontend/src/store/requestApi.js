@@ -10,7 +10,7 @@ export const requestApi = apiSlice.injectEndpoints({
         url: REQUEST_API_URLS.GET_ALL_REQUESTS,
         params,
       }),
-      providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.data?.requests || result?.data),
+      providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.requests || result?.data),
     }),
     getMyRequests: builder.query({
       query: () => REQUEST_API_URLS.GET_MY_REQUESTS,
@@ -53,7 +53,7 @@ export const requestApi = apiSlice.injectEndpoints({
         url: REQUEST_API_URLS.GET_BLOOD_BANK_REQUESTS,
         params,
       }),
-      providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.data?.requests || result?.data),
+      providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.requests || result?.data),
     }),
     getBloodBankApprovedRequests: builder.query({
       query: (params) => ({

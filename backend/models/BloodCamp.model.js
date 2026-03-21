@@ -100,6 +100,10 @@ const BloodCampSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  isFake: {
+    type: Boolean,
+    default: false
+  },
   updatedAt: {
     type: Date,
     default: Date.now
@@ -110,6 +114,8 @@ const BloodCampSchema = new mongoose.Schema({
 BloodCampSchema.index({ location: '2dsphere' });
 BloodCampSchema.index({ date: 1 });
 BloodCampSchema.index({ city: 1 });
+BloodCampSchema.index({ organizer: 1, date: -1 });
+BloodCampSchema.index({ status: 1, date: 1 });
 
 // Update the updatedAt field before saving
 BloodCampSchema.pre('save', function(next) {

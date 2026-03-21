@@ -25,7 +25,7 @@ const BloodBankDonations = () => {
   const [selectedCampId, setSelectedCampId] = useState(null);
   const [selectedCampData, setSelectedCampData] = useState(null);
   
-  const { data: donations = [], isLoading: loadingDonations, refetch } = useGetBloodBankDonationsQuery();
+  const { data: donationsRes, isLoading: loadingDonations, refetch } = useGetBloodBankDonationsQuery();
   const { data: campsData, isLoading: loadingCamps } = useGetBloodBankCampsQuery();
   const [triggerGetRegistrations, { data: registrationsData, isFetching: isFetchingRegistrations }] = useLazyGetCampRegistrationsQuery();
   const [deleteRegistration] = useDeleteCampRegistrationMutation();
@@ -33,6 +33,8 @@ const BloodBankDonations = () => {
   const [recordDonation] = useRecordDonationMutation();
   const [updateStatus] = useUpdateDonationStatusMutation();
   const [createDonation] = useCreateDonationMutation();
+
+  const donations = donationsRes?.data || [];
 
   const pendingDonations = donations.filter(d => d.status === 'pending' || d.status === 'approved');
   // Only direct (non-camp) completed donations show in the Completed tab

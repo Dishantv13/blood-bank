@@ -84,56 +84,23 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  healthForm: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DonorHealth'
+  },
   donorInfo: {
-    weight: Number,
-    height: Number,
-    dateOfBirth: Date,
-    gender: String,
-    lastDonationDate: Date,
-    donationCount: { type: Number, default: 0 },
+    // Summary statistics for fast dashboard/profile access
     totalDonations: { type: Number, default: 0 },
     totalDonatedVolume: { type: Number, default: 0 },
-    bloodPressure: String,
-    hemoglobinLevel: Number,
-    diseases: {
-      hiv: Boolean,
-      hepatitisB: Boolean,
-      hepatitisC: Boolean,
-      malaria: Boolean,
-      tuberculosis: Boolean,
-      heartDisease: Boolean,
-      diabetes: Boolean,
-      cancer: Boolean,
-      bloodDisorder: Boolean,
-      epilepsy: Boolean,
-      asthma: Boolean,
-      kidneyDisease: Boolean,
-      liverDisease: Boolean
-    },
-    recentConditions: {
-      fever: Boolean,
-      coldOrFlu: Boolean,
-      antibiotics: Boolean,
-      surgery: Boolean,
-      tattooOrPiercing: Boolean,
-      pregnancy: Boolean,
-      vaccination: Boolean
-    },
-    lifestyle: {
-      alcohol: String,
-      smoking: String,
-      drugUse: Boolean
-    },
-    emergencyContact: {
-      name: String,
-      phone: String,
-      relationship: String
-    },
-    consent: Boolean,
-    accuracyDeclaration: Boolean,
-    isEligible: Boolean,
+    lastDonationDate: Date,
+    isEligible: { type: Boolean, default: false },
     eligibilityReasons: Object,
-    lastUpdated: Date
+    lastUpdated: Date,
+    
+    // Core identity fields that might be needed frequently
+    dateOfBirth: Date,
+    gender: String,
+    bloodGroup: String
   },
   passwordReset: {
     token: String,
@@ -142,10 +109,17 @@ const UserSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  isFake: {
+    type: Boolean,
+    default: false
   }
 });
 
 // Index for geospatial queries
 UserSchema.index({ location: '2dsphere' });
+UserSchema.index({ phone: 1 });
+UserSchema.index({ bloodGroup: 1, isAvailable: 1, isDonor: 1 });
+UserSchema.index({ role: 1, createdAt: -1 });
 
 export default mongoose.model('User', UserSchema);

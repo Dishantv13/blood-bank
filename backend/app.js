@@ -1,10 +1,11 @@
 import express, { json, urlencoded } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
 import mongoose from "mongoose";
 import { globalErrorHandler } from "./middleware/globalErrorHandler.js";
+import { requestLogger } from "./middleware/requestLogger.js";
+import { globalApiLimiter } from "./middleware/rateLimiter.js";
 
 // ==================== ROUTE IMPORTS ====================
 // IMPORT ROUTES FILE
@@ -64,14 +65,10 @@ app.options("*", cors(corsOptions));
 // ==================== SECURITY MIDDLEWARE ====================
 app.use(helmet()); // Set security headers
 app.use(mongoSanitize()); // Prevent MongoDB injection
+app.use(requestLogger(1000));
 
 // ==================== RATE LIMITING ====================
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20000, // 200 requests per 15 minutes per IP
-  message: "Too many requests from this IP, please try again later.",
-});
-app.use("/api/", limiter);
+app.use("/api/", globalApiLimiter);
 
 // ==================== BODY PARSER ====================
 app.use(json({ limit: "10mb" }));

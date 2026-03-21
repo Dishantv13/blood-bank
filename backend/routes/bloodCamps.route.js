@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
-import BloodBank from '../models/BloodBank.model.js';
-import { auth } from '../middleware/auth.js';
+import { auth, protectBloodBank } from '../middleware/auth.js';
+import { cacheResponse } from '../middleware/cache.js';
 import {
   getAllCamps,
   getCampById,
@@ -18,41 +17,10 @@ import {
 
 const router = Router();
 
-// Middleware to protect blood bank routes
-const protectBloodBank = async (req, res, next) => {
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      if (decoded.type !== 'bloodbank') {
-        return res.status(401).json({ message: 'Not authorized as blood bank' });
-      }
-      
-      // Use bloodBankId from token (new format)
-      const bloodBankId = decoded.bloodBankId || decoded.id;
-      req.bloodBank = await BloodBank.findById(bloodBankId).select('-password');
-      
-      if (!req.bloodBank) {
-        return res.status(401).json({ message: 'Blood bank not found' });
-      }
-      
-      next();
-    } catch (error) {
-      console.error('Auth error:', error);
-      return res.status(401).json({ message: 'Not authorized, token failed' });
-    }
-  } else {
-    return res.status(401).json({ message: 'Not authorized, no token' });
-  }
-};
-
 // @route   GET /api/blood-camps
 // @desc    Get all blood camps
 // @access  Public
-router.route('/').get(getAllCamps);
+router.route('/').get(cacheResponse(120), getAllCamps);
 
 // @route   POST /api/blood-camps/cleanup-registrations
 // @desc    Remove invalid registrations (fake/empty data)
