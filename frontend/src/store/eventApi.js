@@ -27,8 +27,18 @@ export const eventApi = apiSlice.injectEndpoints({
       providesTags: (result) => tagListWithIds(TAGS.EVENT, result?.events || result?.data),
     }),
     getEventRegistrations: builder.query({
-      query: (eventId) => EVENT_API_URLS.GET_EVENT_REGISTRATIONS(eventId),
-      providesTags: (result, error, eventId) => [{ type: TAGS.EVENT, id: `${eventId}_regs` }],
+      query: (arg) => {
+        const eventId = typeof arg === 'string' ? arg : arg?.eventId;
+        const params = typeof arg === 'object' ? { page: arg?.page, limit: arg?.limit } : undefined;
+        return {
+          url: EVENT_API_URLS.GET_EVENT_REGISTRATIONS(eventId),
+          params,
+        };
+      },
+      providesTags: (result, error, arg) => {
+        const eventId = typeof arg === 'string' ? arg : arg?.eventId;
+        return [{ type: TAGS.EVENT, id: `${eventId}_regs` }];
+      },
     }),
     createEvent: builder.mutation({
       query: (data) => ({

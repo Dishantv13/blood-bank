@@ -1,5 +1,40 @@
-const cacheStore = new Map();
+import { createClient } from 'redis';
+
 const pendingResponses = new Map();
+const memoryCacheStore = new Map();
+const CACHE_PREFIX = 'api-cache:';
+
+const redisUrl = process.env.REDIS_URL;
+let redisClient = null;
+let redisInitPromise = null;
+
+const getRedisClient = async () => {
+  if (!redisUrl) return null;
+  if (redisClient?.isReady) return redisClient;
+  if (redisInitPromise) return redisInitPromise;
+
+  const client = createClient({ url: redisUrl });
+  client.on('error', (error) => {
+    console.warn('Redis cache error:', error.message);
+  });
+
+  redisInitPromise = client
+    .connect()
+    .then(() => {
+      redisClient = client;
+      return redisClient;
+    })
+    .catch((error) => {
+      console.warn('Redis cache disabled:', error.message);
+      redisClient = null;
+      return null;
+    })
+    .finally(() => {
+      redisInitPromise = null;
+    });
+
+  return redisInitPromise;
+};
 
 const normalizeQueryParams = (searchParams) => {
   const entries = [];
@@ -27,75 +62,142 @@ const buildCacheKey = (originalUrl = '') => {
   return normalizedQuery ? `${normalizedPath}?${normalizedQuery}` : normalizedPath;
 };
 
+const toRedisKey = (key) => `${CACHE_PREFIX}${key}`;
+
+const getMemoryCache = (key) => {
+  const cached = memoryCacheStore.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    memoryCacheStore.delete(key);
+    return null;
+  }
+  return cached.payload;
+};
+
+const setMemoryCache = (key, payload, ttlSeconds) => {
+  memoryCacheStore.set(key, {
+    payload,
+    expiresAt: Date.now() + ttlSeconds * 1000,
+  });
+};
+
+const deleteKeysByPrefix = async (prefix) => {
+  const client = await getRedisClient();
+  if (!client) return;
+
+  const normalizedPrefix = buildCacheKey(prefix || '/');
+  let cursor = '0';
+  do {
+    const result = await client.scan(cursor, {
+      MATCH: `${toRedisKey(normalizedPrefix)}*`,
+      COUNT: 100,
+    });
+    cursor = result.cursor;
+    if (result.keys.length) {
+      await client.del(...result.keys);
+    }
+  } while (cursor !== '0');
+};
+
 export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
   if (req.method !== 'GET') return next();
 
   const key = buildCacheKey(req.originalUrl);
-  const cached = cacheStore.get(key);
 
-  if (cached && cached.expiresAt > Date.now()) {
-    res.set('X-Cache', 'HIT');
-    res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
-    return res.status(200).json(cached.payload);
-  }
+  const run = async () => {
+    const client = await getRedisClient();
+    const usingRedis = Boolean(client);
 
-  const pending = pendingResponses.get(key);
-  if (pending) {
-    return pending
-      .then((payload) => {
-        if (payload !== undefined) {
-          res.set('X-Cache', 'HIT-DEDUPED');
-          res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
-          return res.status(200).json(payload);
-        }
-        return next();
-      })
-      .catch(() => next());
-  }
+    const cached = usingRedis
+      ? await client.get(toRedisKey(key)).then((value) => (value ? JSON.parse(value) : null))
+      : getMemoryCache(key);
 
-  let resolvePending;
-  let rejectPending;
-  const requestPromise = new Promise((resolve, reject) => {
-    resolvePending = resolve;
-    rejectPending = reject;
-  });
-  pendingResponses.set(key, requestPromise);
-
-  const originalJson = res.json.bind(res);
-  res.json = (body) => {
-    if (res.statusCode >= 200 && res.statusCode < 300) {
-      cacheStore.set(key, {
-        payload: body,
-        expiresAt: Date.now() + ttlSeconds * 1000
-      });
-      res.set('X-Cache', 'MISS');
+    if (cached) {
+      res.set('X-Cache', 'HIT');
       res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
-      resolvePending(body);
-    } else {
-      rejectPending(new Error('Non-cacheable response status'));
+      return res.status(200).json(cached);
     }
-    pendingResponses.delete(key);
-    return originalJson(body);
+
+    const pending = pendingResponses.get(key);
+    if (pending) {
+      return pending
+        .then((payload) => {
+          if (payload !== undefined) {
+            res.set('X-Cache', 'HIT-DEDUPED');
+            res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
+            return res.status(200).json(payload);
+          }
+          return next();
+        })
+        .catch(() => next());
+    }
+
+    let resolvePending;
+    let rejectPending;
+    const requestPromise = new Promise((resolve, reject) => {
+      resolvePending = resolve;
+      rejectPending = reject;
+    });
+    pendingResponses.set(key, requestPromise);
+
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        if (usingRedis) {
+          client
+            .setEx(toRedisKey(key), ttlSeconds, JSON.stringify(body))
+            .catch((error) => {
+              console.warn('Redis cache write failed:', error.message);
+            });
+        } else {
+          setMemoryCache(key, body, ttlSeconds);
+        }
+
+        res.set('X-Cache', 'MISS');
+        res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
+        resolvePending(body);
+      } else {
+        rejectPending(new Error('Non-cacheable response status'));
+      }
+
+      pendingResponses.delete(key);
+      return originalJson(body);
+    };
+
+    res.on('close', () => {
+      if (pendingResponses.has(key)) {
+        pendingResponses.delete(key);
+        rejectPending(new Error('Response closed before cache was populated'));
+      }
+    });
+
+    return next();
   };
 
-  res.on('close', () => {
-    if (pendingResponses.has(key)) {
-      pendingResponses.delete(key);
-      rejectPending(new Error('Response closed before cache was populated'));
-    }
+  run().catch((error) => {
+    console.warn('Redis cache middleware fallback:', error.message);
+    res.set('X-Cache', 'BYPASS');
+    next();
   });
-
-  return next();
 };
 
 export const clearCacheByPrefix = (prefix) => {
-  const keys = [...cacheStore.keys()];
-  keys.forEach((key) => {
-    if (key.startsWith(prefix)) cacheStore.delete(key);
+  const normalizedPrefix = buildCacheKey(prefix || '/');
+  for (const key of memoryCacheStore.keys()) {
+    if (key.startsWith(normalizedPrefix)) {
+      memoryCacheStore.delete(key);
+    }
+  }
+
+  deleteKeysByPrefix(prefix).catch((error) => {
+    console.warn('Redis cache clear by prefix failed:', error.message);
   });
 };
 
 export const clearAllCache = () => {
-  cacheStore.clear();
+  memoryCacheStore.clear();
+  deleteKeysByPrefix('/').catch((error) => {
+    console.warn('Redis cache clear all failed:', error.message);
+  });
   pendingResponses.clear();
 };

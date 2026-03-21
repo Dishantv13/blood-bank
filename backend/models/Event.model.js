@@ -98,5 +98,6 @@ const EventSchema = new mongoose.Schema({
 EventSchema.index({ organizedBy: 1, organizerModel: 1 });
 EventSchema.index({ date: 1 });
 EventSchema.index({ isActive: 1 });
+EventSchema.index({ 'location.coordinates': '2dsphere' });
 
 export default mongoose.model('Event', EventSchema);

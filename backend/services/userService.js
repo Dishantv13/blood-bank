@@ -12,6 +12,31 @@ import { ApiError } from '../utils/apiError.js';
  * All business logic for user operations
  */
 
+const DASHBOARD_STATS_TTL_MS = 30 * 1000;
+const dashboardStatsCache = new Map();
+
+const getDashboardStatsFromCache = (userId) => {
+  const key = String(userId);
+  const cached = dashboardStatsCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    dashboardStatsCache.delete(key);
+    return null;
+  }
+  return cached.payload;
+};
+
+const setDashboardStatsCache = (userId, payload) => {
+  dashboardStatsCache.set(String(userId), {
+    payload,
+    expiresAt: Date.now() + DASHBOARD_STATS_TTL_MS,
+  });
+};
+
+const invalidateDashboardStatsCache = (userId) => {
+  dashboardStatsCache.delete(String(userId));
+};
+
 // Get user profile
 export const getUserProfile = async (userId) => {
   const user = await User.findById(userId)
@@ -60,6 +85,8 @@ export const updateUserProfile = async (userId, updateData) => {
   if (!user) {
     throw new ApiError(404, 'User not found');
   }
+
+  invalidateDashboardStatsCache(userId);
 
   return user;
 };
@@ -188,6 +215,8 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
 
   await user.save();
 
+  invalidateDashboardStatsCache(userId);
+
   return user;
 };
 
@@ -245,6 +274,8 @@ export const toggleMode = async (userId, mode) => {
   user.activeMode = mode;
   await user.save();
 
+  invalidateDashboardStatsCache(userId);
+
   return {
     success: true,
     message: `Switched to ${mode} mode successfully`,
@@ -254,92 +285,94 @@ export const toggleMode = async (userId, mode) => {
 
 // Get dashboard statistics
 export const getDashboardStats = async (userId) => {
+  const cachedStats = getDashboardStatsFromCache(userId);
+  if (cachedStats) {
+    return cachedStats;
+  }
+
   const userObjectId = new mongoose.Types.ObjectId(userId);
-
-  // Get user's requests statistics
-  const myRequestsStats = await BloodRequest.aggregate([
-    { $match: { requestedBy: userObjectId } },
-    {
-      $group: {
-        _id: '$status',
-        count: { $sum: 1 }
-      }
-    }
-  ]);
-
-  // Get blood group distribution
-  const bloodGroupStats = await BloodRequest.aggregate([
-    { $match: { status: 'pending' } },
-    {
-      $group: {
-        _id: '$bloodGroup',
-        count: { $sum: 1 }
-      }
-    },
-    { $sort: { count: -1 } }
-  ]);
-
-  // Get urgency distribution
-  const urgencyStats = await BloodRequest.aggregate([
-    { $match: { status: 'pending' } },
-    {
-      $group: {
-        _id: '$urgency',
-        count: { $sum: 1 }
-      }
-    }
-  ]);
-
-  // Get monthly trend (last 6 months)
+  const now = new Date();
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const monthlyTrend = await BloodRequest.aggregate([
-    { $match: { createdAt: { $gte: sixMonthsAgo } } },
-    {
-      $group: {
-        _id: {
-          year: { $year: '$createdAt' },
-          month: { $month: '$createdAt' }
-        },
-        count: { $sum: 1 }
+  const [
+    myRequestsStats,
+    bloodGroupStats,
+    urgencyStats,
+    monthlyTrend,
+    donorCount,
+    totalUsers,
+    upcomingEvents,
+    registeredEventsCount,
+    donationStats,
+    user,
+    latestDonation
+  ] = await Promise.all([
+    BloodRequest.aggregate([
+      { $match: { requestedBy: userObjectId } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
       }
-    },
-    { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]),
+    BloodRequest.aggregate([
+      { $match: { status: 'pending' } },
+      {
+        $group: {
+          _id: '$bloodGroup',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } }
+    ]),
+    BloodRequest.aggregate([
+      { $match: { status: 'pending' } },
+      {
+        $group: {
+          _id: '$urgency',
+          count: { $sum: 1 }
+        }
+      }
+    ]),
+    BloodRequest.aggregate([
+      { $match: { createdAt: { $gte: sixMonthsAgo } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]),
+    User.countDocuments({ isDonor: true, isAvailable: true }),
+    User.countDocuments({}),
+    Event.countDocuments({ date: { $gte: now }, isActive: true }),
+    Event.countDocuments({ registeredDonors: userObjectId, date: { $gte: now } }),
+    Donation.aggregate([
+      { $match: { donor: userObjectId, status: 'completed' } },
+      {
+        $group: {
+          _id: null,
+          totalCount: { $sum: 1 },
+          totalVolume: { $sum: '$volumeDonated' }
+        }
+      }
+    ]),
+    User.findById(userId).lean(),
+    Donation.findOne({ donor: userObjectId, status: 'completed' })
+      .sort({ donationDate: -1 })
+      .select('donationDate')
+      .lean()
   ]);
 
-  // Get counts
-  const donorCount = await User.countDocuments({ isDonor: true, isAvailable: true });
-  const totalUsers = await User.countDocuments({});
-  const upcomingEvents = await Event.countDocuments({
-    date: { $gte: new Date() },
-    isActive: true
-  });
-  const registeredEventsCount = await Event.countDocuments({
-    registeredDonors: userObjectId,
-    date: { $gte: new Date() }
-  });
-
-  // Get user's actual donation statistics
-  const donationStats = await Donation.aggregate([
-    { $match: { donor: userObjectId, status: 'completed' } },
-    {
-      $group: {
-        _id: null,
-        totalCount: { $sum: 1 },
-        totalVolume: { $sum: '$volumeDonated' }
-      }
-    }
-  ]);
-
-  const user = await User.findById(userId).lean();
   const realTotalDonations = donationStats[0]?.totalCount || user?.donorInfo?.totalDonations || 0;
   const realTotalVolume = donationStats[0]?.totalVolume || user?.donorInfo?.totalDonatedVolume || 0;
 
-  // Get latest donation date
-  const latestDonation = await Donation.findOne({ donor: userObjectId, status: 'completed' })
-    .sort({ donationDate: -1 })
-    .lean();
   const realLastDonationDate = latestDonation?.donationDate || user?.donorInfo?.lastDonationDate || user?.lastDonationDate;
 
   // Sync back to user model if there's a disconnect
@@ -358,7 +391,7 @@ export const getDashboardStats = async (userId) => {
     await User.findByIdAndUpdate(userId, updateData);
   }
 
-  return {
+  const result = {
     stats: {
       myRequests: myRequestsStats,
       bloodGroups: bloodGroupStats,
@@ -377,4 +410,7 @@ export const getDashboardStats = async (userId) => {
       }
     }
   };
+
+  setDashboardStatsCache(userId, result);
+  return result;
 };

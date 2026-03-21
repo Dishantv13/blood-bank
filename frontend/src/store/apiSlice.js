@@ -1,54 +1,26 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { TAGS } from '../enum/tagType';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Helper to identify bloodbank portal endpoints for correct token attachment and logout handling
-const checkIsBloodBankEndpoint = (endpoint) => {
-  if (!endpoint) return false;
-  // Use a more specific check. Blood bank portal endpoints typically 
-  // explicitly use the bloodbank route prefix or include 'bloodbank' in the endpoint name.
-  const name = endpoint.toLowerCase();
+const getUrlFromArgs = (args) => {
+  if (typeof args === 'string') return args;
+  if (args && typeof args === 'object' && typeof args.url === 'string') return args.url;
+  return '';
+};
 
-  // These specific endpoints are clearly for the Blood Bank Portal
-  if (name.includes('bloodbank') ||
-    name.includes('getbloodbank') ||
-    name.includes('createcamp') ||
-    name.includes('createevent') ||
-    name.includes('updatecamp') ||
-    name.includes('updateevent') ||
-    name.includes('deletecamp') ||
-    name.includes('deleteevent') ||
-    name.includes('getcampregistrations') ||
-    name.includes('geteventregistrations') ||
-    name.includes('exporteventregistrations') ||
-    name.includes('exportcampregistrations') ||
-    name.includes('exportregistrations') ||
-    name.includes('approverequest') ||
-    name.includes('rejectrequest') ||
-    name.includes('interbankrequest') ||
-    name.includes('inventory') ||
-    name.includes('bloodgroup') ||
-    name.includes('getbloodbankdonations') ||
-    name.includes('recorddonation') ||
-    name.includes('updatedonationstatus') ||
-    name.includes('createdonation')) {
-    return true;
-  }
-
-  // If it's a general camp/event/request endpoint, it might be for a standard user.
-  // We check if it explicitly starts with 'bloodbank' in the URL context
-  return false;
+const isBloodBankPath = (url = '') => {
+  const cleanUrl = String(url).split('?')[0].toLowerCase();
+  return cleanUrl.startsWith('/bloodbank');
 };
 
 // Create base query with auth headers setup
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
-  prepareHeaders: (headers, { endpoint }) => {
+  prepareHeaders: (headers, { arg }) => {
     headers.set('Content-Type', 'application/json');
 
-    // Detect if this is a bloodbank portal endpoint
-    const isBloodBankEndpoint = checkIsBloodBankEndpoint(endpoint);
+    const isBloodBankEndpoint = isBloodBankPath(getUrlFromArgs(arg));
 
     if (isBloodBankEndpoint) {
       const bToken = localStorage.getItem('bloodBankToken');
@@ -109,8 +81,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
   const result = await baseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    // Detect if this is a bloodbank portal endpoint
-    const isBloodBankEndpoint = checkIsBloodBankEndpoint(api.endpoint);
+    const isBloodBankEndpoint = isBloodBankPath(getUrlFromArgs(args));
 
     if (isBloodBankEndpoint) {
       localStorage.removeItem('bloodBankToken');
