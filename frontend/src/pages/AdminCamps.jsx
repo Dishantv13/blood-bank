@@ -76,7 +76,7 @@ const AdminCamps = () => {
         columns={columns}
         data={banksData?.data || []}
         isLoading={isLoading}
-        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_CAMPS_BY_BLOOD_BANK.replace(":bloodBankId", row._id))}
+        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_CAMPS_BY_BANK.replace(":bankId", row._id))}
         pagination={banksData?.pagination}
         onPageChange={setPage}
       />

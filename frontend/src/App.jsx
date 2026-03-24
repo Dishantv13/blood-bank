@@ -102,9 +102,9 @@ const Layout = ({ children }) => {
     ROUTE_PATH.SIGNUP
   ];
   const showNavbar = !noNavbarPaths.some((path) =>
-    location.pathname.startsWith(path),
+    location.pathname === path || location.pathname.startsWith(path + "/")
   );
-  const showAdminThemeButton = location.pathname.startsWith(ROUTE_PATH.ADMIN_BASE) && location.pathname !== ROUTE_PATH.ADMIN_LOGIN;
+  const showAdminThemeButton = (location.pathname === ROUTE_PATH.ADMIN_BASE || location.pathname.startsWith(ROUTE_PATH.ADMIN_BASE + "/")) && location.pathname !== ROUTE_PATH.ADMIN_LOGIN;
 
   return (
     <>

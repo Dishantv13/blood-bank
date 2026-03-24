@@ -4,41 +4,42 @@
   margin: 0 auto;
 }
 
-.page-header {
+.admin-premium-root .admin-users-page .page-header {
   margin-bottom: 2rem;
 }
 
-.page-header h1 {
+.admin-premium-root .admin-users-page .page-header h1 {
   font-size: 2rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-main);
   margin-bottom: 0.5rem;
 }
 
-.page-header p {
-  color: #6b7280;
+.admin-premium-root .admin-users-page .page-header p {
+  color: var(--text-muted);
   font-size: 1rem;
 }
 
-.filters-panel {
+.admin-premium-root .admin-users-page .filters-panel {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
   margin-bottom: 2rem;
-  background: white;
+  background: var(--card-bg);
   padding: 1.5rem;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.filter-input,
-.filter-select {
+.admin-premium-root .admin-users-page .filter-input,
+.admin-premium-root .admin-users-page .filter-select {
   padding: 0.75rem;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 0.95rem;
-  background: white;
+  background: var(--input-bg);
   transition: border-color 0.2s;
+  color: var(--text-main);
 }
 
 .filter-input:focus,

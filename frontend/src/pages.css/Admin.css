@@ -175,13 +175,13 @@
   margin-top: auto;
 }
 
-.stat-number {
+.admin-dashboard-card .stat-number {
   font-size: 1.5rem;
   font-weight: 700;
   color: #991b1b;
 }
 
-.stat-label {
+.admin-dashboard-card .stat-label {
   font-size: 0.8rem;
   color: #9ca3af;
   font-weight: 500;
@@ -206,8 +206,8 @@
 [data-theme='dark'] .admin-login-card h1,
 [data-theme='dark'] .admin-dashboard-header h1,
 [data-theme='dark'] .admin-dashboard-card h2,
-[data-theme='dark'] .stat-number {
-  color: #f9fafb;
+[data-theme='dark'] .admin-dashboard-card .stat-number {
+  color: #fca5a5;
 }
 
 [data-theme='dark'] .admin-login-card p,
@@ -215,7 +215,7 @@
 [data-theme='dark'] .admin-dashboard-header p,
 [data-theme='dark'] .admin-dashboard-card p,
 [data-theme='dark'] .loading-message,
-[data-theme='dark'] .stat-label {
+[data-theme='dark'] .admin-dashboard-card .stat-label {
   color: #d1d5db;
 }
 
