@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import ImageSlider from '../components/ImageSlider';
+import { ROUTE_PATH } from '../enum/routePath';
 import {
   nameValidator,
   emailValidator,
@@ -91,7 +92,7 @@ const Signup = () => {
     
     if (result.success) {
       toast.success('Account created successfully! Welcome to RaktSarthi.');
-      setTimeout(() => navigate('/dashboard'), 1000);
+      setTimeout(() => navigate(ROUTE_PATH.DASHBOARD), 1000);
     } else {
       setError(result.message);
       toast.error(result.message || 'Failed to create account. Please try again.');
@@ -107,7 +108,7 @@ const Signup = () => {
       
       if (result.success) {
         toast.success('Successfully signed up with Google!');
-        setTimeout(() => navigate('/dashboard'), 1000);
+        setTimeout(() => navigate(ROUTE_PATH.DASHBOARD), 1000);
       } else {
         setError(result.message || 'Google signup failed.');
         toast.error(result.message || 'Google signup failed.');
@@ -554,7 +555,7 @@ const Signup = () => {
 
         <div className="form-footer">
           <p>
-            Already have an account? <Link to="/login" className="form-link">Login here</Link>
+            Already have an account? <Link to={ROUTE_PATH.LOGIN} className="form-link">Login here</Link>
           </p>
         </div>
         </div>

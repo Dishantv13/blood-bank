@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../context/AuthContext";
+import { ROUTE_PATH } from "../enum/routePath";
 import Modal from "./Modal";
 import "../components.css/SignupModal.css";
 
@@ -47,7 +48,7 @@ const SignupModal = ({ isOpen, onClose }) => {
 
     if (result.success) {
       onClose();
-      navigate("/dashboard");
+      navigate(ROUTE_PATH.DASHBOARD);
     } else {
       alert(result.message);
     }
@@ -62,7 +63,7 @@ const SignupModal = ({ isOpen, onClose }) => {
 
       if (result.success) {
         onClose();
-        navigate("/dashboard");
+        navigate(ROUTE_PATH.DASHBOARD);
       } else if (result.message && !result.message.includes('popup was closed')) {
         alert(result.message);
       }
@@ -484,7 +485,7 @@ const SignupModal = ({ isOpen, onClose }) => {
         <div className="blood-bank-register-link">
           <p>
             Are you a Blood Bank?{" "}
-            <Link to="/blood-bank/register" onClick={onClose}>
+            <Link to={ROUTE_PATH.BLOOD_BANK_REGISTER} onClick={onClose}>
               Register here
             </Link>
           </p>

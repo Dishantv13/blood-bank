@@ -1,0 +1,260 @@
+.admin-exports-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.page-header p {
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.export-container {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 2rem;
+}
+
+.export-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.export-card h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+}
+
+.export-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.95rem;
+}
+
+.form-select {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.form-select:hover {
+  border-color: #991b1b;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #991b1b;
+  box-shadow: 0 0 0 3px rgba(153, 27, 27, 0.1);
+}
+
+.help-text {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+.export-button {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(to right, #7f1d1d, #991b1b);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.export-button:hover:not(:disabled) {
+  background: linear-gradient(to right, #991b1b, #b91c1c);
+  transform: translateY(-2px);
+}
+
+.export-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.export-info::-webkit-scrollbar {
+  width: 6px;
+}
+
+.export-info::-webkit-scrollbar-thumb {
+  background: var(--admin-border-color);
+  border-radius: 10px;
+}
+
+.export-info h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.info-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.info-section h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+}
+
+.info-section ul {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.info-section li {
+  color: #4b5563;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.info-section li strong {
+  color: #1f2937;
+}
+
+.format-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.format-table thead {
+  background: #f3f4f6;
+}
+
+.format-table th {
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #1f2937;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.format-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #4b5563;
+}
+
+
+
+[data-theme='dark'] .export-card h2,
+[data-theme='dark'] .export-info h3,
+[data-theme='dark'] .info-section h4,
+[data-theme='dark'] .form-group label,
+[data-theme='dark'] .info-section li strong {
+  color: #f3f4f6 !important;
+}
+
+[data-theme='dark'] .help-text,
+[data-theme='dark'] .info-section li,
+[data-theme='dark'] .format-table td {
+  color: #cbd5e1 !important;
+}
+
+[data-theme='dark'] .export-card,
+[data-theme='dark'] .info-section {
+  background: #1f2937 !important;
+  border: 1px solid #374151 !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme='dark'] .form-select {
+  background: #111827;
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+
+[data-theme='dark'] .form-select:hover,
+[data-theme='dark'] .form-select:focus {
+  border-color: #ef4444;
+}
+
+[data-theme='dark'] .format-table thead {
+  background: #111827;
+}
+
+[data-theme='dark'] .format-table th {
+  color: #f3f4f6;
+  border-bottom-color: #4b5563;
+}
+
+[data-theme='dark'] .format-table td {
+  border-bottom-color: #374151;
+}
+
+@media (max-width: 1024px) {
+  .export-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-exports-page {
+    padding: 1rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .export-card,
+  .info-section {
+    padding: 1rem;
+  }
+
+  .export-info h3 {
+    font-size: 1.25rem;
+  }
+}

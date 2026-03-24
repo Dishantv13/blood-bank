@@ -12,6 +12,7 @@ import { globalApiLimiter } from "./middleware/rateLimiter.js";
 // IMPORT ROUTES FILE
 
 import authRoutes from "./routes/auth.route.js";
+import adminAuthRoutes from "./routes/adminAuth.route.js";
 import userRoutes from "./routes/users.route.js";
 import bloodBankRoutes from "./routes/bloodBank.route.js";
 import bloodBankPortalRoutes from "./routes/bloodBankPortal.route.js";
@@ -92,6 +93,7 @@ app.get("/", (req, res) => {
 
 // ==================== ROUTES ====================
 app.use("/api/auth", authRoutes);
+app.use("/api/admin-auth", adminAuthRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/bloodbanks", bloodBankRoutes);
 app.use("/api/blood-banks", bloodBankRoutes); // Alias for blood bank routes

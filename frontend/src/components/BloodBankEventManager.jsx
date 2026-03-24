@@ -162,19 +162,19 @@ const BloodBankEventManager = () => {
 
       {/* Stats */}
       <div className="event-stats">
-        <div className="stat-card1">
-          <div className="stat-value">{upcomingEvents.length}</div>
-          <div className="stat-label">Upcoming Events</div>
+        <div className="stat-card2">
+          <div className="stat-value1">{upcomingEvents.length}</div>
+          <div className="stat-label1">Upcoming Events</div>
         </div>
-        <div className="stat-card1">
-          <div className="stat-value">{pastEvents.length}</div>
-          <div className="stat-label">Past Events</div>
+        <div className="stat-card2">
+          <div className="stat-value1">{pastEvents.length}</div>
+          <div className="stat-label1">Past Events</div>
         </div>
-        <div className="stat-card1">
-          <div className="stat-value">
+        <div className="stat-card2">
+          <div className="stat-value1">
             {upcomingRegistrations}
           </div>
-          <div className="stat-label">Total Registrations</div>
+          <div className="stat-label1">Total Registrations</div>
         </div>
       </div>
 

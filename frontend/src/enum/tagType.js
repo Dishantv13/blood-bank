@@ -8,6 +8,15 @@ export const TAGS = {
   USER: "User",
   DASHBOARD: "Dashboard",
   INVENTORY_ITEM: "InventoryItem",
+
+  ADMIN_STATS: "AdminStats",
+  ADMIN_USER: "AdminUser",
+  ADMIN_BLOOD_BANK: "AdminBloodBanks",
+  ADMIN_CAMP: "AdminCamps",
+  ADMIN_EVENT: "AdminEvents",
+  ADMIN_REQUEST: "AdminRequests",
+  ADMIN_DONATION: "AdminDonations",
+  ADMIN_INVENTORY: "AdminInventory",
 };
 
 export const TAG_IDS = {

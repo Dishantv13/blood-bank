@@ -15,6 +15,7 @@ import {
 import { useGetAllCampsQuery } from '../store/bloodCampApi';
 import { useGetMyDonationsQuery } from '../store/donationApi';
 import DonateBloodModal from '../components/DonateBloodModal';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Dashboard.css';
 
 const Dashboard = () => {
@@ -242,14 +243,14 @@ const Dashboard = () => {
             </button>
           )}
           {(user?.activeMode || 'patient') === 'donor' && !user?.isDonor && (
-            <Link to="/donor-form" className="btn btn-donor">
+            <Link to={ROUTE_PATH.DONOR_FORM} className="btn btn-donor">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.2"/>
               </svg>
               Complete Donor Registration
             </Link>
           )}
-          <Link to="/change-password" className="btn btn-secondary">
+          <Link to={ROUTE_PATH.CHANGE_PASSWORD} className="btn btn-secondary">
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
               <rect x="3" y="9" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2"/>
               <path d="M6 9V6C6 3.79086 7.79086 2 10 2C12.2091 2 14 3.79086 14 6V9" stroke="currentColor" strokeWidth="2"/>
@@ -361,7 +362,7 @@ const Dashboard = () => {
                   Eligible on {nextEligibleDate?.toLocaleDateString()}
                 </button>
               ) : (
-                <Link to="/donor-form" className="btn btn-primary">
+                <Link to={ROUTE_PATH.DONOR_FORM} className="btn btn-primary">
                   Update Health Questionnaire
                 </Link>
               )}
@@ -523,7 +524,7 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="eligibility-action">
-              <Link to="/create-request" className="btn btn-primary">
+              <Link to={ROUTE_PATH.CREATE_REQUEST} className="btn btn-primary">
                 + Create Blood Request
               </Link>
             </div>
@@ -594,7 +595,7 @@ const Dashboard = () => {
           <div className="activity-section">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2>My Recent Blood Requests</h2>
-              <Link to="/create-request" className="btn btn-outline">New Request</Link>
+              <Link to={ROUTE_PATH.CREATE_REQUEST} className="btn btn-outline">New Request</Link>
             </div>
             {myRequests.length === 0 ? (
               <div className="empty-state-banner">
@@ -602,7 +603,7 @@ const Dashboard = () => {
                   <p>You haven't made any blood requests yet. Start by creating your first request to get help.</p>
                 </div>
                 <div className="empty-state-action">
-                  <Link to="/create-request" className="btn btn-primary">
+                  <Link to={ROUTE_PATH.CREATE_REQUEST} className="btn btn-primary">
                     Create Your First Request
                   </Link>
                 </div>
@@ -629,7 +630,7 @@ const Dashboard = () => {
                       <p><strong>Requested Date:</strong> {new Date(request.createdAt).toLocaleDateString()}</p>
                     </div>
                     <div className="request-footer">
-                       <Link to={`/requests/${request._id}`} className="view-details-link">View Full Details →</Link>
+                       <Link to={ROUTE_PATH.REQUEST_DETAILS.replace(":requestId", request._id)} className="view-details-link">View Full Details →</Link>
                     </div>
                   </div>
                 ))}

@@ -5,6 +5,7 @@ import { useToast } from "../components/ToastContainer";
 import ImageSlider from "../components/ImageSlider";
 import SignupModal from "../components/SignupModal";
 import ThemeToggle from "../components/ThemeToggle";
+import { ROUTE_PATH } from "../enum/routePath";
 import "../pages.css/Auth.css";
 
 const Login = () => {
@@ -25,7 +26,7 @@ const Login = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (isAuthenticated) {
-      navigate("/dashboard");
+      navigate(ROUTE_PATH.DASHBOARD);
     }
   }, [isAuthenticated, navigate]);
 
@@ -51,7 +52,7 @@ const Login = () => {
         setSuccess("Login successful! Redirecting...");
         toast.success("Login successful! Welcome back.");
         setTimeout(() => {
-          navigate("/dashboard");
+          navigate(ROUTE_PATH.DASHBOARD);
         }, 1500);
       } else {
         setError(
@@ -81,7 +82,7 @@ const Login = () => {
         setSuccess("Login successful! Redirecting...");
         toast.success("Login successful with Google!");
         setTimeout(() => {
-          navigate("/dashboard");
+          navigate(ROUTE_PATH.DASHBOARD);
         }, 1500);
       } else {
         setError(result.message || "Google login failed.");
@@ -243,7 +244,7 @@ const Login = () => {
                     )}
                   </button>
                 </div>
-                <Link to="/forgot-password" className="forgot-password-link">
+                <Link to={ROUTE_PATH.FORGOT_PASSWORD} className="forgot-password-link">
                   Forgot Password?
                 </Link>
               </div>
@@ -304,7 +305,7 @@ const Login = () => {
               </p>
               <p className="blood-bank-link">
                 Sign up if you are blood bank?
-                <Link to="/blood-bank/login" className="form-link">
+                <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN} className="form-link">
                   Blood Bank Portal
                 </Link>
               </p>

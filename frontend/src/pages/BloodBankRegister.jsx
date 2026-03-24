@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useRegisterBloodBankMutation } from '../store/bloodBankApi';
 import { useToast } from '../components/ToastContainer';
 import ThemeToggle from "../components/ThemeToggle";
+import { ROUTE_PATH } from '../enum/routePath';
 import {
   bloodBankNameValidator,
   emailValidator,
@@ -267,7 +268,7 @@ const BloodBankRegister = () => {
       
       const response = await registerBloodBank(submitData).unwrap();
       toast.success('Registration successful! Please login.');
-      navigate('/blood-bank/login', { state: { message: 'Registration successful! Please login.' } });
+      navigate(ROUTE_PATH.BLOOD_BANK_LOGIN, { state: { message: 'Registration successful! Please login.' } });
     } catch (err) {
       console.error('Registration error:', err.data || err.message);
       const errorMessage = err.data?.message || err.data?.error || 'Registration failed. Please try again.';
@@ -887,7 +888,7 @@ const BloodBankRegister = () => {
           <div className="auth-footer">
             <p>
               Already have an account?{' '}
-              <Link to="/blood-bank/login">Sign in here</Link>
+              <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN}>Sign in here</Link>
             </p>
           </div>
         </div>

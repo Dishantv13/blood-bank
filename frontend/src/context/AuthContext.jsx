@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
-import { useLoginMutation, useRegisterMutation, useGoogleLoginMutation } from '../store/authApi';
+import { useAdminLoginMutation, useLoginMutation, useRegisterMutation, useGoogleLoginMutation } from '../store/authApi';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
 import { signInWithPopup } from 'firebase/auth';
@@ -16,11 +16,31 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUserState] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUserState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  
+  const [token, setToken] = useState(() => localStorage.getItem('token'));
+  
+  const [adminUser, setAdminUserState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('adminUser');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  
+  const [adminToken, setAdminTokenState] = useState(() => localStorage.getItem('adminToken'));
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
 
+  const [adminLoginMutation] = useAdminLoginMutation();
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
   const [googleLoginMutation] = useGoogleLoginMutation();
@@ -35,32 +55,61 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  useEffect(() => {
-    if (token) {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        try {
-          setUserState(JSON.parse(userData));
-        } catch (e) {
-          // Invalid JSON in localStorage — clear it
-          localStorage.removeItem('user');
-          localStorage.removeItem('token');
-          setToken(null);
-        }
-      }
+  const setTokenWrapper = useCallback((newToken) => {
+    setToken(newToken);
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+    } else {
+      localStorage.removeItem('token');
     }
+  }, []);
+
+  const setAdminToken = useCallback((newToken) => {
+    setAdminTokenState(newToken);
+    if (newToken) {
+      localStorage.setItem('adminToken', newToken);
+    } else {
+      localStorage.removeItem('adminToken');
+    }
+  }, []);
+
+  const setAdminUser = useCallback((adminData) => {
+    setAdminUserState(adminData);
+    if (adminData) {
+      localStorage.setItem('adminUser', JSON.stringify(adminData));
+    } else {
+      localStorage.removeItem('adminUser');
+    }
+  }, []);
+
+  // Initialize loading state on mount
+  useEffect(() => {
     setLoading(false);
-  }, [token]);
+  }, []);
+
+  const loginAdmin = useCallback(async (credentials) => {
+    try {
+      const response = await adminLoginMutation(credentials).unwrap();
+      const { token: newToken, admin } = response;
+      
+      // Use the wrapper callbacks that handle localStorage
+      setAdminToken(newToken);
+      setAdminUser(admin);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.data?.message || 'Admin login failed',
+      };
+    }
+  }, [adminLoginMutation, setAdminToken, setAdminUser]);
 
   const login = useCallback(async (credentials) => {
     try {
       const response = await loginMutation(credentials).unwrap();
       const { token: newToken, user: newUser } = response;
       
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      
-      setToken(newToken);
+      setTokenWrapper(newToken);
       setUser(newUser);
       
       return { success: true };
@@ -70,17 +119,14 @@ export const AuthProvider = ({ children }) => {
         message: error.data?.message || 'Login failed',
       };
     }
-  }, [setUser, loginMutation]);
+  }, [setUser, setTokenWrapper, loginMutation]);
 
   const register = useCallback(async (userData) => {
     try {
       const response = await registerMutation(userData).unwrap();
       const { token: newToken, user: newUser } = response;
       
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      
-      setToken(newToken);
+      setTokenWrapper(newToken);
       setUser(newUser);
       
       return { success: true };
@@ -90,16 +136,20 @@ export const AuthProvider = ({ children }) => {
         message: error.data?.message || 'Registration failed',
       };
     }
-  }, [setUser, registerMutation]);
+  }, [setUser, setTokenWrapper, registerMutation]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
+    setTokenWrapper(null);
     setUser(null);
     // Reset RTK Query cache to clear data from previous session
     dispatch(apiSlice.util.resetApiState());
-  }, [setUser, dispatch]);
+  }, [setUser, setTokenWrapper, dispatch]);
+
+  const logoutAdmin = useCallback(() => {
+    setAdminToken(null);
+    setAdminUser(null);
+    dispatch(apiSlice.util.resetApiState());
+  }, [setAdminToken, setAdminUser, dispatch]);
 
   const loginWithGoogle = useCallback(async () => {
     // Check if Firebase is configured
@@ -131,10 +181,7 @@ export const AuthProvider = ({ children }) => {
       
       const { token: newToken, user: newUser } = response;
       
-      localStorage.setItem('token', newToken);
-      localStorage.setItem('user', JSON.stringify(newUser));
-      
-      setToken(newToken);
+      setTokenWrapper(newToken);
       setUser(newUser);
       
       return { success: true };
@@ -164,7 +211,7 @@ export const AuthProvider = ({ children }) => {
           : (error.data?.message || 'Google login failed. Please try again later.'),
       };
     }
-  }, [setUser, googleLoginMutation]);
+  }, [setUser, setTokenWrapper, googleLoginMutation]);
 
 
   // Memoize context value to prevent unnecessary re-renders of all consumers
@@ -172,14 +219,37 @@ export const AuthProvider = ({ children }) => {
     user,
     setUser,
     token,
-    setToken,
+    setToken: setTokenWrapper,
+    adminUser,
+    setAdminUser,
+    adminToken,
+    setAdminToken,
+    loginAdmin,
     login,
     register,
     logout,
+    logoutAdmin,
     loginWithGoogle,
     isAuthenticated: !!token,
+    isAdminAuthenticated: !!adminToken,
     loading,
-  }), [user, setUser, token, login, register, logout, loginWithGoogle, loading]);
+  }), [
+    user,
+    setUser,
+    token,
+    setTokenWrapper,
+    adminUser,
+    setAdminUser,
+    adminToken,
+    setAdminToken,
+    loginAdmin,
+    login,
+    register,
+    logout,
+    logoutAdmin,
+    loginWithGoogle,
+    loading
+  ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

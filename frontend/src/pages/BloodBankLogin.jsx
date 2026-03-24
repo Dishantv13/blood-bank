@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useLoginBloodBankMutation } from '../store/bloodBankApi';
 import { useToast } from '../components/ToastContainer';
 import ThemeToggle from "../components/ThemeToggle";
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/BloodBankAuth.css';
 
 const BloodBankLogin = () => {
@@ -51,7 +52,7 @@ const BloodBankLogin = () => {
       }
       
       toast.success('Login successful! Welcome back.');
-      navigate('/blood-bank/dashboard');
+      navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD);
     } catch (err) {
       const errorMessage = err.data?.message || 'Login failed. Please try again.';
       setError(errorMessage);
@@ -197,7 +198,7 @@ const BloodBankLogin = () => {
                 <input type="checkbox" />
                 <span>Remember me</span>
               </label>
-              <Link to="/blood-bank/forgot-password" className="forgot-link">
+              <Link to={ROUTE_PATH.BLOOD_BANK_FORGOT_PASSWORD} className="forgot-link">
                 Forgot Password?
               </Link>
             </div>
@@ -221,11 +222,11 @@ const BloodBankLogin = () => {
           <div className="auth-footer">
             <p>
               Don't have an account?{' '}
-              <Link to="/blood-bank/register">Register your blood bank</Link>
+              <Link to={ROUTE_PATH.BLOOD_BANK_REGISTER}>Register your blood bank</Link>
             </p>
             <p className="user-login-link">
               Are you a donor?{' '}
-              <Link to="/login">Go to donor login</Link>
+              <Link to={ROUTE_PATH.LOGIN}>Go to donor login</Link>
             </p>
           </div>
         </div>

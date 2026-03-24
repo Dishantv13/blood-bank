@@ -2,14 +2,20 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+import { ROUTE_PATH } from '../enum/routePath';
+
+const PrivateRoute = ({ children, requireAdmin = false }) => {
+  const { isAuthenticated, isAdminAuthenticated, loading } = useAuth();
 
   if (loading) {
     return <div className="loading">Loading...</div>;
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  if (requireAdmin) {
+    return isAdminAuthenticated ? children : <Navigate to={ROUTE_PATH.ADMIN_LOGIN} />;
+  }
+
+  return isAuthenticated ? children : <Navigate to={ROUTE_PATH.LOGIN} />;
 };
 
 export default PrivateRoute;

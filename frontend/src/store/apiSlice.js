@@ -11,7 +11,17 @@ const getUrlFromArgs = (args) => {
 
 const isBloodBankPath = (url = '') => {
   const cleanUrl = String(url).split('?')[0].toLowerCase();
-  return cleanUrl.startsWith('/bloodbank');
+  return cleanUrl.startsWith('/bloodbank') || cleanUrl.startsWith('/donations/bank');
+};
+
+const isAdminPath = (url = '') => {
+  const cleanUrl = String(url).split('?')[0].toLowerCase();
+  return cleanUrl.startsWith('/admin');
+};
+
+const isAdminAuthPath = (url = '') => {
+  const cleanUrl = String(url).split('?')[0].toLowerCase();
+  return cleanUrl.startsWith('/admin-auth');
 };
 
 // Create base query with auth headers setup
@@ -20,11 +30,16 @@ const baseQuery = fetchBaseQuery({
   prepareHeaders: (headers, { arg }) => {
     headers.set('Content-Type', 'application/json');
 
-    const isBloodBankEndpoint = isBloodBankPath(getUrlFromArgs(arg));
+    const requestUrl = getUrlFromArgs(arg);
+    const isBloodBankEndpoint = isBloodBankPath(requestUrl);
+    const isAdminEndpoint = isAdminPath(requestUrl) && !isAdminAuthPath(requestUrl);
 
     if (isBloodBankEndpoint) {
       const bToken = localStorage.getItem('bloodBankToken');
       if (bToken) headers.set('authorization', `Bearer ${bToken}`);
+    } else if (isAdminEndpoint) {
+      const aToken = localStorage.getItem('adminToken');
+      if (aToken) headers.set('authorization', `Bearer ${aToken}`);
     } else {
       // Standard user endpoints
       const uToken = localStorage.getItem('token');
@@ -81,20 +96,49 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
   const result = await baseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    const isBloodBankEndpoint = isBloodBankPath(getUrlFromArgs(args));
+    const requestUrl = getUrlFromArgs(args);
+    const isBloodBankEndpoint = isBloodBankPath(requestUrl);
+    const isAdminEndpoint = isAdminPath(requestUrl) && !isAdminAuthPath(requestUrl);
+    const currentPath = window.location.pathname.toLowerCase();
+    const onAdminRoute = currentPath.startsWith('/admin');
+    const onBloodBankRoute = currentPath.startsWith('/blood-bank');
 
     if (isBloodBankEndpoint) {
+      if (onAdminRoute) {
+        return result;
+      }
       localStorage.removeItem('bloodBankToken');
       localStorage.removeItem('bloodBankData');
       localStorage.removeItem('bloodBankUser');
+      // Dispatch reset to invalidate all cached data
+      api.dispatch(apiSlice.util.resetApiState());
+      // Let PrivateRoute handle the redirect
       if (!window.location.pathname.includes('/blood-bank/login')) {
-        window.location.href = '/blood-bank/login';
+        window.location.replace('/blood-bank/login');
+      }
+    } else if (isAdminEndpoint) {
+      if (onBloodBankRoute) {
+        return result;
+      }
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
+      // Dispatch reset to invalidate all cached data
+      api.dispatch(apiSlice.util.resetApiState());
+      // Let PrivateRoute handle the redirect
+      if (!window.location.pathname.includes('/admin/login')) {
+        window.location.replace('/admin/login');
       }
     } else {
+      if (onAdminRoute || onBloodBankRoute) {
+        return result;
+      }
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      // Dispatch reset to invalidate all cached data
+      api.dispatch(apiSlice.util.resetApiState());
+      // Let PrivateRoute handle the redirect
       if (!window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+        window.location.replace('/login');
       }
     }
   }

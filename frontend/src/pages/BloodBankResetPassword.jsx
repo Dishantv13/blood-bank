@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForgotBloodBankPasswordMutation, useResetBloodBankPasswordMutation, useVerifyBloodBankResetTokenMutation } from '../store/bloodBankApi';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/BloodBankResetPassword.css'
 
 const BloodBankResetPassword = () => {
@@ -66,7 +67,7 @@ const BloodBankResetPassword = () => {
       
       // Redirect to blood bank login after 2 seconds
       setTimeout(() => {
-        navigate('/blood-bank-login');
+        navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
       }, 2000);
     } catch (err) {
       setError(err.data?.message || 'Failed to reset password');
@@ -91,7 +92,7 @@ const BloodBankResetPassword = () => {
           <p>{error}</p>
           <button 
             className="back-button"
-            onClick={() => navigate('/blood-bank-forgot-password')}
+            onClick={() => navigate(ROUTE_PATH.BLOOD_BANK_FORGOT_PASSWORD)}
           >
             Request New Link
           </button>
@@ -154,7 +155,7 @@ const BloodBankResetPassword = () => {
             </button>
 
             <div className="back-link">
-              <a href="/blood-bank-login">Back to Login</a>
+              <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN}>Back to Login</Link>
             </div>
           </form>
         )}

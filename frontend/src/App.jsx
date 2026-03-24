@@ -10,6 +10,9 @@ import { ToastProvider } from "./components/ToastContainer";
 import { ThemeProvider } from './context/ThemeContext';
 import PrivateRoute from "./components/PrivateRoute";
 import Navbar from "./components/Navbar";
+import ThemeToggle from './components/ThemeToggle';
+import AdminLayout from "./components/AdminLayout";
+import { ROUTE_PATH } from "./enum/routePath";
 import "./App.css";
 
 // 1. EAGERLY IMPORT ALL CSS
@@ -33,6 +36,16 @@ import './pages.css/BloodBankResetPassword.css';
 import './pages.css/ChangePassword.css';
 import './pages.css/BloodBankChangePassword.css';
 import './pages.css/BloodBankDirectoryDetails.css';
+import './pages.css/Admin.css';
+import './pages.css/AdminTable.css';
+import './pages.css/AdminUsers.css';
+import './pages.css/AdminBloodBanks.css';
+import './pages.css/AdminCamps.css';
+import './pages.css/AdminEvents.css';
+import './pages.css/AdminRequests.css';
+import './pages.css/AdminDonations.css';
+import './pages.css/AdminInventory.css';
+import './pages.css/AdminExports.css';
 
 // 2. LAZY LOAD ALL JAVASCRIPT
 // This splits the JS bundle without breaking the CSS cascade!
@@ -56,6 +69,21 @@ const BloodBankResetPassword = lazy(() => import('./pages/BloodBankResetPassword
 const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const BloodBankChangePassword = lazy(() => import('./pages/BloodBankChangePassword'));
 const BloodBankDirectoryDetails = lazy(() => import('./pages/BloodBankDirectoryDetails'));
+const AdminLogin = lazy(() => import('./pages/AdminLogin'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const AdminBloodBanks = lazy(() => import('./pages/AdminBloodBanks'));
+const AdminCamps = lazy(() => import('./pages/AdminCamps'));
+const AdminCampsByBloodBank = lazy(() => import('./pages/AdminCampsByBloodBank'));
+const AdminEvents = lazy(() => import('./pages/AdminEvents'));
+const AdminEventsByBloodBank = lazy(() => import('./pages/AdminEventsByBloodBank'));
+const AdminRequests = lazy(() => import('./pages/AdminRequests'));
+const AdminRequestsByUser = lazy(() => import('./pages/AdminRequestsByUser'));
+const AdminDonations = lazy(() => import('./pages/AdminDonations'));
+const AdminDonationsByUser = lazy(() => import('./pages/AdminDonationsByUser'));
+const AdminInventory = lazy(() => import('./pages/AdminInventory'));
+const AdminInventoryDetails = lazy(() => import('./pages/AdminInventoryDetails'));
+const AdminExports = lazy(() => import('./pages/AdminExports'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -67,14 +95,25 @@ const PageLoader = () => (
 // Layout component that conditionally renders Navbar
 const Layout = ({ children }) => {
   const location = useLocation();
-  const noNavbarPaths = ["/blood-bank/", "/login", "/signup"];
+  const noNavbarPaths = [
+    ROUTE_PATH.BLOOD_BANK_BASE,
+    ROUTE_PATH.ADMIN_BASE,
+    ROUTE_PATH.LOGIN,
+    ROUTE_PATH.SIGNUP
+  ];
   const showNavbar = !noNavbarPaths.some((path) =>
     location.pathname.startsWith(path),
   );
+  const showAdminThemeButton = location.pathname.startsWith(ROUTE_PATH.ADMIN_BASE) && location.pathname !== ROUTE_PATH.ADMIN_LOGIN;
 
   return (
     <>
       {showNavbar && <Navbar />}
+      {showAdminThemeButton && (
+        <div className="admin-theme-fab">
+          <ThemeToggle />
+        </div>
+      )}
       {children}
     </>
   );
@@ -91,43 +130,70 @@ function App() {
                 <Suspense fallback={<PageLoader />}>
                   <Routes>
                     {/* Blood Bank Routes */}
-                    <Route path="/blood-bank/login" element={<BloodBankLogin />} />
+                    <Route path={ROUTE_PATH.BLOOD_BANK_LOGIN} element={<BloodBankLogin />} />
                     <Route
-                      path="/blood-bank/register"
+                      path={ROUTE_PATH.BLOOD_BANK_REGISTER}
                       element={<BloodBankRegister />}
                     />
                     <Route
-                      path="/blood-bank/dashboard"
+                      path={ROUTE_PATH.BLOOD_BANK_DASHBOARD}
                       element={<BloodBankDashboard />}
                     />
                     <Route
-                      path="/blood-bank/change-password"
+                      path={ROUTE_PATH.BLOOD_BANK_CHANGE_PASSWORD}
                       element={<BloodBankChangePassword />}
                     />
                     <Route
-                      path="/blood-bank/banks/:bankId"
+                      path={ROUTE_PATH.BLOOD_BANK_DETAILS}
                       element={<BloodBankDirectoryDetails />}
                     />
 
                     {/* Forget Password Routes */}
-                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                    <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path={ROUTE_PATH.FORGOT_PASSWORD} element={<ForgotPassword />} />
+                    <Route path={ROUTE_PATH.RESET_PASSWORD} element={<ResetPassword />} />
                     <Route
-                      path="/blood-bank/forgot-password"
+                      path={ROUTE_PATH.BLOOD_BANK_FORGOT_PASSWORD}
                       element={<BloodBankForgotPassword />}
                     />
                     <Route
-                      path="/blood-bank/reset-password"
+                      path={ROUTE_PATH.BLOOD_BANK_RESET_PASSWORD}
                       element={<BloodBankResetPassword />}
                     />
 
+                    {/* Admin Routes */}
+                    <Route path={ROUTE_PATH.ADMIN_LOGIN} element={<AdminLogin />} />
+                    
+                    <Route
+                      path={ROUTE_PATH.ADMIN_BASE}
+                      element={
+                        <PrivateRoute requireAdmin>
+                          <AdminLayout />
+                        </PrivateRoute>
+                      }
+                    >
+                      <Route path={ROUTE_PATH.ADMIN_DASHBOARD} element={<AdminDashboard />} />
+                      <Route path={ROUTE_PATH.ADMIN_USERS} element={<AdminUsers />} />
+                      <Route path={ROUTE_PATH.ADMIN_BLOOD_BANKS} element={<AdminBloodBanks />} />
+                      <Route path={ROUTE_PATH.ADMIN_CAMPS} element={<AdminCamps />} />
+                      <Route path={ROUTE_PATH.ADMIN_CAMPS_BY_BANK} element={<AdminCampsByBloodBank />} />
+                      <Route path={ROUTE_PATH.ADMIN_EVENTS} element={<AdminEvents />} />
+                      <Route path={ROUTE_PATH.ADMIN_EVENTS_BY_BANK} element={<AdminEventsByBloodBank />} />
+                      <Route path={ROUTE_PATH.ADMIN_REQUESTS} element={<AdminRequests />} />
+                      <Route path={ROUTE_PATH.ADMIN_REQUESTS_BY_USER} element={<AdminRequestsByUser />} />
+                      <Route path={ROUTE_PATH.ADMIN_DONATIONS} element={<AdminDonations />} />
+                      <Route path={ROUTE_PATH.ADMIN_DONATIONS_BY_USER} element={<AdminDonationsByUser />} />
+                      <Route path={ROUTE_PATH.ADMIN_INVENTORY} element={<AdminInventory />} />
+                      <Route path={ROUTE_PATH.ADMIN_INVENTORY_DETAILS} element={<AdminInventoryDetails />} />
+                      <Route path={ROUTE_PATH.ADMIN_EXPORTS} element={<AdminExports />} />
+                    </Route>
+
                     {/* Auth Routes */}
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
+                    <Route path={ROUTE_PATH.LOGIN} element={<Login />} />
+                    <Route path={ROUTE_PATH.SIGNUP} element={<Signup />} />
 
                     {/* Protected Routes */}
                     <Route
-                      path="/"
+                      path={ROUTE_PATH.HOME}
                       element={
                         <PrivateRoute>
                           <Dashboard />
@@ -135,7 +201,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/dashboard"
+                      path={ROUTE_PATH.DASHBOARD}
                       element={
                         <PrivateRoute>
                           <Dashboard />
@@ -143,7 +209,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/blood-banks"
+                      path={ROUTE_PATH.BLOOD_BANKS}
                       element={
                         <PrivateRoute>
                           <BloodBanks />
@@ -151,7 +217,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/donors"
+                      path={ROUTE_PATH.DONORS}
                       element={
                         <PrivateRoute>
                           <Donors />
@@ -159,7 +225,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/events"
+                      path={ROUTE_PATH.EVENTS}
                       element={
                         <PrivateRoute>
                           <Events />
@@ -167,7 +233,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/events/:eventId"
+                      path={ROUTE_PATH.EVENT_DETAILS}
                       element={
                         <PrivateRoute>
                           <EventDetails />
@@ -175,7 +241,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/create-request"
+                      path={ROUTE_PATH.CREATE_REQUEST}
                       element={
                         <PrivateRoute>
                           <CreateRequest />
@@ -183,7 +249,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/profile"
+                      path={ROUTE_PATH.PROFILE}
                       element={
                         <PrivateRoute>
                           <Profile />
@@ -191,7 +257,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/change-password"
+                      path={ROUTE_PATH.CHANGE_PASSWORD}
                       element={
                         <PrivateRoute>
                           <ChangePassword />
@@ -199,7 +265,7 @@ function App() {
                       }
                     />
                     <Route
-                      path="/donor-form"
+                      path={ROUTE_PATH.DONOR_FORM}
                       element={
                         <PrivateRoute>
                           <DonorHealthForm />
@@ -208,7 +274,7 @@ function App() {
                     />
 
                     {/* Fallback */}
-                    <Route path="*" element={<Navigate to="/login" />} />
+                    <Route path={ROUTE_PATH.WILDCARD} element={<Navigate to={ROUTE_PATH.LOGIN} />} />
                   </Routes>
                 </Suspense>
               </Layout>

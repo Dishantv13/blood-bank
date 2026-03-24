@@ -3,6 +3,13 @@ import { AUTH_API_URLS } from '../enum/apiUrl';
 
 export const authApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
+    adminLogin: builder.mutation({
+      query: (credentials) => ({
+        url: AUTH_API_URLS.ADMIN_LOGIN,
+        method: 'POST',
+        body: credentials,
+      }),
+    }),
     login: builder.mutation({
       query: (credentials) => ({
         url: AUTH_API_URLS.LOGIN,
@@ -29,6 +36,7 @@ export const authApi = apiSlice.injectEndpoints({
 });
 
 export const {
+  useAdminLoginMutation,
   useLoginMutation,
   useRegisterMutation,
   useGoogleLoginMutation,

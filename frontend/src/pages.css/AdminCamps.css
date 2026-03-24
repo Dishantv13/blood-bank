@@ -1,0 +1,142 @@
+.admin-camps-page,
+.admin-events-page,
+.admin-requests-page,
+.admin-donations-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.page-header p {
+  color: #6b7280;
+  font-size: 1rem;
+}
+
+.filters-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.filter-input,
+.filter-select {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+  outline: none;
+  border-color: #991b1b;
+  box-shadow: 0 0 0 3px rgba(153, 27, 27, 0.1);
+}
+
+.filter-input::placeholder {
+  color: #9ca3af;
+}
+
+[data-theme='dark'] .admin-camps-page .filters-panel,
+[data-theme='dark'] .admin-events-page .filters-panel,
+[data-theme='dark'] .admin-requests-page .filters-panel,
+[data-theme='dark'] .admin-donations-page .filters-panel {
+  background: #1f2937;
+  border: 1px solid #374151;
+}
+
+[data-theme='dark'] .admin-camps-page .filter-input,
+[data-theme='dark'] .admin-camps-page .filter-select,
+[data-theme='dark'] .admin-events-page .filter-input,
+[data-theme='dark'] .admin-events-page .filter-select,
+[data-theme='dark'] .admin-requests-page .filter-input,
+[data-theme='dark'] .admin-requests-page .filter-select,
+[data-theme='dark'] .admin-donations-page .filter-input,
+[data-theme='dark'] .admin-donations-page .filter-select {
+  background: #111827;
+  color: #e5e7eb;
+  border-color: #4b5563;
+}
+
+[data-theme='dark'] .admin-camps-page .filter-input::placeholder,
+[data-theme='dark'] .admin-events-page .filter-input::placeholder,
+[data-theme='dark'] .admin-requests-page .filter-input::placeholder,
+[data-theme='dark'] .admin-donations-page .filter-input::placeholder {
+  color: #9ca3af;
+}
+
+.urgency-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.urgency-badge.high {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.urgency-badge.medium {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.urgency-badge.low {
+  background-color: #dbeafe;
+  color: #0c4a6e;
+}
+
+.bank-link-btn {
+  border: none;
+  background: transparent;
+  color: #0f4aa2;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.bank-link-btn:hover {
+  text-decoration: underline;
+}
+
+[data-theme='dark'] .bank-link-btn {
+  color: #93c5fd;
+}
+
+@media (max-width: 768px) {
+  .admin-camps-page,
+  .admin-events-page,
+  .admin-requests-page,
+  .admin-donations-page {
+    padding: 1rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .filters-panel {
+    grid-template-columns: 1fr;
+  }
+}
