@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGetAllBloodBanksQuery } from '../store/bloodBankApi';
 import { useGetDonorsQuery } from '../store/userApi';
 import ThemeToggle from './ThemeToggle';
+import { ROUTE_PATH } from '../enum/routePath';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -16,7 +17,7 @@ const Navbar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate(ROUTE_PATH.LOGIN);
   };
 
   // RTK Query takes care of the fetching and the 10-minute polling automatically
@@ -46,7 +47,7 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="navbar-container">
-        <Link to={isAuthenticated ? "/dashboard" : "/login"} className="navbar-brand">
+        <Link to={isAuthenticated ? ROUTE_PATH.DASHBOARD : ROUTE_PATH.LOGIN} className="navbar-brand">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
             <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="#ef4444" />
           </svg>
@@ -77,29 +78,29 @@ const Navbar = () => {
 
             <ul className={`navbar-menu ${mobileMenuOpen ? 'mobile-open' : ''}`}>
               <li>
-                <NavLink to="/dashboard" end className={getNavLinkClass}>
+                <NavLink to={ROUTE_PATH.DASHBOARD} end className={getNavLinkClass}>
                   Dashboard
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/blood-banks" className={getNavLinkClass}>
+                <NavLink to={ROUTE_PATH.BLOOD_BANKS} className={getNavLinkClass}>
                   Blood Banks
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/events" className={getNavLinkClass}>
+                <NavLink to={ROUTE_PATH.EVENTS} className={getNavLinkClass}>
                   Events
                 </NavLink>
               </li>
               {user?.activeMode !== 'donor' && (
                 <>
                   <li>
-                    <NavLink to="/donors" className={getNavLinkClass}>
+                    <NavLink to={ROUTE_PATH.DONORS} className={getNavLinkClass}>
                       Find Donors
                     </NavLink>
                   </li>
                   <li>
-                    <NavLink to="/create-request" className={getNavLinkClass}>
+                    <NavLink to={ROUTE_PATH.CREATE_REQUEST} className={getNavLinkClass}>
                       Request Blood
                     </NavLink>
                   </li>
@@ -107,7 +108,7 @@ const Navbar = () => {
               )}
               {user?.activeMode === 'donor' && user?.isDonor && (
                 <li>
-                  <NavLink to="/donor-form" className={getNavLinkClass}>
+                  <NavLink to={ROUTE_PATH.DONOR_FORM} className={getNavLinkClass}>
                     Donor Profile
                   </NavLink>
                 </li>
@@ -211,7 +212,7 @@ const Navbar = () => {
                   <>
                     <div className="dropdown-overlay" onClick={() => setShowDropdown(false)}></div>
                     <div className="dropdown-menu">
-                      <Link to="/profile" className="dropdown-item" onClick={() => setShowDropdown(false)}>
+                      <Link to={ROUTE_PATH.PROFILE} className="dropdown-item" onClick={() => setShowDropdown(false)}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
                           <circle cx="12" cy="7" r="4" />
@@ -219,7 +220,7 @@ const Navbar = () => {
                         My Profile
                       </Link>
                       {user?.activeMode === 'donor' && user?.isDonor && (
-                        <Link to="/donor-form" className="dropdown-item" onClick={() => setShowDropdown(false)}>
+                        <Link to={ROUTE_PATH.DONOR_FORM} className="dropdown-item" onClick={() => setShowDropdown(false)}>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                             <polyline points="14 2 14 8 20 8" />
@@ -230,7 +231,7 @@ const Navbar = () => {
                         </Link>
                       )}
                       <div className="dropdown-divider"></div>
-                      <Link to="/blood-bank/login" className="dropdown-item" onClick={() => setShowDropdown(false)}>
+                      <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN} className="dropdown-item" onClick={() => setShowDropdown(false)}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                           <polyline points="9 22 9 12 15 12 15 22" />

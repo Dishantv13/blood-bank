@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useForgotPasswordMutation } from '../store/userApi';
+import { Link } from 'react-router-dom';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/ForgotPassword.css';
 
 const ForgotPassword = () => {
@@ -75,7 +77,7 @@ const ForgotPassword = () => {
             </button>
 
             <div className="back-link">
-              <a href="/login">Back to Login</a>
+              <Link to={ROUTE_PATH.LOGIN}>Back to Login</Link>
             </div>
           </form>
         )}

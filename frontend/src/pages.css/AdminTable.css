@@ -1,0 +1,232 @@
+.admin-table-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.admin-table thead {
+  background: linear-gradient(to right, #7f1d1d, #991b1b);
+  color: white;
+  font-weight: 600;
+}
+
+.admin-table th {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.admin-table tbody tr {
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.2s;
+  cursor: pointer;
+}
+
+.admin-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.admin-table tbody tr.selected {
+  background-color: #fef2f2;
+}
+
+.admin-table td {
+  padding: 1rem;
+  color: #374151;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.status-select {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.status-select:hover {
+  border-color: #991b1b;
+}
+
+.status-select:focus {
+  outline: none;
+  border-color: #991b1b;
+  box-shadow: 0 0 0 3px rgba(153, 27, 27, 0.1);
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+}
+
+.pagination button {
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  font-weight: 500;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #991b1b;
+  color: white;
+  border-color: #991b1b;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: #6b7280;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.loading-spinner {
+  padding: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.inactive {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.status-badge.suspended {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.pending {
+  background-color: #dbeafe;
+  color: #0c4a6e;
+}
+
+.status-badge.approved {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+[data-theme='dark'] .admin-table-container {
+  background: #1f2937;
+  border: 1px solid #374151;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme='dark'] .admin-table th {
+  border-bottom-color: #4b5563;
+}
+
+[data-theme='dark'] .admin-table tbody tr {
+  border-bottom-color: #374151;
+}
+
+[data-theme='dark'] .admin-table tbody tr:hover {
+  background-color: #334155;
+}
+
+[data-theme='dark'] .admin-table tbody tr.selected {
+  background-color: #3f1d1d;
+}
+
+[data-theme='dark'] .admin-table td,
+[data-theme='dark'] .page-info,
+[data-theme='dark'] .loading-spinner,
+[data-theme='dark'] .empty-state {
+  color: #e5e7eb;
+}
+
+[data-theme='dark'] .pagination {
+  background: #111827;
+  border-top-color: #374151;
+}
+
+[data-theme='dark'] .pagination button,
+[data-theme='dark'] .status-select {
+  background: #111827;
+  border-color: #4b5563;
+  color: #f3f4f6;
+}
+
+[data-theme='dark'] .status-select:hover,
+[data-theme='dark'] .status-select:focus,
+[data-theme='dark'] .pagination button:hover:not(:disabled) {
+  border-color: #ef4444;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-table-container {
+    overflow-x: auto;
+  }
+
+  .admin-table {
+    font-size: 0.85rem;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}

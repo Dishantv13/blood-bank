@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useResetPasswordMutation, useVerifyResetTokenMutation } from '../store/userApi';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/ResetPassword.css';
 
 const ResetPassword = () => {
@@ -66,7 +67,7 @@ const ResetPassword = () => {
       
       // Redirect to login after 2 seconds
       setTimeout(() => {
-        navigate('/login');
+        navigate(ROUTE_PATH.LOGIN);
       }, 2000);
     } catch (err) {
       setError(err.data?.message || 'Failed to reset password');
@@ -91,7 +92,7 @@ const ResetPassword = () => {
           <p>{error}</p>
           <button 
             className="back-button"
-            onClick={() => navigate('/forgot-password')}
+            onClick={() => navigate(ROUTE_PATH.FORGOT_PASSWORD)}
           >
             Request New Link
           </button>
@@ -154,7 +155,7 @@ const ResetPassword = () => {
             </button>
 
             <div className="back-link">
-              <a href="/login">Back to Login</a>
+              <Link to={ROUTE_PATH.LOGIN}>Back to Login</Link>
             </div>
           </form>
         )}

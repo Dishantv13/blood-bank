@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllEventsQuery, useRegisterForEventMutation } from '../store/eventApi';
 import { useToast } from '../components/ToastContainer';
 import '../pages.css/EventDetails.css';
@@ -55,7 +56,7 @@ const EventDetails = () => {
   const handleRegister = async () => {
     if (!currentUserId) {
       error('Please login first');
-      navigate('/login');
+      navigate(ROUTE_PATH.LOGIN);
       return;
     }
 
@@ -83,7 +84,7 @@ const EventDetails = () => {
         <div className="error-state">
           <h2>Event Not Found</h2>
           <p>The event you're looking for doesn't exist or has been removed.</p>
-          <button className="btn-back" onClick={() => navigate('/events')}>
+          <button className="btn-back" onClick={() => navigate(ROUTE_PATH.EVENTS)}>
             Back to Events
           </button>
         </div>
@@ -120,7 +121,7 @@ const EventDetails = () => {
     <div className="event-details-container">
       {/* Hero Section */}
       <div className="event-hero">
-        <button className="btn-back-small" onClick={() => navigate('/events')}>
+        <button className="btn-back-small" onClick={() => navigate(ROUTE_PATH.EVENTS)}>
           ← Back to Events
         </button>
         <div className="hero-content">
@@ -301,7 +302,7 @@ const EventDetails = () => {
 
             {!currentUserId && !isPastEvent && (
               <p className="login-prompt">
-                <a href="/login">Login</a> to register for this event
+                <Link to={ROUTE_PATH.LOGIN}>Login</Link> to register for this event
               </p>
             )}
           </div>

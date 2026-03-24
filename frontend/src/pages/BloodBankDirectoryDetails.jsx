@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useGetBloodBankByIdQuery } from '../store/bloodBankApi';
 import { useCreateRequestMutation } from '../store/requestApi';
+import { ROUTE_PATH } from '../enum/routePath';
 import { useToast } from '../components/ToastContainer';
 import '../pages.css/BloodBankDirectoryDetails.css';
 
@@ -88,7 +89,7 @@ const BloodBankDirectoryDetails = () => {
   useEffect(() => {
     const token = localStorage.getItem('bloodBankToken');
     if (!token) {
-      navigate('/blood-bank/login');
+      navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
       return;
     }
 
@@ -263,7 +264,7 @@ const BloodBankDirectoryDetails = () => {
           <div className="details-error-card">
             <h2>Could not load details</h2>
             <p>{errorMessage}</p>
-            <button className="details-back-btn" onClick={() => navigate('/blood-bank/dashboard')}>
+            <button className="details-back-btn" onClick={() => navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD)}>
               Go Back to Dashboard
             </button>
           </div>
@@ -276,7 +277,7 @@ const BloodBankDirectoryDetails = () => {
     <div className="bank-details-page">
       <div className="details-shell">
         <div className="details-topbar">
-          <button className="details-back-btn" onClick={() => navigate('/blood-bank/dashboard')}>
+          <button className="details-back-btn" onClick={() => navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD)}>
             Back to Dashboard
           </button>
           <div className="details-heading">

@@ -11,6 +11,7 @@ import MapModal from '../components/MapModal';
 import BloodBankEventManager from '../components/BloodBankEventManager';
 import BloodBankDonations from '../components/BloodBankDonations';
 import ThemeToggle from '../components/ThemeToggle';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/BloodBankDashboard.css';
 
 const BloodBankDashboard = () => {
@@ -158,7 +159,7 @@ const BloodBankDashboard = () => {
   });
 
   const { data: bloodBanksData, isFetching: loadingBloodBanks } = useGetAllBloodBanksQuery(undefined, {
-    skip: activeTab !== 'inventory' // Only used for bank-to-bank search/transfer
+    skip: activeTab !== 'inventory' && activeTab !== 'bloodbanks'
   });
 
   // RTK Mutations
@@ -324,7 +325,7 @@ const BloodBankDashboard = () => {
     const data = localStorage.getItem('bloodBankData');
 
     if (!token || !data) {
-      navigate('/blood-bank/login');
+      navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
       return;
     }
 
@@ -349,7 +350,7 @@ const BloodBankDashboard = () => {
     localStorage.removeItem('bloodBankData');
     // Reset RTK Query cache to clear data from previous session
     dispatch(apiSlice.util.resetApiState());
-    navigate('/blood-bank/login');
+    navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
   };
 
   const handleCampFormChange = (e) => {
@@ -931,7 +932,7 @@ const BloodBankDashboard = () => {
       return;
     }
 
-    navigate(`/blood-bank/banks/${bankId}`, {
+    navigate(ROUTE_PATH.BLOOD_BANK_DETAILS.replace(":bankId", bankId), {
       state: { bloodBank: bloodBankItem }
     });
   };
@@ -1279,7 +1280,7 @@ const BloodBankDashboard = () => {
                 </div>
               )}
             </div>
-            <Link to="/login" className="header-btn">
+            <Link to={ROUTE_PATH.LOGIN} className="header-btn">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
                 <polyline points="9 22 9 12 15 12 15 22" />

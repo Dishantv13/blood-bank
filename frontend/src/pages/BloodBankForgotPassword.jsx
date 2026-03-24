@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useForgotBloodBankPasswordMutation } from '../store/bloodBankApi';
+import { Link } from 'react-router-dom';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/BloodBankForgotPassword.css'
 
 const BloodBankForgotPassword = () => {
@@ -75,7 +77,7 @@ const BloodBankForgotPassword = () => {
             </button>
 
             <div className="back-link">
-              <a href="/blood-bank-login">Back to Login</a>
+              <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN}>Back to Login</Link>
             </div>
           </form>
         )}

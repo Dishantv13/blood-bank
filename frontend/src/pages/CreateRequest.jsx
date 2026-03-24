@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer';
 import { useCreateRequestMutation } from '../store/requestApi';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/CreateRequest.css';
 
 const CreateRequest = () => {
@@ -57,7 +58,7 @@ const CreateRequest = () => {
       setSuccess('Blood request created successfully!');
       toast.success('Blood request created successfully! Help is on the way.');
       setTimeout(() => {
-        navigate('/dashboard');
+        navigate(ROUTE_PATH.DASHBOARD);
       }, 2000);
     } catch (err) {
       setError(err.data?.message || 'Failed to create request');
@@ -231,7 +232,7 @@ const CreateRequest = () => {
             <button
               type="button"
               className="btn btn-secondary"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate(ROUTE_PATH.DASHBOARD)}
             >
               Cancel
             </button>

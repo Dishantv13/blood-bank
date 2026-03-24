@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import { useUpdateDonorInfoMutation } from '../store/userApi';
 import { nameValidator, phoneValidator, pincodeValidator } from '../validation/validation';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/DonorHealthForm.css';
 
 const defaultFormValues = {
@@ -104,7 +105,7 @@ const DonorHealthForm = () => {
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      navigate(ROUTE_PATH.LOGIN);
     }
   }, [user, navigate]);
 
@@ -281,7 +282,7 @@ const DonorHealthForm = () => {
       setSuccess(successMessage);
       toast.success(successMessage);
       
-      setTimeout(() => navigate('/dashboard'), 3000);
+      setTimeout(() => navigate(ROUTE_PATH.DASHBOARD), 3000);
     } catch (err) {
       setError(err.data?.message || 'Failed to save information');
       toast.error(err.data?.message || 'Failed to save your health information. Please try again.');

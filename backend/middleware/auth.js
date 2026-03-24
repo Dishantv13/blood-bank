@@ -21,6 +21,35 @@ const auth = asyncHandler((req, res, next) => {
   }
 });
 
+// Fixed super-admin authentication middleware
+const adminAuth = asyncHandler((req, res, next) => {
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    return res
+      .status(401)
+      .json({ success: false, message: "No authentication token, access denied" });
+  }
+
+  const adminSecret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  if (!adminSecret) {
+    return res.status(500).json({ success: false, message: "Admin auth is not configured" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, adminSecret);
+
+    if (decoded.type !== "admin" || decoded.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Not authorized as admin" });
+    }
+
+    req.admin = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({ success: false, message: "Token is not valid" });
+  }
+});
+
 // Middleware for blood bank authentication (lightweight — no DB lookup)
 const bloodBankAuth = asyncHandler((req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
@@ -75,4 +104,4 @@ const protectBloodBank = asyncHandler(async (req, res, next) => {
   }
 });
 
-export { auth, bloodBankAuth, protectBloodBank };
+export { auth, adminAuth, bloodBankAuth, protectBloodBank };

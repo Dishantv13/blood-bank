@@ -1,10 +1,9 @@
 /* Blood Bank Dashboard Styles */
 .blood-bank-dashboard {
   display: flex;
-  min-height: 100vh;
-  height: auto;
+  height: 100vh;
   background: var(--bg-color);
-  overflow: visible;
+  overflow: hidden;
 }
 
 /* Loading State */
@@ -43,6 +42,14 @@
   height: 100vh;
   z-index: 100;
   transition: transform 0.3s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar for sidebar */
+.dashboard-sidebar::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
 }
 
 /* Mobile Menu Button */
@@ -91,7 +98,7 @@
 }
 
 .sidebar-header {
-  padding: 2rem;
+  padding: 1rem;
   text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -104,7 +111,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1rem;
+  margin: 0 auto 0.5rem;
 }
 
 .sidebar-logo svg {
@@ -126,6 +133,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
 }
 
 .nav-item {
@@ -171,18 +185,21 @@
   gap: 1rem;
   width: 100%;
   padding: 1rem 1.25rem;
-  background: rgba(220, 38, 38, 0.2);
+  background: #e63946;
   border: none;
   border-radius: 12px;
-  color: #f87171;
+  color: white;
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.2);
 }
 
 .logout-btn:hover {
-  background: rgba(220, 38, 38, 0.3);
+  background: #d62828;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(230, 57, 70, 0.3);
 }
 
 .logout-btn svg {
@@ -196,10 +213,10 @@
   margin-left: 280px;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  height: auto;
-  overflow-y: auto;
-  overflow-x: hidden;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-color);
 }
 
 /* Dashboard Header */
@@ -210,8 +227,7 @@
   padding: 1.5rem 2rem;
   background: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 102;
 }
 
@@ -260,9 +276,31 @@
   flex: 1;
   padding: 2rem;
   background: transparent;
-  box-shadow: none;
-  border: none;
-  border-radius: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Custom premium scrollbar for middle content */
+.dashboard-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dashboard-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+.dashboard-content::-webkit-scrollbar-thumb {
+  background: rgba(230, 57, 70, 0.3);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dashboard-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(230, 57, 70, 0.6);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 /* Stats Grid */

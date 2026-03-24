@@ -1,5 +1,6 @@
 export const AUTH_API_URLS = {
     LOGIN: '/auth/login',
+    ADMIN_LOGIN: '/admin-auth/login',
     GOOGLE_LOGIN: '/auth/google',
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
@@ -121,4 +122,69 @@ export const USER_API_URLS = {
     RESET_PASSWORD: (token) => `/api/auth/reset-password/${token}`,
     VERIFY_RESET_TOKEN: '/api/auth/verify-reset-token',
     CHANGE_PASSWORD: '/api/auth/change-password',
+};
+
+
+export const ADMIN_URLS = {
+  DASHBOARD: {
+    STATS: '/admin/dashboard/stats',
+  },
+
+  USERS: {
+    BASE: '/admin/users',
+    BY_ID: (id) => `/admin/users/${id}`,
+    UPDATE_STATUS: (id) => `/admin/users/${id}/status`,
+  },
+
+  BLOODBANKS: {
+    BASE: '/admin/bloodbanks',
+    BY_ID: (id) => `/admin/bloodbanks/${id}`,
+    UPDATE_STATUS: (id) => `/admin/bloodbanks/${id}/status`,
+  },
+
+  CAMPS: {
+    BASE: '/admin/camps',
+    BY_ID: (id) => `/admin/camps/${id}`,
+    BY_BLOODBANK: (id) => `/admin/camps/bloodbank/${id}`,
+    UPDATE_STATUS: (id) => `/admin/camps/${id}/status`,
+  },
+
+  EVENTS: {
+    BASE: '/admin/events',
+    BY_ID: (id) => `/admin/events/${id}`,
+    BY_BLOODBANK: (id) => `/admin/events/bloodbank/${id}`,
+    UPDATE_STATUS: (id) => `/admin/events/${id}/status`,
+  },
+
+  REQUESTS: {
+    BASE: '/admin/requests',
+    BY_ID: (id) => `/admin/requests/${id}`,
+    UPDATE_STATUS: (id) => `/admin/requests/${id}/status`,
+  },
+
+  DONATIONS: {
+    BASE: '/admin/donations',
+    BY_ID: (id) => `/admin/donations/${id}`,
+    UPDATE_STATUS: (id) => `/admin/donations/${id}/status`,
+  },
+
+  INVENTORY: {
+    BASE: '/admin/inventory',
+    BY_ID: (id) => `/admin/inventory/${id}`,
+  },
+
+  EXPORT: {
+    USERS_XLSX: '/admin/export/users',
+    USERS_CSV: '/admin/export/users/csv',
+    REQUESTS_XLSX: '/admin/export/requests',
+    REQUESTS_CSV: '/admin/export/requests/csv',
+    BLOODBANKS_XLSX: '/admin/export/bloodbanks',
+    BLOODBANKS_CSV: '/admin/export/bloodbanks/csv',
+    CAMPS_XLSX: '/admin/export/camps',
+    CAMPS_CSV: '/admin/export/camps/csv',
+    EVENTS_XLSX: '/admin/export/events',
+    EVENTS_CSV: '/admin/export/events/csv',
+    ALL_XLSX: '/admin/export/all?format=xlsx',
+    ALL_CSV: '/admin/export/all?format=csv',
+  },
 };

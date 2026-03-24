@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useGetDonorsQuery } from '../store/userApi';
 import { useAuth } from '../context/AuthContext';
 import MapModal from '../components/MapModal';
+import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Donors.css';
 
 const Donors = () => {
@@ -88,7 +89,7 @@ const Donors = () => {
             </select>
           </div>
           {!user?.isDonor && (
-            <Link to="/donor-form" className="btn-be-donor">
+            <Link to={ROUTE_PATH.DONOR_FORM} className="btn-be-donor">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="#fff"/>
               </svg>

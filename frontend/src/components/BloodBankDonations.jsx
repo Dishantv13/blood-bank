@@ -206,7 +206,7 @@ const BloodBankDonations = () => {
                 <p><strong>Venue:</strong> {camp.venue}</p>
                 <p><strong>Registrations:</strong> {camp.registeredDonors?.length || 0}</p>
              </div>
-             <div className="request-actions" style={{ marginTop: '1rem' }}><button className="action-btn approve">Manage Registrations</button></div>
+             <div className="request-actions" style={{ marginTop: '1rem' }}><button className="action-btn approve">Manage Registrations And Collection</button></div>
           </div>
         ))}
       </div>

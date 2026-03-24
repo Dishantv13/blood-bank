@@ -24,3 +24,15 @@ export const donationCreationLimiter = rateLimit({
   max: 1,
   message: 'Donation request limit reached for today.'
 });
+
+export const adminActionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: 'Too many admin requests, please try again later.'
+});
+
+export const adminExportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  message: 'Too many export requests. Please try again after one hour.'
+});
