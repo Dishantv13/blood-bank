@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import '../pages.css/AdminTable.css';
+import '../adminPage.css/AdminTable.css';
 
 const formatGeoLocation = (value) => {
   if (!value || !Array.isArray(value.coordinates) || value.coordinates.length < 2) {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTE_PATH } from '../enum/routePath';
-import '../pages.css/AdminPremium.css';
+import '../adminPage.css/AdminPremium.css';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
