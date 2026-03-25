@@ -6,6 +6,7 @@ import Event from '../models/Event.model.js';
 import mongoose from 'mongoose';
 import * as validationService from './validationService.js';
 import { ApiError } from '../utils/apiError.js';
+import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 
 /**
  * User Service
@@ -55,6 +56,39 @@ export const getUserProfile = async (userId) => {
   }
 
   return user;
+};
+
+// Update user profile photo
+export const updateProfilePhoto = async (userId, localFilePath) => {
+  if (!localFilePath) throw new ApiError(400, 'No file path provided');
+  
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  // Delete old photo from Cloudinary if it exists
+  if (user.photoURLPublicId) {
+    await deleteFromCloudinary(user.photoURLPublicId);
+  }
+
+  // Upload to Cloudinary
+  const cloudinaryResponse = await uploadOnCloudinary(localFilePath, 'users/profiles');
+  
+  if (!cloudinaryResponse) {
+    throw new ApiError(500, 'Failed to upload photo to Cloudinary');
+  }
+
+  // Update user profile with Cloudinary URL and Public ID
+  user.photoURL = cloudinaryResponse.secure_url;
+  user.photoURLPublicId = cloudinaryResponse.public_id;
+  
+  await user.save();
+  
+  return { 
+    photoURL: user.photoURL,
+    publicId: cloudinaryResponse.public_id 
+  };
 };
 
 // Update user profile

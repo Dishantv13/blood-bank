@@ -2,6 +2,7 @@ import { validationResult } from 'express-validator';
 import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from '../utils/response.js';
 import * as bloodBankService from '../services/bloodBankService.js';
+import * as fileUploadService from '../services/fileUploadService.js';
 
 /**
  * ============================================
@@ -15,6 +16,24 @@ export const register = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
+  }
+
+  // Parse stringified objects if we're receiving FormData
+  ['address', 'operatingHours', 'location', 'services', 'contactPerson', 'inventory'].forEach(field => {
+    if (typeof req.body[field] === 'string') {
+      try {
+        req.body[field] = JSON.parse(req.body[field]);
+      } catch (e) {
+        // Keep as string if parsing fails
+      }
+    }
+  });
+
+  // Check for uploaded logo
+  if (req.file) {
+    const uploadResult = await fileUploadService.handleSingleUpload(req.file.path, 'blood-bank/profiles');
+    req.body.logo = uploadResult.url;
+    req.body.profileImagePublicId = uploadResult.publicId; 
   }
 
   const result = await bloodBankService.registerBloodBank(req.body);

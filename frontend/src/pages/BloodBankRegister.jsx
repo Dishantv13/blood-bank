@@ -29,6 +29,8 @@ const BloodBankRegister = () => {
   const [formError, setFormError] = useState('');
   const [showPassword, setShowPassword] = useState(true);
   const [showConfirmPassword, setShowConfirmPassword] = useState(true);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
 
   const [registerBloodBank] = useRegisterBloodBankMutation();
 
@@ -147,6 +149,28 @@ const BloodBankRegister = () => {
     setFormError('');
   };
 
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Logo file size should not exceed 5MB');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file for the logo');
+      return;
+    }
+
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLogoPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const validateStep = async () => {
     setFormError('');
 
@@ -255,20 +279,37 @@ const BloodBankRegister = () => {
 
       setFormError('');
 
-    try {
-      const submitData = {
-          ...data,
-        operatingHours: {
-            open: data.openTime,
-            close: data.closeTime,
-            days: data.workingDays
-        },
-        location: location || undefined
-      };
-      
-      const response = await registerBloodBank(submitData).unwrap();
-      toast.success('Registration successful! Please login.');
-      navigate(ROUTE_PATH.BLOOD_BANK_LOGIN, { state: { message: 'Registration successful! Please login.' } });
+      try {
+        const formData = new FormData();
+        
+        // Add basic fields
+        Object.keys(data).forEach(key => {
+          if (!['openTime', 'closeTime', 'workingDays', 'services', 'logo'].includes(key)) {
+            formData.append(key, data[key]);
+          }
+        });
+
+        // Add complex objects as stringified JSON
+        formData.append('operatingHours', JSON.stringify({
+          open: data.openTime,
+          close: data.closeTime,
+          days: data.workingDays
+        }));
+        
+        formData.append('services', JSON.stringify(data.services));
+        
+        if (location) {
+          formData.append('location', JSON.stringify(location));
+        }
+
+        // Add the logo file if selected
+        if (logoFile) {
+          formData.append('logo', logoFile);
+        }
+        
+        const response = await registerBloodBank(formData).unwrap();
+        toast.success('Registration successful! Please login.');
+        navigate(ROUTE_PATH.BLOOD_BANK_LOGIN, { state: { message: 'Registration successful! Please login.' } });
     } catch (err) {
       console.error('Registration error:', err.data || err.message);
       const errorMessage = err.data?.message || err.data?.error || 'Registration failed. Please try again.';
@@ -355,120 +396,92 @@ const BloodBankRegister = () => {
         {errors.phone && <p className="field-error">{errors.phone.message}</p>}
       </div>
 
-      <div className="form-group">
-        <label htmlFor="logo">
+
+
+      <div className="form-group password-field">
+        <label htmlFor="password">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
           </svg>
-          Logo URL (Optional)
+          Password *
         </label>
-        <input
-          type="url"
-          id="logo"
-          placeholder="https://example.com/logo.png"
-          {...register('logo', {
-            validate: (value) => {
-              if (!value) return true;
-              try {
-                new URL(value);
-                return true;
-              } catch {
-                return 'Enter a valid logo URL';
-              }
-            },
-          })}
-        />
-        {errors.logo && <p className="field-error">{errors.logo.message}</p>}
+        <div className="password-input-wrapper">
+          <input
+            type={showPassword ? 'password' : 'text'}
+            id="password"
+            placeholder="Min 6 characters"
+            {...register('password', {
+              required: 'Password is required',
+              minLength: { value: 6, message: 'Password must be at least 6 characters' },
+            })}
+          />
+          <button
+            type="button"
+            className="password-toggle"
+            onClick={() => setShowPassword((prev) => !prev)}
+            aria-label={showPassword ? 'Show password' : 'Hide password'}
+          >
+            {showPassword ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
+                <path d="M1 1l22 22"/>
+                <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
+                <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            )}
+          </button>
+        </div>
+        {errors.password && <p className="field-error">{errors.password.message}</p>}
       </div>
 
-      <div className="form-row">
-        <div className="form-group password-field">
-          <label htmlFor="password">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0110 0v4"/>
-            </svg>
-            Password *
-          </label>
-          <div className="password-input-wrapper">
-            <input
-              type={showPassword ? 'password' : 'text'}
-              id="password"
-              placeholder="Min 6 characters"
-              {...register('password', {
-                required: 'Password is required',
-                minLength: { value: 6, message: 'Password must be at least 6 characters' },
-              })}
-            />
-            <button
-              type="button"
-              className="password-toggle"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? 'Show password' : 'Hide password'}
-            >
-              {showPassword ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                  <path d="M1 1l22 22"/>
-                  <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                  <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              )}
-            </button>
-          </div>
-          {errors.password && <p className="field-error">{errors.password.message}</p>}
+      <div className="form-group password-field">
+        <label htmlFor="confirmPassword">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+          Confirm Password *
+        </label>
+        <div className="password-input-wrapper">
+          <input
+            type={showConfirmPassword ? 'password' : 'text'}
+            id="confirmPassword"
+            placeholder="Confirm password"
+            {...register('confirmPassword', {
+              required: 'Please confirm your password',
+              validate: (value) => value === watchedPassword || 'Passwords do not match',
+            })}
+          />
+          <button
+            type="button"
+            className="password-toggle"
+            onClick={() => setShowConfirmPassword((prev) => !prev)}
+            aria-label={showConfirmPassword ? 'Show confirm password' : 'Hide confirm password'}
+          >
+            {showConfirmPassword ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
+                <path d="M1 1l22 22"/>
+                <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
+                <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            )}
+          </button>
         </div>
-
-        <div className="form-group password-field">
-          <label htmlFor="confirmPassword">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-              <path d="M7 11V7a5 5 0 0110 0v4"/>
-            </svg>
-            Confirm Password *
-          </label>
-          <div className="password-input-wrapper">
-            <input
-              type={showConfirmPassword ? 'password' : 'text'}
-              id="confirmPassword"
-              placeholder="Confirm password"
-              {...register('confirmPassword', {
-                required: 'Please confirm your password',
-                validate: (value) => value === watchedPassword || 'Passwords do not match',
-              })}
-            />
-            <button
-              type="button"
-              className="password-toggle"
-              onClick={() => setShowConfirmPassword((prev) => !prev)}
-              aria-label={showConfirmPassword ? 'Show confirm password' : 'Hide confirm password'}
-            >
-              {showConfirmPassword ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                  <path d="M1 1l22 22"/>
-                  <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                  <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              )}
-            </button>
-          </div>
-          {errors.confirmPassword && (
-            <p className="field-error">{errors.confirmPassword.message}</p>
-          )}
-        </div>
+        {errors.confirmPassword && (
+          <p className="field-error">{errors.confirmPassword.message}</p>
+        )}
       </div>
     </>
   );
@@ -762,20 +775,48 @@ const BloodBankRegister = () => {
             <p className="field-error">{errors.contactPersonPhone.message}</p>
           )}
         </div>
+      </div>
 
-        <div className="form-group">
-          <label htmlFor="contactPersonEmail">Contact Person Email</label>
-          <input
-            type="email"
-            id="contactPersonEmail"
-            placeholder="Optional contact email"
-            {...register('contactPersonEmail', {
-              validate: optionalEmailValidator,
-            })}
-          />
-          {errors.contactPersonEmail && (
-            <p className="field-error">{errors.contactPersonEmail.message}</p>
+      <div className="form-group">
+        <label>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+          Hospital Logo / Profile Photo (Optional)
+        </label>
+        <div className="logo-upload-container">
+          {logoPreview ? (
+            <div className="logo-preview-wrapper register-preview">
+              <img src={logoPreview} alt="Logo Preview" />
+              <button 
+                type="button" 
+                className="remove-logo-btn"
+                onClick={() => {
+                  setLogoFile(null);
+                  setLogoPreview(null);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <div className="logo-upload-placeholder" onClick={() => document.getElementById('logo-file').click()}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              <span>Click to upload hospital logo</span>
+              <small>Max 5MB (JPG, PNG)</small>
+            </div>
           )}
+          <input
+            type="file"
+            id="logo-file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleLogoChange}
+          />
         </div>
       </div>
     </>

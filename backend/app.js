@@ -22,6 +22,7 @@ import requestsRoutes from "./routes/requests.route.js";
 import eventsRoutes from "./routes/events.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import donationsRoutes from "./routes/donations.route.js";
+import uploadRoutes from "./routes/upload.route.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -104,6 +105,7 @@ app.use("/api/requests", requestsRoutes);
 app.use("/api/events", eventsRoutes);
 app.use("/api/admin", adminRoutes); // Admin routes for Excel export
 app.use("/api/donations", donationsRoutes);
+app.use("/api/upload", uploadRoutes); // Generic upload routes (Cloudinary)
 
 // ==================== ERROR HANDLING MIDDLEWARE (must be AFTER routes) ====================
 app.use(globalErrorHandler);

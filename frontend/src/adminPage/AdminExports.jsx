@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import AdminBackButton from '../components/AdminBackButton.jsx';
+import AdminBackButton from './AdminBackButton.jsx';
 import '../pages.css/AdminExports.css';
 
 const AdminExports = () => {

@@ -12,6 +12,7 @@ import {
   resetPassword,
   verifyResetToken
 } from '../controller/bloodBank.controller.js';
+import { upload } from '../middleware/multer.js';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ const router = Router();
 // @route   POST /api/blood-banks/register
 // @desc    Register a new blood bank
 // @access  Public
-router.route('/register').post(register);
+router.route('/register').post(upload.single('logo'), register);
 
 // @route   POST /api/blood-banks/login
 // @desc    Authenticate blood bank & get token

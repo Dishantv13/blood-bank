@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useGetInventoryByIdQuery } from "../store/adminApi.js";
-import AdminBackButton from "../components/AdminBackButton.jsx";
+import AdminBackButton from "./AdminBackButton.jsx";
 import "../pages.css/AdminInventory.css";
 
 const AdminInventoryDetails = () => {

@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import AdminLayout from '../components/AdminLayout';
+import AdminLayout from './AdminLayout.jsx';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useGetDashboardStatsQuery } from '../store/adminApi.js';
-import { 
-  FiUsers, FiActivity, FiMapPin, FiCalendar, 
-  FiClipboard, FiPackage, FiBarChart2, FiArrowRight 
+import {
+  FiUsers, FiActivity, FiMapPin, FiCalendar,
+  FiClipboard, FiPackage, FiBarChart2, FiArrowRight
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {

@@ -3,11 +3,13 @@ import { auth } from "../middleware/auth.js";
 import {
   getProfile,
   updateProfile,
+  updateProfilePhoto,
   updateDonorInfo,
   getDonors,
   toggleMode,
   getDashboardStats,
 } from "../controller/users.controller.js";
+import { upload } from '../middleware/multer.js';
 
 const router = Router();
 
@@ -20,6 +22,11 @@ router.route("/profile").get(auth, getProfile);
 // @desc    Update user profile
 // @access  Private
 router.route("/profile").put(auth, updateProfile);
+
+// @route   POST /api/users/profile/photo
+// @desc    Update user profile photo
+// @access  Private
+router.route("/profile/photo").post(auth, upload.single('photo'), updateProfilePhoto);
 
 // @route   PUT /api/users/donor-info
 // @desc    Update donor health information

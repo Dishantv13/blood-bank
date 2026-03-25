@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllDonationsQuery, useGetUserByIdQuery } from '../store/adminApi.js';
-import AdminTable from '../components/AdminTable.jsx';
+import AdminTable from './AdminTable.jsx';
 
 const AdminDonationsByUser = () => {
   const navigate = useNavigate();

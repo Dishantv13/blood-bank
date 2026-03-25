@@ -104,7 +104,7 @@ const BloodBanks = () => {
               <div className="bank-left-section">
                 <div className="bank-image-container">
                   <img 
-                    src={bank.logo || galleryImages[index % galleryImages.length].url} 
+                    src={bank.profileImage || bank.logo || galleryImages[index % galleryImages.length].url} 
                     alt={bank.name} 
                     className="bank-cover-image"
                     onError={(e) => {
@@ -137,7 +137,14 @@ const BloodBanks = () => {
                   <div className="stat-item">
                     <span className="stat-icon">🩸</span>
                     <div className="stat-info">
-                      <span className="stat-value">A+, B+, O+</span>
+                      <span className="stat-value">
+                        {bank.inventory && bank.inventory.some(item => (item.units || 0) > 0)
+                          ? bank.inventory
+                              .filter(item => (item.units || 0) > 0)
+                              .map(item => item.bloodGroup || item.type)
+                              .join(', ')
+                          : 'Check Inventory'}
+                      </span>
                       <span className="stat-label">Available</span>
                     </div>
                   </div>
