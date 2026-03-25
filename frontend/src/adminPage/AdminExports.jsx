@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import AdminBackButton from './AdminBackButton.jsx';
-import '../pages.css/AdminExports.css';
+import '../adminPage.css/AdminExports.css';
 
 const AdminExports = () => {
   const [format, setFormat] = useState('xlsx');
