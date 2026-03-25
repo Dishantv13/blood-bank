@@ -2,6 +2,7 @@ import { validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import * as userService from '../services/userService.js';
+import { ApiError } from '../utils/apiError.js';
 
 /**
  * ============================================
@@ -15,6 +16,17 @@ const getProfile = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.getUserProfile(userId);
   successResponse(res, result, 200, 'User profile fetched successfully');
+});
+
+// Update user profile photo
+const updateProfilePhoto = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, 'Please select a photo to upload');
+  }
+  
+  const userId = req.user.userId || req.user._id || req.user.id;
+  const result = await userService.updateProfilePhoto(userId, req.file.path);
+  successResponse(res, result, 200, 'Profile photo updated successfully');
 });
 
 // Update user profile
@@ -70,6 +82,7 @@ const getDashboardStats = asyncHandler(async (req, res) => {
 export {
   getProfile,
   updateProfile,
+  updateProfilePhoto,
   updateDonorInfo,
   getDonors,
   toggleMode,

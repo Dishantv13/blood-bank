@@ -34,6 +34,9 @@ const UserSchema = new mongoose.Schema({
   photoURL: {
     type: String
   },
+  photoURLPublicId: {
+    type: String
+  },
   role: {
     type: String,
     enum: ['user', 'donor', 'admin', 'bloodbank'],

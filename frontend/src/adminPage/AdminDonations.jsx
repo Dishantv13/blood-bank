@@ -1,28 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { useGetAllBloodBanksQuery, useUpdateBloodBankStatusMutation } from '../store/adminApi.js';
-import AdminTable from '../components/AdminTable.jsx';
+import { useNavigate } from 'react-router-dom';
+import { ROUTE_PATH } from '../enum/routePath';
+import { useGetAllUsersQuery } from '../store/adminApi.js';
+import AdminTable from './AdminTable.jsx';
 
 
-const AdminBloodBanks = () => {
+const AdminDonations = () => {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState({ search: '', status: '' });
-  const [updateBankStatus] = useUpdateBloodBankStatusMutation();
 
-  const { data: banksData, isLoading } = useGetAllBloodBanksQuery({
+  const { data: usersData, isLoading } = useGetAllUsersQuery({
     page,
     limit: 10,
     ...filters,
   });
-
-  const handleStatusChange = async (bankId, newStatus) => {
-    if (!newStatus) return;
-    try {
-      await updateBankStatus({ bankId, status: newStatus }).unwrap();
-    } catch (error) {
-      console.error('Failed to update bank status:', error);
-    }
-  };
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -40,32 +33,29 @@ const AdminBloodBanks = () => {
   }, [searchInput]);
 
   const columns = [
-    { key: 'name', label: 'Blood Bank Name', width: '20%' },
-    { key: 'email', label: 'Email', width: '20%' },
-    { key: 'mobileNumber', label: 'Phone', width: '15%' },
-    { key: 'city', label: 'City', width: '15%' },
-    { key: 'state', label: 'State', width: '10%' },
+    { key: 'name', label: 'User Name', width: '24%' },
+    { key: 'email', label: 'Email', width: '24%' },
+    { key: 'mobileNumber', label: 'Phone', width: '16%' },
+    { key: 'donationCount', label: 'Donations', width: '12%' },
     {
       key: 'status',
       label: 'Status',
-      width: '15%',
-      render: (status) => (
-        <span className={`status-badge ${status}`}>{status?.toUpperCase()}</span>
-      ),
+      width: '12%',
+      render: (status) => <span className={`status-badge ${status}`}>{status?.toUpperCase()}</span>,
     },
   ];
 
   return (
     <>
       <div className="dashboard-header-premium">
-        <h1 className="page-title">Blood Bank Management</h1>
-        <p className="page-subtitle">View and manage all registered blood banks</p>
+        <h1 className="page-title">Donation Management</h1>
+        <p className="page-subtitle">Select a user to view their donation records</p>
       </div>
 
       <div className="filters-panel">
         <input
           type="text"
-          placeholder="Search by name, email, or city..."
+          placeholder="Search user by name, email, or phone..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="filter-input"
@@ -84,14 +74,14 @@ const AdminBloodBanks = () => {
 
       <AdminTable
         columns={columns}
-        data={banksData?.data || []}
+        data={usersData?.data || []}
         isLoading={isLoading}
-        onStatusChange={handleStatusChange}
-        pagination={banksData?.pagination}
+        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_DONATIONS_BY_USER.replace(":userId", row._id))}
+        pagination={usersData?.pagination}
         onPageChange={setPage}
       />
     </>
   );
 };
 
-export default AdminBloodBanks;
+export default AdminDonations;

@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllBloodBanksQuery } from '../store/adminApi.js';
-import AdminTable from '../components/AdminTable.jsx';
+import AdminTable from './AdminTable.jsx';
 
 
-const AdminEvents = () => {
+const AdminCamps = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
@@ -48,8 +48,8 @@ const AdminEvents = () => {
   return (
     <>
       <div className="dashboard-header-premium">
-        <h1 className="page-title">Event Management</h1>
-        <p className="page-subtitle">View and monitor blood events across all banks</p>
+        <h1 className="page-title">Camp Management</h1>
+        <p className="page-subtitle">View and monitor blood camps across all banks</p>
       </div>
 
       <div className="filters-panel">
@@ -76,7 +76,7 @@ const AdminEvents = () => {
         columns={columns}
         data={banksData?.data || []}
         isLoading={isLoading}
-        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_EVENTS_BY_BANK.replace(":bankId", row._id))}
+        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_CAMPS_BY_BANK.replace(":bankId", row._id))}
         pagination={banksData?.pagination}
         onPageChange={setPage}
       />
@@ -84,4 +84,4 @@ const AdminEvents = () => {
   );
 };
 
-export default AdminEvents;
+export default AdminCamps;

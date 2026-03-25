@@ -598,19 +598,25 @@ const BloodBankDashboard = () => {
   };
 
   const handlePhotoUpload = async () => {
-    if (!bloodBankPhoto && !photoPreview) {
-      warning('Please select a photo first');
+    if (!bloodBankPhoto) {
+      warning('Please select a photo file first');
       return;
     }
 
     try {
-      await uploadPhoto({ photo: photoPreview }).unwrap();
+      const formData = new FormData();
+      formData.append('photo', bloodBankPhoto);
+
+      await uploadPhoto(formData).unwrap();
+      
       addNotification('Hospital photo uploaded successfully!');
       success('Hospital photo uploaded successfully!');
       setBloodBankPhoto(null);
     } catch (err) {
       console.error('Error uploading photo:', err);
-      error('Failed to upload photo. Please try again.');
+      // More descriptive error if available
+      const errorMsg = err.data?.message || 'Failed to upload photo. Please try again.';
+      error(errorMsg);
     }
   };
 

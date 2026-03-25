@@ -1,6 +1,7 @@
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import * as bloodBankPortalService from '../services/bloodBankPortalService.js';
+import { ApiError } from '../utils/apiError.js';
 
 const getBloodBankId = (req) => req.bloodBank.bloodBankId || req.bloodBank._id;
 
@@ -94,7 +95,10 @@ const exportCampRegistrations = asyncHandler(async (req, res) => {
 });
 
 const uploadPhoto = asyncHandler(async (req, res) => {
-  const result = await bloodBankPortalService.uploadPhoto(getBloodBankId(req), req.body.photo);
+  if (!req.file) {
+    throw new ApiError(400, 'Please select a photo to upload');
+  }
+  const result = await bloodBankPortalService.uploadPhoto(getBloodBankId(req), req.file.path);
   successResponse(res, result, 200, 'Photo uploaded successfully');
 });
 

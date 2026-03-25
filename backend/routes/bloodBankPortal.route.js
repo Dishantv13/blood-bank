@@ -123,10 +123,14 @@ router.route('/camps/:id/export-registrations').get(bloodBankAuth, exportCampReg
 
 // ==================== SETTINGS & PROFILE MANAGEMENT ====================
 
+import { upload } from '../middleware/multer.js';
+
+// ... (existing imports)
+
 // @route   POST /api/bloodbank/settings/photo
 // @desc    Upload blood bank photo
 // @access  Private (Blood Bank)
-router.route('/settings/photo').post(bloodBankAuth, uploadPhoto);
+router.route('/settings/photo').post(bloodBankAuth, upload.single('photo'), uploadPhoto);
 
 // @route   GET /api/bloodbank/settings/profile
 // @desc    Get blood bank profile details

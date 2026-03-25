@@ -52,6 +52,10 @@ const BloodBankSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  profileImagePublicId: {
+    type: String,
+    default: ''
+  },
   location: {
     type: {
       type: String,

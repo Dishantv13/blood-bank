@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useGetAllUsersQuery, useUpdateUserStatusMutation } from '../store/adminApi.js';
-import AdminTable from '../components/AdminTable.jsx';
+import AdminTable from './AdminTable.jsx';
 
 const AdminUsers = () => {
   const [page, setPage] = useState(1);

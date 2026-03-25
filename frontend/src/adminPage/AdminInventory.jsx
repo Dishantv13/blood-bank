@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useGetInventoryOverviewQuery } from '../store/adminApi.js';
-import AdminTable from '../components/AdminTable.jsx';
+import AdminTable from './AdminTable.jsx';
 
 
 const AdminInventory = () => {

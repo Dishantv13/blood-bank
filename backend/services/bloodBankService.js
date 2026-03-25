@@ -62,10 +62,6 @@ export const registerBloodBank = async (data) => {
     throw new ApiError(400, 'Blood bank with this email or license number already exists');
   }
 
-  // Hash password
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
-
   // Initialize inventory with all blood types
   const initialInventory = [
     { bloodGroup: 'A+', units: 0 },
@@ -82,7 +78,7 @@ export const registerBloodBank = async (data) => {
   const bloodBank = new BloodBank({
     name,
     email,
-    password: hashedPassword,
+    password, // Let the model's pre-save hook handle hashing
     phone,
     licenseNumber,
     registrationNumber,
@@ -103,7 +99,9 @@ export const registerBloodBank = async (data) => {
     inventory: initialInventory,
     location: location || undefined,
     logo: logo || '',
-    imageUrl: logo || ''
+    imageUrl: logo || '',
+    profileImage: logo || '', // Use the uploaded photo as profile image too
+    profileImagePublicId: data.profileImagePublicId || ''
   });
 
   await bloodBank.save();
@@ -171,7 +169,7 @@ export const loginBloodBank = async (email, password) => {
 // Get all public blood banks or nearby ones
 export const getAllBloodBanks = async (query) => {
   const { latitude, longitude, maxDistance, bloodGroup } = query;
-  const listProjection = 'name email phone logo imageUrl address location inventory';
+  const listProjection = 'name email phone logo imageUrl profileImage address location inventory';
 
   let bloodBanks;
   if (latitude && longitude) {

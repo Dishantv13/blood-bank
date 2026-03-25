@@ -109,6 +109,7 @@ export const USER_API_URLS = {
     GET_PROFILE: '/users/profile',
     UPDATE_PROFILE: '/users/profile',
     UPDATE_DONOR_INFO: '/users/donor-info',
+    UPLOAD_PHOTO: '/users/profile/photo',
 
     // Donors
     GET_DONORS: '/users/donors',

@@ -6,6 +6,7 @@ import Inventory from '../models/Inventory.model.js';
 import Event from '../models/Event.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { addInventoryUnits, subtractInventoryUnits } from './inventoryService.js';
+import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return '';
@@ -454,14 +455,36 @@ export const exportCampRegistrations = async (campId, bloodBankId) => {
   };
 };
 
-export const uploadPhoto = async (bloodBankId, photo) => {
-  if (!photo) throw new ApiError(400, 'No photo provided');
+// ... (other imports)
+
+export const uploadPhoto = async (bloodBankId, localFilePath) => {
+  if (!localFilePath) throw new ApiError(400, 'No file path provided');
+  
   const bloodBank = await BloodBank.findById(bloodBankId);
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
-  bloodBank.profileImage = photo;
+  // Delete old photo from Cloudinary if it exists
+  if (bloodBank.profileImagePublicId) {
+    await deleteFromCloudinary(bloodBank.profileImagePublicId);
+  }
+
+  // Upload to Cloudinary
+  const cloudinaryResponse = await uploadOnCloudinary(localFilePath, 'blood-bank/profiles');
+  
+  if (!cloudinaryResponse) {
+    throw new ApiError(500, 'Failed to upload photo to Cloudinary');
+  }
+
+  // Update blood bank profile with Cloudinary URL and Public ID
+  bloodBank.profileImage = cloudinaryResponse.secure_url;
+  bloodBank.profileImagePublicId = cloudinaryResponse.public_id;
+  
   await bloodBank.save();
-  return { photo: bloodBank.profileImage };
+  
+  return { 
+    photo: bloodBank.profileImage,
+    publicId: cloudinaryResponse.public_id 
+  };
 };
 
 export const getDashboard = async (bloodBankId) => {

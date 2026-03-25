@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useGetEventsByBloodBankQuery } from "../store/adminApi.js";
-import AdminTable from "../components/AdminTable.jsx";
+import AdminTable from "./AdminTable.jsx";
 
 
 const AdminEventsByBloodBank = () => {
   const navigate = useNavigate();
   const { bankId } = useParams();
   const [page, setPage] = useState(1);
-    const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState({ search: "", status: "" });
 
   const { data: eventsData, isLoading } = useGetEventsByBloodBankQuery(

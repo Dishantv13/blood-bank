@@ -78,6 +78,14 @@ export const userApi = apiSlice.injectEndpoints({
         body: data,
       }),
     }),
+    uploadPhoto: builder.mutation({
+      query: (data) => ({
+        url: USER_API_URLS.UPLOAD_PHOTO,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: tagList(TAGS.USER),
+    }),
   }),
   overrideExisting: false,
 });
@@ -93,4 +101,5 @@ export const {
   useResetPasswordMutation,
   useVerifyResetTokenMutation,
   useChangeUserPasswordMutation,
+  useUploadPhotoMutation,
 } = userApi;

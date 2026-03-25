@@ -28,7 +28,11 @@ const isAdminAuthPath = (url = '') => {
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
   prepareHeaders: (headers, { arg }) => {
-    headers.set('Content-Type', 'application/json');
+    // If body is FormData, don't set Content-Type (let browser handle boundary)
+    const isFormData = arg && arg.body instanceof FormData;
+    if (!isFormData) {
+      headers.set('Content-Type', 'application/json');
+    }
 
     const requestUrl = getUrlFromArgs(arg);
     const isBloodBankEndpoint = isBloodBankPath(requestUrl);

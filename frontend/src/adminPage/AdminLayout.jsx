@@ -7,7 +7,7 @@ import {
   FiClipboard, FiPackage, FiBarChart2, FiLogOut, 
   FiMenu, FiX
 } from 'react-icons/fi';
-import '../pages.css/AdminPremium.css';
+import '../adminPage.css/AdminPremium.css';
 
 const AdminLayout = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
