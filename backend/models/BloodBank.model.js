@@ -107,11 +107,30 @@ const BloodBankSchema = new mongoose.Schema({
   },
   isActive: {
     type: Boolean,
-    default: true
+    default: false
   },
   isVerified: {
     type: Boolean,
     default: false
+  },
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+    index: true
+  },
+  reviewedAt: {
+    type: Date
+  },
+  reviewedBy: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  rejectionReason: {
+    type: String,
+    trim: true,
+    default: ''
   },
   passwordReset: {
     token: String,

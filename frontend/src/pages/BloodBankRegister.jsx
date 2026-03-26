@@ -307,9 +307,9 @@ const BloodBankRegister = () => {
           formData.append('logo', logoFile);
         }
         
-        const response = await registerBloodBank(formData).unwrap();
-        toast.success('Registration successful! Please login.');
-        navigate(ROUTE_PATH.BLOOD_BANK_LOGIN, { state: { message: 'Registration successful! Please login.' } });
+        await registerBloodBank(formData).unwrap();
+        toast.success('Registration submitted successfully. Please wait for admin approval by email.');
+        navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
     } catch (err) {
       console.error('Registration error:', err.data || err.message);
       const errorMessage = err.data?.message || err.data?.error || 'Registration failed. Please try again.';

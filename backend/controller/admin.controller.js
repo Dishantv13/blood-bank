@@ -141,8 +141,13 @@ const getBloodBankById = asyncHandler(async (req, res) => {
 
 const updateBloodBankStatus = asyncHandler(async (req, res) => {
   const { bankId } = req.params;
-  const { status } = req.body;
-  const bank = await adminService.updateBloodBankStatus(bankId, status);
+  const { status, rejectionReason } = req.body;
+  const bank = await adminService.updateBloodBankStatus(bankId, status, {
+    rejectionReason,
+    reviewedBy: req.admin?.email || req.admin?.name || 'admin',
+    adminEmail: req.admin?.email,
+    adminName: req.admin?.name,
+  });
   successResponse(res, bank, 200, 'Blood bank status updated successfully');
 });
 

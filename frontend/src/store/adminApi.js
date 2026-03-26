@@ -61,10 +61,10 @@ export const adminApi = apiSlice.injectEndpoints({
     }),
 
     updateAdminBloodBankStatus: builder.mutation({
-      query: ({ bankId, status }) => ({
+      query: ({ bankId, status, rejectionReason }) => ({
         url: ADMIN_URLS.BLOODBANKS.UPDATE_STATUS(bankId),
         method: "PATCH",
-        body: { status },
+        body: { status, rejectionReason },
       }),
       invalidatesTags: (result, error, { bankId }) => [
         ...tagList(TAGS.ADMIN_BLOOD_BANK),

@@ -74,6 +74,7 @@ const AdminLogin = lazy(() => import('./adminPage/AdminLogin'));
 const AdminDashboard = lazy(() => import('./adminPage/AdminDashboard'));
 const AdminUsers = lazy(() => import('./adminPage/AdminUsers'));
 const AdminBloodBanks = lazy(() => import('./adminPage/AdminBloodBanks'));
+const AdminBloodBankDetails = lazy(() => import('./adminPage/AdminBloodBankDetails'));
 const AdminCamps = lazy(() => import('./adminPage/AdminCamps'));
 const AdminCampsByBloodBank = lazy(() => import('./adminPage/AdminCampsByBloodBank'));
 const AdminEvents = lazy(() => import('./adminPage/AdminEvents'));
@@ -170,6 +171,7 @@ function App() {
                     <Route path={ROUTE_PATH.ADMIN_DASHBOARD} element={<AdminDashboard />} />
                     <Route path={ROUTE_PATH.ADMIN_USERS} element={<AdminUsers />} />
                     <Route path={ROUTE_PATH.ADMIN_BLOOD_BANKS} element={<AdminBloodBanks />} />
+                    <Route path={ROUTE_PATH.ADMIN_BLOOD_BANK_DETAILS} element={<AdminBloodBankDetails />} />
                     <Route path={ROUTE_PATH.ADMIN_CAMPS} element={<AdminCamps />} />
                     <Route path={ROUTE_PATH.ADMIN_CAMPS_BY_BANK} element={<AdminCampsByBloodBank />} />
                     <Route path={ROUTE_PATH.ADMIN_EVENTS} element={<AdminEvents />} />

@@ -50,8 +50,27 @@ const adminAuth = asyncHandler((req, res, next) => {
   }
 });
 
-// Middleware for blood bank authentication (lightweight — no DB lookup)
-const bloodBankAuth = asyncHandler((req, res, next) => {
+const loadApprovedBloodBank = async (bloodBankId) => {
+  const bloodBank = await BloodBank.findById(bloodBankId).select("-password").lean();
+
+  if (!bloodBank) {
+    return { error: { status: 404, message: "Blood bank not found" } };
+  }
+
+  if (bloodBank.approvalStatus !== "approved" || !bloodBank.isActive || !bloodBank.isVerified) {
+    return { error: { status: 403, message: "Your blood bank account is not approved for access" } };
+  }
+
+  return {
+    bloodBank: {
+      ...bloodBank,
+      bloodBankId: String(bloodBank._id),
+    },
+  };
+};
+
+// Middleware for blood bank authentication
+const bloodBankAuth = asyncHandler(async (req, res, next) => {
   const token = req.header("Authorization")?.replace("Bearer ", "");
 
   if (!token) {
@@ -67,7 +86,16 @@ const bloodBankAuth = asyncHandler((req, res, next) => {
       return res.status(403).json({ success: false, message: "Not authorized as blood bank" });
     }
 
-    req.bloodBank = decoded;
+    const result = await loadApprovedBloodBank(decoded.bloodBankId);
+    if (result.error) {
+      return res.status(result.error.status).json({ success: false, message: result.error.message });
+    }
+
+    req.bloodBank = {
+      ...result.bloodBank,
+      type: decoded.type,
+    };
+
     next();
   } catch (error) {
     return res.status(401).json({ success: false, message: "Token is not valid" });
@@ -92,12 +120,12 @@ const protectBloodBank = asyncHandler(async (req, res, next) => {
         .json({ success: false, message: "Not authorized as blood bank" });
     }
 
-    req.bloodBank = await BloodBank.findById(decoded.bloodBankId).select("-password").lean();
-
-    if (!req.bloodBank) {
-      return res.status(404).json({ success: false, message: "Blood bank not found" });
+    const result = await loadApprovedBloodBank(decoded.bloodBankId);
+    if (result.error) {
+      return res.status(result.error.status).json({ success: false, message: result.error.message });
     }
 
+    req.bloodBank = result.bloodBank;
     next();
   } catch (error) {
     return res.status(401).json({ success: false, message: "Not authorized, token failed" });

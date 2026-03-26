@@ -3,7 +3,11 @@ import Inventory from '../models/Inventory.model.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
-import { sendPasswordResetEmail } from '../utils/emailService.js';
+import {
+  sendPasswordResetEmail,
+  sendBloodBankApprovalEmail,
+  sendBloodBankRejectionEmail
+} from '../utils/emailService.js';
 import * as validationService from './validationService.js';
 import { ApiError } from '../utils/apiError.js';
 
@@ -101,7 +105,11 @@ export const registerBloodBank = async (data) => {
     logo: logo || '',
     imageUrl: logo || '',
     profileImage: logo || '', // Use the uploaded photo as profile image too
-    profileImagePublicId: data.profileImagePublicId || ''
+    profileImagePublicId: data.profileImagePublicId || '',
+    isActive: false,
+    isVerified: false,
+    approvalStatus: 'pending',
+    rejectionReason: ''
   });
 
   await bloodBank.save();
@@ -114,17 +122,15 @@ export const registerBloodBank = async (data) => {
   });
   await inventory.save();
 
-  // Generate token
-  const token = generateToken(bloodBank._id);
-
   return {
-    token,
     bloodBank: {
       id: bloodBank._id,
       name: bloodBank.name,
       email: bloodBank.email,
-      phone: bloodBank.phone
-    }
+      phone: bloodBank.phone,
+      approvalStatus: bloodBank.approvalStatus
+    },
+    requiresApproval: true
   };
 };
 
@@ -138,6 +144,21 @@ export const loginBloodBank = async (email, password) => {
   const bloodBank = await BloodBank.findOne({ email }).select('+password');
   if (!bloodBank) {
     throw new ApiError(401, 'Invalid credentials');
+  }
+
+  if (bloodBank.approvalStatus === 'pending') {
+    throw new ApiError(403, 'Your registration request is still pending admin approval. Please wait for the approval email before logging in.');
+  }
+
+  if (bloodBank.approvalStatus === 'rejected') {
+    const rejectionReason = bloodBank.rejectionReason
+      ? ` Reason: ${bloodBank.rejectionReason}`
+      : '';
+    throw new ApiError(403, `Your registration request was rejected by the admin.${rejectionReason}`);
+  }
+
+  if (!bloodBank.isActive || !bloodBank.isVerified) {
+    throw new ApiError(403, 'Your blood bank account is not active. Please contact the admin.');
   }
 
   // Check password
@@ -161,6 +182,7 @@ export const loginBloodBank = async (email, password) => {
       operatingHours: bloodBank.operatingHours,
       services: bloodBank.services,
       isVerified: bloodBank.isVerified,
+      approvalStatus: bloodBank.approvalStatus,
       inventory: bloodBank.inventory || []
     }
   };
@@ -176,6 +198,7 @@ export const getAllBloodBanks = async (query) => {
     // Geospatial query for nearby blood banks
     const geoQuery = {
       isActive: true,
+      approvalStatus: 'approved',
       location: {
         $near: {
           $geometry: {
@@ -189,7 +212,7 @@ export const getAllBloodBanks = async (query) => {
 
     bloodBanks = await BloodBank.find(geoQuery).select(listProjection).lean();
   } else {
-    bloodBanks = await BloodBank.find({ isActive: true }).select(listProjection).lean();
+    bloodBanks = await BloodBank.find({ isActive: true, approvalStatus: 'approved' }).select(listProjection).lean();
   }
 
   // Batch fetch inventories (avoid N+1)
@@ -235,7 +258,7 @@ export const getAllBloodBanks = async (query) => {
 // Get blood bank by ID
 export const getBloodBankById = async (bloodBankId) => {
   const bloodBank = await BloodBank.findById(bloodBankId).select('-password').lean();
-  if (!bloodBank) {
+  if (!bloodBank || bloodBank.approvalStatus !== 'approved' || !bloodBank.isActive) {
     throw new ApiError(404, 'Blood bank not found');
   }
 
@@ -310,7 +333,12 @@ export const createBloodBank = async (data) => {
     address,
     location,
     inventory: inventory || [],
-    operatingHours
+    operatingHours,
+    isActive: true,
+    isVerified: true,
+    approvalStatus: 'approved',
+    reviewedAt: new Date(),
+    reviewedBy: 'admin'
   });
 
   await bloodBank.save();
@@ -435,4 +463,12 @@ export const verifyResetToken = async (token) => {
   }
 
   return { valid: true };
+};
+
+export const sendBloodBankRegistrationApprovedEmail = async (bloodBank) => {
+  await sendBloodBankApprovalEmail(bloodBank.email, bloodBank.name);
+};
+
+export const sendBloodBankRegistrationRejectedEmail = async (bloodBank, rejectionReason) => {
+  await sendBloodBankRejectionEmail(bloodBank.email, bloodBank.name, rejectionReason);
 };
