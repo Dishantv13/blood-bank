@@ -1,6 +1,36 @@
 import React, { useState } from 'react';
 import '../adminPage.css/AdminTable.css';
 
+const DESTRUCTIVE_STATUSES = new Set(['suspended', 'inactive', 'rejected', 'cancelled']);
+
+const StatusChangeConfirmDialog = ({ pending, onConfirm, onCancel }) => {
+  if (!pending) return null;
+  const { newStatus } = pending;
+  return (
+    <div className="confirm-dialog-overlay" onClick={onCancel}>
+      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="confirm-dialog-icon">⚠️</div>
+        <h3 className="confirm-dialog-title">Confirm Status Change</h3>
+        <p className="confirm-dialog-message">
+          Are you sure you want to change the status to{' '}
+          <strong style={{ textTransform: 'uppercase' }}>{newStatus}</strong>?
+          {DESTRUCTIVE_STATUSES.has(newStatus) && (
+            <> This action may restrict access for the affected record.</>
+          )}
+        </p>
+        <div className="confirm-dialog-actions">
+          <button className="confirm-dialog-btn confirm-dialog-btn--cancel" onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="confirm-dialog-btn confirm-dialog-btn--confirm" onClick={onConfirm}>
+            Yes, Change Status
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const formatGeoLocation = (value) => {
   if (!value || !Array.isArray(value.coordinates) || value.coordinates.length < 2) {
     return null;
@@ -71,7 +101,28 @@ export const AdminTable = ({
   onPageChange,
 }) => {
   const [selectedRow, setSelectedRow] = useState(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const hasActions = Boolean(onStatusChange || onActionClick);
+
+  const handleStatusSelect = (rowId, newStatus, currentStatus) => {
+    if (!newStatus || newStatus === currentStatus) return;
+    if (DESTRUCTIVE_STATUSES.has(newStatus)) {
+      setPendingStatusChange({ rowId, newStatus });
+    } else {
+      if (onStatusChange) onStatusChange(rowId, newStatus);
+    }
+  };
+
+  const handleConfirm = () => {
+    if (pendingStatusChange && onStatusChange) {
+      onStatusChange(pendingStatusChange.rowId, pendingStatusChange.newStatus);
+    }
+    setPendingStatusChange(null);
+  };
+
+  const handleCancel = () => {
+    setPendingStatusChange(null);
+  };
 
   if (isLoading) {
     return (
@@ -91,6 +142,11 @@ export const AdminTable = ({
 
   return (
     <div className="admin-table-container">
+      <StatusChangeConfirmDialog
+        pending={pendingStatusChange}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
       <table className="admin-table">
         <thead>
           <tr>
@@ -126,7 +182,7 @@ export const AdminTable = ({
                       <select
                         className="status-select"
                         value={row.status || ''}
-                        onChange={(e) => onStatusChange(row._id, e.target.value)}
+                        onChange={(e) => handleStatusSelect(row._id, e.target.value, row.status)}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <option value="">Change Status</option>

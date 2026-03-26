@@ -17,7 +17,7 @@ export const generateToken = (userId, email, role) => {
   return jwt.sign(
     { userId, email, role },
     process.env.JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 };
 
@@ -124,7 +124,7 @@ export const googleLogin = async (email, name, googleId, photoURL) => {
       photoURL,
       password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
       phone: '',
-      bloodGroup: 'O+',
+      bloodGroup: '',
       isDonor: false,
       address: { street: '', city: '', state: '', pincode: '' }
     });
