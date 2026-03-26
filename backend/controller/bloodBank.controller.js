@@ -37,7 +37,7 @@ export const register = asyncHandler(async (req, res) => {
   }
 
   const result = await bloodBankService.registerBloodBank(req.body);
-  successResponse(res, result, 201, 'Blood bank registered successfully');
+  successResponse(res, result, 201, 'Blood bank registration request submitted successfully. Please wait for admin approval.');
 });
 
 // Login blood bank

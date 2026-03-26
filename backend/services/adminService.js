@@ -8,6 +8,10 @@ import Event from '../models/Event.model.js';
 import Donation from '../models/Donation.model.js';
 import Inventory from '../models/Inventory.model.js';
 import { ApiError } from '../utils/apiError.js';
+import {
+  sendBloodBankRegistrationApprovedEmail,
+  sendBloodBankRegistrationRejectedEmail
+} from './bloodBankService.js';
 
 const buildWorkbookBuffer = async (sheetName, rows) => {
   const workbook = new ExcelJS.Workbook();
@@ -65,6 +69,7 @@ export const exportBloodBanks = async () => {
     LicenseNumber: bank.licenseNumber,
     City: bank.address?.city || 'N/A',
     State: bank.address?.state || 'N/A',
+    ApprovalStatus: bank.approvalStatus || 'pending',
     CreatedAt: new Date(bank.createdAt).toLocaleDateString()
   }));
 
@@ -154,7 +159,7 @@ export const exportBloodBanksCsv = async () => {
     RegistrationNumber: bank.registrationNumber,
     City: bank.city,
     State: bank.state,
-    Status: bank.status,
+    Status: bank.approvalStatus || bank.status,
     CreatedAt: new Date(bank.createdAt).toLocaleDateString()
   }));
   
@@ -376,8 +381,7 @@ export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
   const query = {};
 
   if (filters.status) {
-    if (filters.status === 'active') query.isActive = true;
-    if (filters.status === 'inactive' || filters.status === 'suspended') query.isActive = false;
+    query.approvalStatus = filters.status;
   }
   if (filters.search) {
     query.$or = [
@@ -388,7 +392,7 @@ export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
   }
 
   const banks = await BloodBank.find(query)
-    .select('_id name email phone address isActive registrationNumber licenseNumber createdAt')
+    .select('_id name email phone address isActive isVerified approvalStatus registrationNumber licenseNumber rejectionReason reviewedAt reviewedBy createdAt')
     .skip(skip)
     .limit(limit)
     .sort({ createdAt: -1 })
@@ -399,12 +403,17 @@ export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
     _id: bank._id,
     name: bank.name,
     email: bank.email,
-    mobileNumber: bank.phone || '',
-    city: bank.address?.city || '',
-    state: bank.address?.state || '',
-    status: bank.isActive ? 'active' : 'inactive',
-    registrationNumber: bank.registrationNumber || bank.licenseNumber || '',
-    createdAt: bank.createdAt,
+      mobileNumber: bank.phone || '',
+      city: bank.address?.city || '',
+      state: bank.address?.state || '',
+      status: bank.approvalStatus || 'pending',
+      isActive: bank.isActive,
+      isVerified: bank.isVerified,
+      registrationNumber: bank.registrationNumber || bank.licenseNumber || '',
+      rejectionReason: bank.rejectionReason || '',
+      reviewedAt: bank.reviewedAt,
+      reviewedBy: bank.reviewedBy || '',
+      createdAt: bank.createdAt,
   }));
 
   return {
@@ -428,25 +437,64 @@ export const getBloodBankById = async (bankId) => {
   return bank;
 };
 
-export const updateBloodBankStatus = async (bankId, status) => {
-  const validStatuses = ['active', 'inactive', 'suspended'];
+export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) => {
+  const validStatuses = ['pending', 'approved', 'rejected'];
   if (!validStatuses.includes(status)) {
     throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
-  const isActive = status === 'active';
-
-  const bank = await BloodBank.findByIdAndUpdate(
-    bankId,
-    { isActive, updatedAt: new Date() },
-    { new: true }
-  ).lean();
+  const bank = await BloodBank.findById(bankId);
 
   if (!bank) {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  return bank;
+  const reviewer =
+    reviewContext.reviewedBy ||
+    reviewContext.adminEmail ||
+    reviewContext.adminName ||
+    'admin';
+
+  if (status === 'rejected') {
+    const rejectionReason = String(reviewContext.rejectionReason || '').trim();
+    if (!rejectionReason) {
+      throw new ApiError(400, 'Rejection reason is required when rejecting a blood bank');
+    }
+
+    bank.approvalStatus = 'rejected';
+    bank.isActive = false;
+    bank.isVerified = false;
+    bank.rejectionReason = rejectionReason;
+    bank.reviewedAt = new Date();
+    bank.reviewedBy = reviewer;
+    await bank.save();
+
+    await sendBloodBankRegistrationRejectedEmail(bank, rejectionReason);
+    return bank.toObject();
+  }
+
+  if (status === 'approved') {
+    bank.approvalStatus = 'approved';
+    bank.isActive = true;
+    bank.isVerified = true;
+    bank.rejectionReason = '';
+    bank.reviewedAt = new Date();
+    bank.reviewedBy = reviewer;
+    await bank.save();
+
+    await sendBloodBankRegistrationApprovedEmail(bank);
+    return bank.toObject();
+  }
+
+  bank.approvalStatus = 'pending';
+  bank.isActive = false;
+  bank.isVerified = false;
+  bank.rejectionReason = '';
+  bank.reviewedAt = new Date();
+  bank.reviewedBy = reviewer;
+  await bank.save();
+
+  return bank.toObject();
 };
 
 // ===================== BLOOD CAMPS MANAGEMENT =====================
@@ -1055,7 +1103,7 @@ export const getDashboardStats = async () => {
     inventoryStats,
   ] = await Promise.all([
     User.countDocuments({ isAvailable: true }),
-    BloodBank.countDocuments({ isActive: true }),
+    BloodBank.countDocuments({ isActive: true, approvalStatus: 'approved' }),
     BloodCamp.countDocuments({ status: { $ne: 'cancelled' } }),
     Event.countDocuments({ isActive: true }),
     BloodRequest.countDocuments({ status: 'pending' }),

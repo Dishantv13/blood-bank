@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLoginBloodBankMutation } from '../store/bloodBankApi';
 import { useToast } from '../components/ToastContainer';
 import ThemeToggle from "../components/ThemeToggle";
@@ -8,6 +8,7 @@ import '../pages.css/BloodBankAuth.css';
 
 const BloodBankLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
   const [formData, setFormData] = useState({
     email: '',
@@ -17,6 +18,24 @@ const BloodBankLogin = () => {
   const [showPassword, setShowPassword] = useState(true);
 
   const [loginBloodBank, { isLoading: loading }] = useLoginBloodBankMutation();
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setError(location.state.message);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
+
+  const isRestrictedLoginMessage = (message) => {
+    const normalized = String(message || '').toLowerCase();
+    return (
+      normalized.includes('approval email') ||
+      normalized.includes('pending admin approval') ||
+      normalized.includes('pending') ||
+      normalized.includes('rejected by the admin') ||
+      normalized.includes('registration request was rejected')
+    );
+  };
 
   const handleChange = (e) => {
     setFormData({
@@ -55,7 +74,12 @@ const BloodBankLogin = () => {
       navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD);
     } catch (err) {
       const errorMessage = err.data?.message || 'Login failed. Please try again.';
-      setError(errorMessage);
+      if (isRestrictedLoginMessage(errorMessage)) {
+        setFormData({ email: '', password: '' });
+        setError(errorMessage);
+      } else {
+        setError(errorMessage);
+      }
       toast.error(errorMessage);
     }
   };
@@ -118,7 +142,7 @@ const BloodBankLogin = () => {
         <div className="auth-form-container">
           <div className="auth-form-header">
             <h2>Welcome Back</h2>
-            <p>Sign in to your blood bank account</p>
+            <p>Sign in after your blood bank registration has been approved by admin</p>
           </div>
 
           {error && (
@@ -232,9 +256,22 @@ const BloodBankLogin = () => {
         </div>
       </div>
       </div>
+
+      <style>{`
+        .auth-alert.auth-alert-error {
+          background: #fff5f5;
+          color: #991b1b;
+          border: 1px solid #fecaca;
+        }
+
+        [data-theme='dark'] .auth-alert.auth-alert-error {
+          background: #3f1d1d;
+          color: #fecaca;
+          border-color: #7f1d1d;
+        }
+      `}</style>
     </div>
   );
 };
 
 export default BloodBankLogin;
-

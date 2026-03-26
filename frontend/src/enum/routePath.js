@@ -34,6 +34,7 @@ export const ROUTE_PATH = {
   ADMIN_DASHBOARD: "/admin/dashboard", 
   ADMIN_USERS: "/admin/users",
   ADMIN_BLOOD_BANKS: "/admin/bloodbanks",
+  ADMIN_BLOOD_BANK_DETAILS: "/admin/bloodbanks/:bankId",
   ADMIN_CAMPS: "/admin/camps",
   ADMIN_CAMPS_BY_BANK: "/admin/camps/bloodbank/:bankId",
   ADMIN_EVENTS: "/admin/events",
