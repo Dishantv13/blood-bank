@@ -334,6 +334,20 @@
   }
 }
 
+/* Page Loader Spinner */
+.page-loader-spinner {
+  width: 52px;
+  height: 52px;
+  border: 5px solid rgba(230, 57, 70, 0.2);
+  border-top-color: #e63946;
+  border-radius: 50%;
+  animation: page-loader-spin 0.9s linear infinite;
+}
+
+@keyframes page-loader-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* Loading Spinner */
 .loading {
   text-align: center;
