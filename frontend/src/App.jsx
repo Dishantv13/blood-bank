@@ -86,10 +86,10 @@ const AdminInventory = lazy(() => import('./adminPage/AdminInventory'));
 const AdminInventoryDetails = lazy(() => import('./adminPage/AdminInventoryDetails'));
 const AdminExports = lazy(() => import('./adminPage/AdminExports'));
 
-// Loading fallback component
+const NotFound = lazy(() => import('./pages/NotFound'));
 const PageLoader = () => (
-  <div className="loading" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem', color: '#e63946' }}>
-    Loading...
+  <div className="page-loader" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <div className="page-loader-spinner" />
   </div>
 );
 
@@ -275,7 +275,7 @@ function App() {
                   />
 
                   {/* Fallback */}
-                  <Route path={ROUTE_PATH.WILDCARD} element={<Navigate to={ROUTE_PATH.LOGIN} />} />
+                  <Route path={ROUTE_PATH.WILDCARD} element={<NotFound />} />
                 </Routes>
               </Suspense>
             </Layout>
