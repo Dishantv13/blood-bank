@@ -92,6 +92,17 @@ app.get("/", (req, res) => {
   });
 });
 
+app.get("/api/health", (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+  res.json({
+    status: mongoose.connection.readyState === 1 ? "healthy" : "degraded",
+    db: dbStatus,
+    uptime: process.uptime().toFixed(2) + " seconds",
+    version: process.env.npm_package_version || "1.0.0",
+    timestamp: new Date().toISOString()
+  });
+});
+
 // ==================== ROUTES ====================
 app.use("/api/auth", authRoutes);
 app.use("/api/admin-auth", adminAuthRoutes);

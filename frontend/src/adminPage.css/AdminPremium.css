@@ -659,3 +659,32 @@
 [data-theme='dark'] .admin-premium-root .admin-role {
   color: #9ca3af;
 }
+
+/* Admin Login — password visibility toggle */
+.admin-login-premium-root .admin-password-wrapper {
+  position: relative;
+}
+
+.admin-login-premium-root .admin-password-wrapper .premium-input {
+  padding-right: 2.8rem;
+}
+
+.admin-login-premium-root .admin-password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem;
+  transition: color 0.2s;
+}
+
+.admin-login-premium-root .admin-password-toggle:hover {
+  color: #f9fafb;
+}
