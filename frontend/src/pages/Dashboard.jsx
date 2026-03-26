@@ -17,6 +17,7 @@ import { useGetMyDonationsQuery } from '../store/donationApi';
 import DonateBloodModal from '../components/DonateBloodModal';
 import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Dashboard.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const Dashboard = () => {
   const { user, setUser } = useAuth();
@@ -214,7 +215,7 @@ const Dashboard = () => {
   };
 
   if (isGlobalLoading) {
-    return <div className="loading-container"><div className="spinner"></div></div>;
+    return <SkeletonLoader />;
   }
 
   return (

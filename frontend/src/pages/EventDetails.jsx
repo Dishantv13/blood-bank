@@ -4,6 +4,7 @@ import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllEventsQuery, useRegisterForEventMutation } from '../store/eventApi';
 import { useToast } from '../components/ToastContainer';
 import '../pages.css/EventDetails.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const EventDetails = () => {
   const { eventId } = useParams();
@@ -71,11 +72,7 @@ const EventDetails = () => {
   };
 
   if (loading) {
-    return (
-      <div className="event-details-container">
-        <div className="loading">Loading event details...</div>
-      </div>
-    );
+    return <SkeletonLoader />;
   }
 
   if (!event) {

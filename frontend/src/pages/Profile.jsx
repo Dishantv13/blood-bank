@@ -6,6 +6,7 @@ import { useToast } from '../components/ToastContainer';
 import MapModal from '../components/MapModal';
 import { nameValidator, phoneValidator, pincodeValidator } from '../validation/validation';
 import '../pages.css/Profile.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const defaultFormValues = {
   name: '',
@@ -196,7 +197,7 @@ const Profile = () => {
   };
 
   if (loadingProfile) {
-    return <div className="loading">Loading profile...</div>;
+    return <SkeletonLoader />;
   }
 
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];

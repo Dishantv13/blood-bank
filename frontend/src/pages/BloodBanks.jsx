@@ -4,6 +4,7 @@ import ImageLightbox from '../components/ImageLightbox';
 import MapModal from '../components/MapModal';
 import InventoryModal from '../components/InventoryModal';
 import '../pages.css/BloodBanks.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const BloodBanks = () => {
   const [filterBloodGroup, setFilterBloodGroup] = useState('');
@@ -43,7 +44,7 @@ const BloodBanks = () => {
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
   if (loadingBloodBanks) {
-    return <div className="loading">Loading blood banks...</div>;
+    return <SkeletonLoader />;
   }
 
   return (

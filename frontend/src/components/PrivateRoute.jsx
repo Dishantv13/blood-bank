@@ -4,11 +4,13 @@ import { useAuth } from '../context/AuthContext';
 
 import { ROUTE_PATH } from '../enum/routePath';
 
+import SkeletonLoader from './SkeletonLoader';
+
 const PrivateRoute = ({ children, requireAdmin = false }) => {
   const { isAuthenticated, isAdminAuthenticated, loading } = useAuth();
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return <SkeletonLoader />;
   }
 
   if (requireAdmin) {

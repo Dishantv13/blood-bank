@@ -85,13 +85,8 @@ const AdminDonationsByUser = lazy(() => import('./adminPage/AdminDonationsByUser
 const AdminInventory = lazy(() => import('./adminPage/AdminInventory'));
 const AdminInventoryDetails = lazy(() => import('./adminPage/AdminInventoryDetails'));
 const AdminExports = lazy(() => import('./adminPage/AdminExports'));
-
 const NotFound = lazy(() => import('./pages/NotFound'));
-const PageLoader = () => (
-  <div className="page-loader" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-    <div className="page-loader-spinner" />
-  </div>
-);
+import SkeletonLoader from "./components/SkeletonLoader";
 
 // Layout component that conditionally renders Navbar
 const Layout = ({ children }) => {
@@ -128,7 +123,7 @@ function App() {
         <ToastProvider>
           <div className="App">
             <Layout>
-              <Suspense fallback={<PageLoader />}>
+              <Suspense fallback={<SkeletonLoader />}>
                 <Routes>
                   {/* Blood Bank Routes */}
                   <Route path={ROUTE_PATH.BLOOD_BANK_LOGIN} element={<BloodBankLogin />} />

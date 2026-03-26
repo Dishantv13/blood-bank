@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import MapModal from '../components/MapModal';
 import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Donors.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const Donors = () => {
   const { user } = useAuth();
@@ -65,7 +66,7 @@ const Donors = () => {
   const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
   if (loadingDonors) {
-    return <div className="loading">Loading donors...</div>;
+    return <SkeletonLoader />;
   }
 
   return (

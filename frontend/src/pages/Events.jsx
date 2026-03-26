@@ -4,6 +4,7 @@ import { useGetAllCampsQuery, useRegisterForCampMutation } from '../store/bloodC
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import '../pages.css/Events.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const Events = () => {
   const { user } = useAuth();
@@ -122,7 +123,7 @@ const Events = () => {
   const { events: filteredEvents, camps: filteredCamps } = getFilteredContent();
 
   if (loading) {
-    return <div className="loading">Loading events...</div>;
+    return <SkeletonLoader />;
   }
 
   return (
