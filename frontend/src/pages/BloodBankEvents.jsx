@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGetBloodBankEventsQuery, useUpdateEventMutation, useDeleteEventMutation, useExportEventRegistrationsMutation } from '../store/eventApi';
 import '../pages.css/BloodBankEvents.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const BloodBankEvents = () => {
   const [events, setEvents] = useState([]);
@@ -95,7 +96,7 @@ const BloodBankEvents = () => {
   };
 
   if (isLoading && events.length === 0) {
-    return <div className="loading">Loading events...</div>;
+    return <SkeletonLoader />;
   }
 
   return (

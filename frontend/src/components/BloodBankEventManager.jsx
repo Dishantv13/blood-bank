@@ -4,6 +4,7 @@ import EventCard from './EventCard';
 import EventFormModal from './EventFormModal';
 import { useToast } from './ToastContainer';
 import '../components.css/BloodBankEventManager.css'
+import SkeletonLoader from './SkeletonLoader';
 
 const BloodBankEventManager = () => {
   const { success, error } = useToast();
@@ -422,7 +423,7 @@ const BloodBankEventManager = () => {
               </div>
 
               {registrationsLoading ? (
-                <div className="loading">Loading registrations...</div>
+                <SkeletonLoader />
               ) : (
                 <>
                   <div className="registrations-info">

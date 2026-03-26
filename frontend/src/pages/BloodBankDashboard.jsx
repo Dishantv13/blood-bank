@@ -11,6 +11,7 @@ import MapModal from '../components/MapModal';
 import BloodBankEventManager from '../components/BloodBankEventManager';
 import BloodBankDonations from '../components/BloodBankDonations';
 import ThemeToggle from '../components/ThemeToggle';
+import SkeletonLoader from '../components/SkeletonLoader';
 import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/BloodBankDashboard.css';
 
@@ -884,12 +885,7 @@ const BloodBankDashboard = () => {
   };
 
   if (loading) {
-    return (
-      <div className="dashboard-loading">
-        <div className="loading-spinner-large"></div>
-        <p>Loading dashboard...</p>
-      </div>
-    );
+    return <SkeletonLoader />;
   }
 
   const handleTabChange = (tab) => {

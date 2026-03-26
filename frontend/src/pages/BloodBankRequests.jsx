@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useGetBloodBankRequestsQuery, useApproveRequestMutation, useRejectRequestMutation } from '../store/requestApi';
 import '../pages.css/BloodBankRequests.css';
+import SkeletonLoader from '../components/SkeletonLoader';
 
 const BloodBankRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -106,7 +107,7 @@ const BloodBankRequests = () => {
   };
 
   if (isLoading && requests.length === 0 && approvedRequests.length === 0) {
-    return <div className="loading">Loading real-time requests...</div>;
+    return <SkeletonLoader />;
   }
 
   return (
