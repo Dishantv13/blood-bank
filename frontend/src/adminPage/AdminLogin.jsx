@@ -50,7 +50,7 @@ const AdminLogin = () => {
               className="premium-input"
               value={formData.email}
               onChange={handleChange}
-              placeholder="admin@bloodbank.com"
+              placeholder="Enter your email"
               required
               autoComplete="username"
             />
