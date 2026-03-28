@@ -44,10 +44,33 @@ export const authApi = apiSlice.injectEndpoints({
       }),
     }),
     getUserSession: builder.query({
-      query: () => AUTH_API_URLS.SESSION,
+      async queryFn(_arg, _api, _extraOptions, baseQuery) {
+        const currentPath = typeof window !== 'undefined'
+          ? window.location.pathname.toLowerCase()
+          : '';
+        const isNonUserRoute =
+          currentPath.startsWith('/admin') ||
+          currentPath.startsWith('/blood-bank') ||
+          currentPath.startsWith('/bloodbank');
+
+        if (isNonUserRoute) {
+          return { data: null };
+        }
+
+        return baseQuery(AUTH_API_URLS.SESSION);
+      },
     }),
     getAdminSession: builder.query({
-      query: () => AUTH_API_URLS.ADMIN_SESSION,
+      async queryFn(_arg, _api, _extraOptions, baseQuery) {
+        const currentPath = typeof window !== 'undefined'
+          ? window.location.pathname.toLowerCase()
+          : '';
+        if (!currentPath.startsWith('/admin')) {
+          return { data: null };
+        }
+
+        return baseQuery(AUTH_API_URLS.ADMIN_SESSION);
+      },
     }),
     getUserCsrfToken: builder.query({
       query: () => AUTH_API_URLS.CSRF_TOKEN,

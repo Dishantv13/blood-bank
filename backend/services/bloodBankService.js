@@ -17,6 +17,7 @@ import {
   getRefreshTokenFromRequest,
   setAuthCookies,
   verifyRefreshToken,
+  getPublicCookieOptions,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 
@@ -36,13 +37,7 @@ export const issueBloodBankCsrfToken = (res) => {
   const { csrfCookie } = getCookieNamesForRole('bloodbank');
   const csrfToken = generateCsrfToken();
 
-  res.cookie(csrfCookie, csrfToken, {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
-  });
+  res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
 
   return { csrfToken };
 };
@@ -564,3 +559,4 @@ export const sendBloodBankRegistrationApprovedEmail = async (bloodBank) => {
 export const sendBloodBankRegistrationRejectedEmail = async (bloodBank, rejectionReason) => {
   await sendBloodBankRejectionEmail(bloodBank.email, bloodBank.name, rejectionReason);
 };
+

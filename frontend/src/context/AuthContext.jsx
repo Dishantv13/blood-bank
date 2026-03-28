@@ -76,19 +76,58 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const bootstrapSessions = async () => {
       const currentPath = window.location.pathname.toLowerCase();
-      const shouldCheckAdminSession = currentPath.startsWith('/admin');
+      const isBloodBankRoute =
+        currentPath.startsWith('/blood-bank') ||
+        currentPath.startsWith('/bloodbank');
+      const isAdminPublicAuthPath =
+        currentPath === '/admin/login' ||
+        currentPath === '/admin/forgot-password' ||
+        currentPath.startsWith('/admin/reset-password');
+      const isPublicAuthPath = (
+        currentPath === '/login' ||
+        currentPath === '/signup' ||
+        currentPath === '/forgot-password' ||
+        currentPath.startsWith('/reset-password') ||
+        currentPath === '/admin/login' ||
+        currentPath === '/blood-bank/login' ||
+        currentPath === '/bloodbank/login' ||
+        currentPath === '/blood-bank/register' ||
+        currentPath === '/bloodbank/register' ||
+        currentPath === '/admin/forgot-password' ||
+        currentPath.startsWith('/admin/reset-password') ||
+        currentPath === '/blood-bank/forgot-password' ||
+        currentPath === '/bloodbank/forgot-password' ||
+        currentPath.startsWith('/blood-bank/reset-password') ||
+        currentPath.startsWith('/bloodbank/reset-password')
+      );
+      const shouldCheckAdminSession =
+        currentPath.startsWith('/admin') &&
+        !isAdminPublicAuthPath;
+      const shouldCheckUserSession =
+        !isPublicAuthPath &&
+        !currentPath.startsWith('/admin') &&
+        !isBloodBankRoute;
+
+      if (!shouldCheckUserSession && !shouldCheckAdminSession) {
+        setUser(null);
+        setAdminUser(null);
+        setLoading(false);
+        return;
+      }
 
       try {
         const [userSession, adminSession] = await Promise.allSettled([
-          triggerUserSession().unwrap(),
+          shouldCheckUserSession
+            ? triggerUserSession().unwrap()
+            : Promise.resolve(null),
           shouldCheckAdminSession
             ? triggerAdminSession().unwrap()
             : Promise.resolve(null),
         ]);
 
-        if (userSession.status === 'fulfilled') {
+        if (shouldCheckUserSession && userSession.status === 'fulfilled') {
           setUser(userSession.value.user || userSession.value.data || null);
-        } else {
+        } else if (shouldCheckUserSession) {
           setUser(null);
         }
 
@@ -145,25 +184,31 @@ export const AuthProvider = ({ children }) => {
   }, [setUser, registerMutation]);
 
   const logout = useCallback(async () => {
+    window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
+    setUser(null);
+    dispatch(apiSlice.util.resetApiState());
+
     try {
       await logoutMutation().unwrap();
     } catch (_error) {
       // Continue local cleanup even if server logout fails.
+    } finally {
+      window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
     }
-
-    setUser(null);
-    dispatch(apiSlice.util.resetApiState());
   }, [dispatch, logoutMutation, setUser]);
 
   const logoutAdmin = useCallback(async () => {
+    window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
+    setAdminUser(null);
+    dispatch(apiSlice.util.resetApiState());
+
     try {
       await adminLogoutMutation().unwrap();
     } catch (_error) {
       // Continue local cleanup even if server logout fails.
+    } finally {
+      window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
     }
-
-    setAdminUser(null);
-    dispatch(apiSlice.util.resetApiState());
   }, [adminLogoutMutation, dispatch, setAdminUser]);
 
   const loginWithGoogle = useCallback(async () => {

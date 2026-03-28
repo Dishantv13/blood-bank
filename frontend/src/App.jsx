@@ -134,15 +134,27 @@ function App() {
                   />
                   <Route
                     path={ROUTE_PATH.BLOOD_BANK_DASHBOARD}
-                    element={<BloodBankDashboard />}
+                    element={
+                      <PrivateRoute requireBloodBank>
+                        <BloodBankDashboard />
+                      </PrivateRoute>
+                    }
                   />
                   <Route
                     path={ROUTE_PATH.BLOOD_BANK_CHANGE_PASSWORD}
-                    element={<BloodBankChangePassword />}
+                    element={
+                      <PrivateRoute requireBloodBank>
+                        <BloodBankChangePassword />
+                      </PrivateRoute>
+                    }
                   />
                   <Route
                     path={ROUTE_PATH.BLOOD_BANK_DETAILS}
-                    element={<BloodBankDirectoryDetails />}
+                    element={
+                      <PrivateRoute requireBloodBank>
+                        <BloodBankDirectoryDetails />
+                      </PrivateRoute>
+                    }
                   />
 
                   {/* Forget Password Routes */}
