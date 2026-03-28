@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useGetBloodBankByIdQuery } from '../store/bloodBankApi';
-import { useCreateRequestMutation } from '../store/requestApi';
+import { useCreateInterBankRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useToast } from '../components/ToastContainer';
 import '../pages.css/BloodBankDirectoryDetails.css';
@@ -84,7 +84,7 @@ const BloodBankDirectoryDetails = () => {
   });
 
   const { data: bankData, isLoading: queryLoading, error: queryError } = useGetBloodBankByIdQuery(bankId);
-  const [createRequest] = useCreateRequestMutation();
+  const [createInterBankRequest] = useCreateInterBankRequestMutation();
 
   useEffect(() => {
     const token = localStorage.getItem('bloodBankToken');
@@ -184,7 +184,7 @@ const BloodBankDirectoryDetails = () => {
 
     try {
       setSubmittingRequest(true);
-      await createRequest({
+      await createInterBankRequest({
         targetBloodBankId: bank?._id || bank?.id,
         bloodGroup: selectedInventoryItem.bloodGroup,
         isInterBank: true,
@@ -227,7 +227,7 @@ const BloodBankDirectoryDetails = () => {
     try {
       setSubmittingRequest(true);
       await Promise.all(
-        selectedItems.map((item) => createRequest({
+        selectedItems.map((item) => createInterBankRequest({
           targetBloodBankId: bank?._id || bank?.id,
           bloodGroup: item.bloodGroup,
           isInterBank: true,
