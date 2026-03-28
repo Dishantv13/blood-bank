@@ -44,6 +44,18 @@ export const bloodBankApi = apiSlice.injectEndpoints({
         body: credentials,
       }),
     }),
+    logoutBloodBank: builder.mutation({
+      query: () => ({
+        url: BLOODBANK_API_URLS.LOGOUT_BLOOD_BANK,
+        method: 'POST',
+      }),
+    }),
+    getBloodBankSession: builder.query({
+      query: () => BLOODBANK_API_URLS.SESSION_BLOOD_BANK,
+    }),
+    getBloodBankCsrfToken: builder.query({
+      query: () => BLOODBANK_API_URLS.CSRF_TOKEN_BLOOD_BANK,
+    }),
     registerBloodBank: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.REGISTER_BLOOD_BANK,
@@ -136,6 +148,9 @@ export const {
   useGetBloodBankByIdQuery,
   useCreateBloodBankMutation,
   useLoginBloodBankMutation,
+  useLogoutBloodBankMutation,
+  useLazyGetBloodBankSessionQuery,
+  useLazyGetBloodBankCsrfTokenQuery,
   useRegisterBloodBankMutation,
   useGetBloodBankDashboardQuery,
   useGetBloodBankProfileQuery,

@@ -1,6 +1,5 @@
 import BloodBank from '../models/BloodBank.model.js';
 import Inventory from '../models/Inventory.model.js';
-import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {
@@ -8,21 +7,95 @@ import {
   sendBloodBankApprovalEmail,
   sendBloodBankRejectionEmail
 } from '../utils/emailService.js';
+import * as fileUploadService from './fileUploadService.js';
 import * as validationService from './validationService.js';
 import { ApiError } from '../utils/apiError.js';
+import {
+  clearAuthCookies,
+  generateCsrfToken,
+  getCookieNamesForRole,
+  getRefreshTokenFromRequest,
+  setAuthCookies,
+  verifyRefreshToken,
+} from '../utils/authCookies.js';
+import { enforceCsrfForRole } from '../middleware/csrf.js';
 
 /**
  * Blood Bank Service
  * All business logic for blood bank operations
  */
 
-// Generate JWT Token for Blood Bank
-const generateToken = (bloodBankId) => {
-  const payload = {
-    bloodBankId,
-    type: 'bloodbank'
-  };
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
+const buildBloodBankClaims = (bloodBank) => ({
+  bloodBankId: String(bloodBank.id),
+  type: 'bloodbank',
+  role: 'bloodbank',
+  email: bloodBank.email,
+});
+
+export const issueBloodBankCsrfToken = (res) => {
+  const { csrfCookie } = getCookieNamesForRole('bloodbank');
+  const csrfToken = generateCsrfToken();
+
+  res.cookie(csrfCookie, csrfToken, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
+  });
+
+  return { csrfToken };
+};
+
+export const registerBloodBankFromRequest = async (req) => {
+  ['address', 'operatingHours', 'location', 'services', 'contactPerson', 'inventory'].forEach((field) => {
+    if (typeof req.body[field] === 'string') {
+      try {
+        req.body[field] = JSON.parse(req.body[field]);
+      } catch (_e) {
+        // Keep as string if parsing fails
+      }
+    }
+  });
+
+  if (req.file) {
+    const uploadResult = await fileUploadService.handleSingleUpload(req.file.path, 'blood-bank/profiles');
+    req.body.logo = uploadResult.url;
+    req.body.profileImagePublicId = uploadResult.publicId;
+  }
+
+  return registerBloodBank(req.body);
+};
+
+export const loginBloodBankWithSession = async (req, res) => {
+  const { email, password } = req.body;
+  const result = await loginBloodBank(email, password);
+  const { csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  return { bloodBank: result.bloodBank, csrfToken };
+};
+
+export const refreshBloodBankSession = async (req, res) => {
+  if (!enforceCsrfForRole(req, 'bloodbank')) {
+    throw new ApiError(403, 'Invalid or missing CSRF token');
+  }
+
+  const refreshToken = getRefreshTokenFromRequest(req, 'bloodbank');
+  if (!refreshToken) {
+    throw new ApiError(401, 'Refresh token missing');
+  }
+
+  const decoded = verifyRefreshToken('bloodbank', refreshToken);
+  const result = await getSessionBloodBank(decoded.bloodBankId);
+  const { csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  return { bloodBank: result.bloodBank, csrfToken };
+};
+
+export const logoutBloodBankSession = async (req, res) => {
+  if (!enforceCsrfForRole(req, 'bloodbank')) {
+    throw new ApiError(403, 'Invalid or missing CSRF token');
+  }
+  clearAuthCookies(res, 'bloodbank');
+  return { success: true };
 };
 
 // Register a new blood bank
@@ -167,11 +240,7 @@ export const loginBloodBank = async (email, password) => {
     throw new ApiError(401, 'Invalid credentials');
   }
 
-  // Generate token
-  const token = generateToken(bloodBank._id);
-
   return {
-    token,
     bloodBank: {
       id: bloodBank._id,
       name: bloodBank.name,
@@ -280,6 +349,29 @@ export const getBloodBankProfile = async (bloodBankId) => {
   bloodBank.inventory = inventory?.items || [];
 
   return bloodBank;
+};
+
+export const getSessionBloodBank = async (bloodBankId) => {
+  const bloodBank = await BloodBank.findById(bloodBankId).select('-password').lean();
+  if (!bloodBank) {
+    throw new ApiError(401, 'Blood bank session is invalid');
+  }
+
+  return {
+    bloodBank: {
+      id: bloodBank._id,
+      name: bloodBank.name,
+      email: bloodBank.email,
+      phone: bloodBank.phone,
+      licenseNumber: bloodBank.licenseNumber,
+      address: bloodBank.address,
+      operatingHours: bloodBank.operatingHours,
+      services: bloodBank.services,
+      isVerified: bloodBank.isVerified,
+      approvalStatus: bloodBank.approvalStatus,
+      inventory: bloodBank.inventory || []
+    }
+  };
 };
 
 // Update blood bank profile

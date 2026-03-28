@@ -1,5 +1,6 @@
 import express, { json, urlencoded } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import compression from "compression";
@@ -56,7 +57,8 @@ const corsOptions = {
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
-    "Authorization"
+    "Authorization",
+    "X-CSRF-Token"
   ],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
   maxAge: 86400, // 24 hours
@@ -70,6 +72,7 @@ app.use(helmet()); // Set security headers
 app.use(mongoSanitize()); // Prevent MongoDB injection
 app.use(compression()); // Compress response payloads for faster network transfer
 app.use(requestLogger(1000));
+app.use(cookieParser());
 
 // ==================== RATE LIMITING ====================
 app.use("/api/", globalApiLimiter);

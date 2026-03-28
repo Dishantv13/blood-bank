@@ -1,10 +1,18 @@
 import "./config/env.js";
 import app from "./app.js";
 import mongoose from "mongoose";
+import { validateSecurityConfig } from "./config/security.js";
 
 // ==================== DATABASE CONNECTION ====================
+try {
+  validateSecurityConfig();
+} catch (error) {
+  console.error(" ⛔CRITICAL SECURITY CONFIG ERROR: ${error.message}");
+  process.exit(1);
+}
+
 if (!process.env.MONGODB_URI) {
-  console.error("⛔ CRITICAL ERROR: MONGODB_URI is not defined in environment variables!");
+  console.error(" ⛔CRITICAL ERROR: MONGODB_URI is not defined in environment variables!");
   process.exit(1);
 }
 

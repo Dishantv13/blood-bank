@@ -21,7 +21,6 @@ const AdminExports = () => {
     setIsExporting(true);
     try {
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const adminToken = localStorage.getItem('adminToken');
 
       let url = '';
       if (module === 'all') {
@@ -32,9 +31,7 @@ const AdminExports = () => {
       }
 
       const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${adminToken}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) throw new Error('Export failed');

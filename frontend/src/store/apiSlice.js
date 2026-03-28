@@ -9,9 +9,23 @@ const getUrlFromArgs = (args) => {
   return '';
 };
 
+const getMethodFromArgs = (args) => {
+  if (typeof args === 'object' && args?.method) return String(args.method).toUpperCase();
+  return 'GET';
+};
+
+const isStateChangingMethod = (method) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
+const parseCookie = (name) => {
+  if (typeof document === 'undefined') return null;
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
 const isBloodBankPath = (url = '') => {
   const cleanUrl = String(url).split('?')[0].toLowerCase();
-  return cleanUrl.startsWith('/bloodbank') || cleanUrl.startsWith('/donations/bank');
+  return cleanUrl.startsWith('/bloodbank') || cleanUrl.startsWith('/blood-banks') || cleanUrl.startsWith('/donations/bank');
 };
 
 const isAdminPath = (url = '') => {
@@ -24,35 +38,47 @@ const isAdminAuthPath = (url = '') => {
   return cleanUrl.startsWith('/admin-auth');
 };
 
-// Create base query with auth headers setup
-const baseQuery = fetchBaseQuery({
-  baseUrl: API_URL,
-  prepareHeaders: (headers, { arg }) => {
-    // If body is FormData, don't set Content-Type (let browser handle boundary)
-    const isFormData = arg && arg.body instanceof FormData;
-    if (!isFormData) {
-      headers.set('Content-Type', 'application/json');
-    }
+const getRoleFromUrl = (url = '') => {
+  if (isBloodBankPath(url)) return 'bloodbank';
+  if (isAdminPath(url) || isAdminAuthPath(url)) return 'admin';
+  return 'user';
+};
 
-    const requestUrl = getUrlFromArgs(arg);
-    const isBloodBankEndpoint = isBloodBankPath(requestUrl);
-    const isAdminEndpoint = isAdminPath(requestUrl) && !isAdminAuthPath(requestUrl);
+const getCsrfCookieName = (role) => {
+  if (role === 'admin') return 'bb_admin_csrf';
+  if (role === 'bloodbank') return 'bb_bank_csrf';
+  return 'bb_user_csrf';
+};
 
-    if (isBloodBankEndpoint) {
-      const bToken = localStorage.getItem('bloodBankToken');
-      if (bToken) headers.set('authorization', `Bearer ${bToken}`);
-    } else if (isAdminEndpoint) {
-      const aToken = localStorage.getItem('adminToken');
-      if (aToken) headers.set('authorization', `Bearer ${aToken}`);
-    } else {
-      // Standard user endpoints
-      const uToken = localStorage.getItem('token');
-      if (uToken) headers.set('authorization', `Bearer ${uToken}`);
-    }
+const getCsrfEndpoint = (role) => {
+  if (role === 'admin') return '/admin-auth/csrf-token';
+  if (role === 'bloodbank') return '/blood-banks/csrf-token';
+  return '/auth/csrf-token';
+};
 
-    return headers;
-  },
-});
+const getRefreshEndpoint = (role) => {
+  if (role === 'admin') return '/admin-auth/refresh';
+  if (role === 'bloodbank') return '/blood-banks/refresh';
+  return '/auth/refresh';
+};
+
+const getLoginPath = (role) => {
+  if (role === 'admin') return '/admin/login';
+  if (role === 'bloodbank') return '/blood-bank/login';
+  return '/login';
+};
+
+const isAuthBootstrapOrLoginPath = (url = '') => {
+  const cleanUrl = String(url).split('?')[0].toLowerCase();
+  return (
+    cleanUrl === '/auth/login' ||
+    cleanUrl === '/auth/register' ||
+    cleanUrl === '/auth/google' ||
+    cleanUrl === '/admin-auth/login' ||
+    cleanUrl === '/blood-banks/login' ||
+    cleanUrl.endsWith('/session')
+  );
+};
 
 const normalizeApiPayload = (rawResponse) => {
   const isObject = rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse);
@@ -95,54 +121,82 @@ const normalizeApiPayload = (rawResponse) => {
   };
 };
 
-// Custom wrapper to handle 401 unauth auto-logouts across all endpoints
+const baseQuery = fetchBaseQuery({
+  baseUrl: API_URL,
+  credentials: 'include',
+  prepareHeaders: (headers, { arg }) => {
+    const method = getMethodFromArgs(arg);
+    const isFormData = arg && arg.body instanceof FormData;
+
+    if (!isFormData) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    if (isStateChangingMethod(method)) {
+      const role = getRoleFromUrl(getUrlFromArgs(arg));
+      const csrfToken = parseCookie(getCsrfCookieName(role));
+      if (csrfToken) {
+        headers.set('x-csrf-token', csrfToken);
+      }
+    }
+
+    return headers;
+  },
+});
+
+const removeRoleState = (role) => {
+  if (role === 'admin') {
+    localStorage.removeItem('adminUser');
+    return;
+  }
+  if (role === 'bloodbank') {
+    localStorage.removeItem('bloodBankData');
+    localStorage.removeItem('bloodBankUser');
+    return;
+  }
+  localStorage.removeItem('user');
+};
+
 const baseQueryWithReauth = async (args, api, extraOptions) => {
-  const result = await baseQuery(args, api, extraOptions);
+  const requestUrl = getUrlFromArgs(args);
+  const requestRole = getRoleFromUrl(requestUrl);
+  const currentPath = window.location.pathname.toLowerCase();
+
+  let result = await baseQuery(args, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    const requestUrl = getUrlFromArgs(args);
-    const isBloodBankEndpoint = isBloodBankPath(requestUrl);
-    const isAdminEndpoint = isAdminPath(requestUrl) && !isAdminAuthPath(requestUrl);
-    const currentPath = window.location.pathname.toLowerCase();
-    const onAdminRoute = currentPath.startsWith('/admin');
-    const onBloodBankRoute = currentPath.startsWith('/blood-bank');
+    const isRefreshCall = requestUrl.toLowerCase().includes('/refresh');
+    const skipReauthForThisCall = isAuthBootstrapOrLoginPath(requestUrl);
 
-    if (isBloodBankEndpoint) {
-      if (onAdminRoute) {
-        return result;
+    if (!isRefreshCall && !skipReauthForThisCall) {
+      const csrfCookie = parseCookie(getCsrfCookieName(requestRole));
+      if (!csrfCookie) {
+        await baseQuery({ url: getCsrfEndpoint(requestRole), method: 'GET' }, api, extraOptions);
       }
-      localStorage.removeItem('bloodBankToken');
-      localStorage.removeItem('bloodBankData');
-      localStorage.removeItem('bloodBankUser');
-      // Dispatch reset to invalidate all cached data
-      api.dispatch(apiSlice.util.resetApiState());
-      // Let PrivateRoute handle the redirect
-      if (!window.location.pathname.includes('/blood-bank/login')) {
-        window.location.replace('/blood-bank/login');
-      }
-    } else if (isAdminEndpoint) {
-      if (onBloodBankRoute) {
-        return result;
-      }
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('adminUser');
-      // Dispatch reset to invalidate all cached data
-      api.dispatch(apiSlice.util.resetApiState());
-      // Let PrivateRoute handle the redirect
-      if (!window.location.pathname.includes('/admin/login')) {
-        window.location.replace('/admin/login');
-      }
-    } else {
-      if (onAdminRoute || onBloodBankRoute) {
-        return result;
-      }
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      // Dispatch reset to invalidate all cached data
-      api.dispatch(apiSlice.util.resetApiState());
-      // Let PrivateRoute handle the redirect
-      if (!window.location.pathname.includes('/login')) {
-        window.location.replace('/login');
+
+      const refreshResult = await baseQuery(
+        { url: getRefreshEndpoint(requestRole), method: 'POST' },
+        api,
+        extraOptions
+      );
+
+      if (refreshResult.data) {
+        result = await baseQuery(args, api, extraOptions);
+      } else {
+        const onAdminRoute = currentPath.startsWith('/admin');
+        const onBloodBankRoute = currentPath.startsWith('/blood-bank');
+
+        removeRoleState(requestRole);
+        api.dispatch(apiSlice.util.resetApiState());
+
+        if ((requestRole === 'admin' && onAdminRoute) ||
+            (requestRole === 'bloodbank' && onBloodBankRoute) ||
+            (requestRole === 'user' && !onAdminRoute && !onBloodBankRoute)) {
+          const target = getLoginPath(requestRole);
+          if (!window.location.pathname.toLowerCase().startsWith(target.toLowerCase())) {
+            window.location.replace(target);
+          }
+        }
       }
     }
   }
@@ -154,10 +208,9 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
   return result;
 };
 
-// Initialize an empty api service that we'll inject endpoints into later
 export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
-  tagTypes: Object.values(TAGS), // Register all possible tags
-  endpoints: () => ({}), // Start empty, inject across different files
+  tagTypes: Object.values(TAGS),
+  endpoints: () => ({}),
 });
