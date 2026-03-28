@@ -1,52 +1,70 @@
-import jwt from "jsonwebtoken";
 import { asyncHandler } from "../utils/asynchandler.js";
 import BloodBank from "../models/BloodBank.model.js";
+import { verifyAccessToken, getAccessTokenFromRequest, isStateChangingMethod } from "../utils/authCookies.js";
+import { enforceCsrfForRole } from "./csrf.js";
+
+const unauthorized = (res, message = "No authentication token, access denied") =>
+  res.status(401).json({ success: false, message });
+
+const forbidden = (res, message = "Not authorized") =>
+  res.status(403).json({ success: false, message });
+
+const applyCsrfGuard = (req, res, role) => {
+  if (!isStateChangingMethod(req.method)) return true;
+  if (enforceCsrfForRole(req, role)) return true;
+  forbidden(res, "Invalid or missing CSRF token");
+  return false;
+};
 
 // General user authentication middleware
 const auth = asyncHandler((req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
+  const token = getAccessTokenFromRequest(req, "user");
 
   if (!token) {
-    return res
-      .status(401)
-      .json({ success: false, message: "No authentication token, access denied" });
+    return unauthorized(res);
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = verifyAccessToken("user", token);
+
+    if (decoded.tokenType !== "access") {
+      return unauthorized(res, "Token is not valid");
+    }
+
+    if (!applyCsrfGuard(req, res, "user")) {
+      return;
+    }
+
     req.user = decoded;
     next();
   } catch (error) {
-    return res.status(401).json({ success: false, message: "Token is not valid" });
+    return unauthorized(res, "Token is not valid");
   }
 });
 
-// Fixed super-admin authentication middleware
+// Super-admin authentication middleware
 const adminAuth = asyncHandler((req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
+  const token = getAccessTokenFromRequest(req, "admin");
 
   if (!token) {
-    return res
-      .status(401)
-      .json({ success: false, message: "No authentication token, access denied" });
-  }
-
-  const adminSecret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
-  if (!adminSecret) {
-    return res.status(500).json({ success: false, message: "Admin auth is not configured" });
+    return unauthorized(res);
   }
 
   try {
-    const decoded = jwt.verify(token, adminSecret);
+    const decoded = verifyAccessToken("admin", token);
 
-    if (decoded.type !== "admin" || decoded.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Not authorized as admin" });
+    if (decoded.tokenType !== "access" || decoded.type !== "admin" || decoded.role !== "admin") {
+      return forbidden(res, "Not authorized as admin");
+    }
+
+    if (!applyCsrfGuard(req, res, "admin")) {
+      return;
     }
 
     req.admin = decoded;
     next();
   } catch (error) {
-    return res.status(401).json({ success: false, message: "Token is not valid" });
+    return unauthorized(res, "Token is not valid");
   }
 });
 
@@ -71,24 +89,26 @@ const loadApprovedBloodBank = async (bloodBankId) => {
 
 // Middleware for blood bank authentication
 const bloodBankAuth = asyncHandler(async (req, res, next) => {
-  const token = req.header("Authorization")?.replace("Bearer ", "");
+  const token = getAccessTokenFromRequest(req, "bloodbank");
 
   if (!token) {
-    return res
-      .status(401)
-      .json({ success: false, message: "No authentication token, access denied" });
+    return unauthorized(res);
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = verifyAccessToken("bloodbank", token);
 
-    if (decoded.type !== "bloodbank") {
-      return res.status(403).json({ success: false, message: "Not authorized as blood bank" });
+    if (decoded.tokenType !== "access" || decoded.type !== "bloodbank") {
+      return forbidden(res, "Not authorized as blood bank");
     }
 
     const result = await loadApprovedBloodBank(decoded.bloodBankId);
     if (result.error) {
       return res.status(result.error.status).json({ success: false, message: result.error.message });
+    }
+
+    if (!applyCsrfGuard(req, res, "bloodbank")) {
+      return;
     }
 
     req.bloodBank = {
@@ -98,38 +118,11 @@ const bloodBankAuth = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
-    return res.status(401).json({ success: false, message: "Token is not valid" });
+    return unauthorized(res, "Token is not valid");
   }
 });
 
 // Middleware to protect blood bank routes (with DB lookup for full bank data)
-const protectBloodBank = asyncHandler(async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith("Bearer")) {
-    return res.status(401).json({ success: false, message: "Not authorized, no token" });
-  }
-
-  try {
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    if (decoded.type !== "bloodbank") {
-      return res
-        .status(403)
-        .json({ success: false, message: "Not authorized as blood bank" });
-    }
-
-    const result = await loadApprovedBloodBank(decoded.bloodBankId);
-    if (result.error) {
-      return res.status(result.error.status).json({ success: false, message: result.error.message });
-    }
-
-    req.bloodBank = result.bloodBank;
-    next();
-  } catch (error) {
-    return res.status(401).json({ success: false, message: "Not authorized, token failed" });
-  }
-});
+const protectBloodBank = bloodBankAuth;
 
 export { auth, adminAuth, bloodBankAuth, protectBloodBank };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
 import { Link, useNavigate } from 'react-router-dom';
-import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
+import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation, useLogoutBloodBankMutation } from '../store/bloodBankApi';
 import { useGetBloodBankRequestsQuery, useGetBloodBankApprovedRequestsQuery, useApproveRequestMutation, useRejectRequestMutation } from '../store/requestApi';
 import { useGetBloodBankCampsQuery, useDeleteCampMutation, useLazyGetCampRegistrationsQuery, useDeleteCampRegistrationMutation, useCreateCampMutation, useUpdateCampMutation } from '../store/bloodCampApi';
 import { useGetBloodBankEventsQuery } from '../store/eventApi';
@@ -175,6 +175,7 @@ const BloodBankDashboard = () => {
   const [deleteCampRegistrationMutation] = useDeleteCampRegistrationMutation();
   const [triggerGetRegistrations] = useLazyGetCampRegistrationsQuery();
   const [changePassword, { isLoading: changingPassword }] = useChangeBloodBankPasswordMutation();
+  const [logoutBloodBank] = useLogoutBloodBankMutation();
 
   // Only show full-screen loader if we have NO profile data
   const loading = (loadingProfile && !bloodBank);
@@ -321,11 +322,9 @@ const BloodBankDashboard = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    // Check if blood bank is logged in
-    const token = localStorage.getItem('bloodBankToken');
     const data = localStorage.getItem('bloodBankData');
 
-    if (!token || !data) {
+    if (!data) {
       navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
       return;
     }
@@ -346,8 +345,12 @@ const BloodBankDashboard = () => {
     }
   }, [navigate]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('bloodBankToken');
+  const handleLogout = async () => {
+    try {
+      await logoutBloodBank().unwrap();
+    } catch (_error) {
+      // Continue local logout even if request fails.
+    }
     localStorage.removeItem('bloodBankData');
     // Reset RTK Query cache to clear data from previous session
     dispatch(apiSlice.util.resetApiState());

@@ -4,6 +4,13 @@ export const AUTH_API_URLS = {
     GOOGLE_LOGIN: '/auth/google',
     REGISTER: '/auth/register',
     LOGOUT: '/auth/logout',
+    REFRESH: '/auth/refresh',
+    SESSION: '/auth/session',
+    CSRF_TOKEN: '/auth/csrf-token',
+    ADMIN_REFRESH: '/admin-auth/refresh',
+    ADMIN_LOGOUT: '/admin-auth/logout',
+    ADMIN_SESSION: '/admin-auth/session',
+    ADMIN_CSRF_TOKEN: '/admin-auth/csrf-token',
 }
 
 export const BLOODBANK_API_URLS = {
@@ -14,6 +21,10 @@ export const BLOODBANK_API_URLS = {
 
     // Auth
     LOGIN_BLOOD_BANK: '/blood-banks/login',
+    REFRESH_BLOOD_BANK: '/blood-banks/refresh',
+    LOGOUT_BLOOD_BANK: '/blood-banks/logout',
+    SESSION_BLOOD_BANK: '/blood-banks/session',
+    CSRF_TOKEN_BLOOD_BANK: '/blood-banks/csrf-token',
     REGISTER_BLOOD_BANK: '/blood-banks/register',
     FORGOT_PASSWORD: '/blood-banks/forgot-password',
     RESET_PASSWORD: (token) => `/blood-banks/reset-password/${token}`,

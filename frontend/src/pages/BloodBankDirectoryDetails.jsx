@@ -87,8 +87,8 @@ const BloodBankDirectoryDetails = () => {
   const [createInterBankRequest] = useCreateInterBankRequestMutation();
 
   useEffect(() => {
-    const token = localStorage.getItem('bloodBankToken');
-    if (!token) {
+    const data = localStorage.getItem('bloodBankData');
+    if (!data) {
       navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
       return;
     }

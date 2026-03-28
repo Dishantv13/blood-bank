@@ -1,91 +1,84 @@
 import { validationResult } from 'express-validator';
-import { asyncHandler } from "../utils/asynchandler.js";
+import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import * as authService from '../services/authService.js';
 
-/**
- * ============================================
- * CLEAN CONTROLLERS - Only handling req/res
- * All business logic moved to services
- * ============================================
- */
-
-// Register a new user
-const register = asyncHandler(async (req, res) => {
+const ensureValid = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    res.status(400).json({ errors: errors.array() });
+    return false;
   }
+  return true;
+};
 
-  const result = await authService.registerUser(req.body);
+const register = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
+  const result = await authService.registerAndCreateSession(req, res);
   successResponse(res, result, 201, 'User registered successfully');
 });
 
-// Login user
 const login = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const { email, password } = req.body;
-  const result = await authService.loginUser(email, password);
+  if (!ensureValid(req, res)) return;
+  const result = await authService.loginAndCreateSession(req, res);
   successResponse(res, result, 200, 'Login successful');
 });
 
-// Google OAuth login
 const googleLogin = asyncHandler(async (req, res) => {
-  const { email, name, googleId, photoURL } = req.body;
-  const result = await authService.googleLogin(email, name, googleId, photoURL);
+  const result = await authService.googleLoginAndCreateSession(req, res);
   successResponse(res, result, 200, 'Google login successful');
 });
 
-// Request password reset
-const forgotPassword = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
-  const { email } = req.body;
-  await authService.requestPasswordReset(email);
-  successResponse(res, { success: true }, 200, 'If an account exists with this email, you will receive a password reset link shortly');
+const refreshSession = asyncHandler(async (req, res) => {
+  const result = await authService.refreshUserSession(req, res);
+  successResponse(res, result, 200, 'Session refreshed');
 });
 
-// Reset password with token
-const resetPassword = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+const logout = asyncHandler(async (req, res) => {
+  const result = await authService.logoutUserSession(req, res);
+  successResponse(res, result, 200, 'Logged out successfully');
+});
 
+const getSession = asyncHandler(async (req, res) => {
+  const result = await authService.getSessionUser(req.user.userId || req.user.id);
+  successResponse(res, result, 200, 'Session fetched successfully');
+});
+
+const getCsrfToken = asyncHandler(async (_req, res) => {
+  const result = authService.issueUserCsrfToken(res);
+  successResponse(res, result, 200, 'CSRF token generated');
+});
+
+const forgotPassword = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
+  const { email } = req.body;
+  await authService.requestPasswordReset(email);
+  successResponse(
+    res,
+    { success: true },
+    200,
+    'If an account exists with this email, you will receive a password reset link shortly'
+  );
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
   const { token, password } = req.body;
   await authService.resetPassword(token, password);
   successResponse(res, { success: true }, 200, 'Password reset successful. You can now login with your new password');
 });
 
-// Verify reset token
 const verifyResetToken = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
+  if (!ensureValid(req, res)) return;
   const { token } = req.body;
   const result = await authService.verifyResetToken(token);
   successResponse(res, result, 200, 'Token is valid');
 });
 
-// Change password for authenticated user
 const changePassword = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
+  if (!ensureValid(req, res)) return;
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.userId || req.user.id;
-  
   await authService.changePassword(userId, currentPassword, newPassword);
   successResponse(res, { success: true }, 200, 'Password changed successfully');
 });
@@ -94,8 +87,13 @@ export {
   register,
   login,
   googleLogin,
+  refreshSession,
+  logout,
+  getSession,
+  getCsrfToken,
   forgotPassword,
   resetPassword,
   verifyResetToken,
-  changePassword
+  changePassword,
 };
+

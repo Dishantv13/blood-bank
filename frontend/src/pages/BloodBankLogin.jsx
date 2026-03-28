@@ -52,8 +52,7 @@ const BloodBankLogin = () => {
     try {
       const response = await loginBloodBank(formData).unwrap();
       
-      // Store blood bank token and data
-      localStorage.setItem('bloodBankToken', response.token);
+      // Store non-sensitive blood bank profile data only
       localStorage.setItem('bloodBankData', JSON.stringify(response.bloodBank));
       
       // Store inventory from login response if available

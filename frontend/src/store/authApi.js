@@ -31,6 +31,30 @@ export const authApi = apiSlice.injectEndpoints({
         body: googleData,
       }),
     }),
+    logout: builder.mutation({
+      query: () => ({
+        url: AUTH_API_URLS.LOGOUT,
+        method: 'POST',
+      }),
+    }),
+    adminLogout: builder.mutation({
+      query: () => ({
+        url: AUTH_API_URLS.ADMIN_LOGOUT,
+        method: 'POST',
+      }),
+    }),
+    getUserSession: builder.query({
+      query: () => AUTH_API_URLS.SESSION,
+    }),
+    getAdminSession: builder.query({
+      query: () => AUTH_API_URLS.ADMIN_SESSION,
+    }),
+    getUserCsrfToken: builder.query({
+      query: () => AUTH_API_URLS.CSRF_TOKEN,
+    }),
+    getAdminCsrfToken: builder.query({
+      query: () => AUTH_API_URLS.ADMIN_CSRF_TOKEN,
+    }),
   }),
   overrideExisting: false,
 });
@@ -40,4 +64,10 @@ export const {
   useLoginMutation,
   useRegisterMutation,
   useGoogleLoginMutation,
+  useLogoutMutation,
+  useAdminLogoutMutation,
+  useLazyGetUserSessionQuery,
+  useLazyGetAdminSessionQuery,
+  useLazyGetUserCsrfTokenQuery,
+  useLazyGetAdminCsrfTokenQuery,
 } = authApi;
