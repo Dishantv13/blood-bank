@@ -70,12 +70,35 @@ const getRoleConfig = (role) => {
   return resolved;
 };
 
-const cookieBaseOptions = () => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax',
-  path: '/',
-  ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
+const resolveSameSite = () => {
+  const raw = String(process.env.AUTH_COOKIE_SAME_SITE || 'lax').toLowerCase();
+  if (raw === 'none') return 'none';
+  if (raw === 'strict') return 'strict';
+  return 'lax';
+};
+
+const resolveSecure = () => {
+  if (process.env.AUTH_COOKIE_SECURE === 'true') return true;
+  if (process.env.AUTH_COOKIE_SECURE === 'false') return false;
+  return process.env.NODE_ENV === 'production';
+};
+
+const cookieBaseOptions = () => {
+  const sameSite = resolveSameSite();
+  const secure = resolveSecure() || sameSite === 'none';
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: '/',
+    ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
+  };
+};
+
+export const getPublicCookieOptions = () => ({
+  ...cookieBaseOptions(),
+  httpOnly: false,
 });
 
 export const isStateChangingMethod = (method) =>

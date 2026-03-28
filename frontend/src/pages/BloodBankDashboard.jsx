@@ -346,15 +346,20 @@ const BloodBankDashboard = () => {
   }, [navigate]);
 
   const handleLogout = async () => {
+    window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
+    localStorage.removeItem('bloodBankData');
+    localStorage.removeItem('bloodBankUser');
+    // Reset RTK Query cache first so pending secured queries are cancelled.
+    dispatch(apiSlice.util.resetApiState());
+    navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
+
     try {
       await logoutBloodBank().unwrap();
     } catch (_error) {
       // Continue local logout even if request fails.
+    } finally {
+      window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
     }
-    localStorage.removeItem('bloodBankData');
-    // Reset RTK Query cache to clear data from previous session
-    dispatch(apiSlice.util.resetApiState());
-    navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
   };
 
   const handleCampFormChange = (e) => {

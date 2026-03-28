@@ -16,6 +16,7 @@ import {
   getRefreshTokenFromRequest,
   setAuthCookies,
   verifyRefreshToken,
+  getPublicCookieOptions,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 
@@ -44,13 +45,7 @@ export const issueUserCsrfToken = (res) => {
   const { csrfCookie } = getCookieNamesForRole('user');
   const csrfToken = generateCsrfToken();
 
-  res.cookie(csrfCookie, csrfToken, {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
-  });
+  res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
 
   return { csrfToken };
 };
@@ -317,3 +312,4 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 
   return { success: true };
 };
+
