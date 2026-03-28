@@ -91,7 +91,7 @@ export const loginAdminWithSession = async (req, res) => {
 };
 
 export const refreshAdminSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'admin')) {
+  if (!enforceCsrfForRole(req, 'admin', { allowTrustedOriginFallback: true })) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
 
@@ -112,7 +112,7 @@ export const refreshAdminSession = async (req, res) => {
 };
 
 export const logoutAdminSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'admin')) {
+  if (!enforceCsrfForRole(req, 'admin', { allowTrustedOriginFallback: true })) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
   clearAuthCookies(res, 'admin');

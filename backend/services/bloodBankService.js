@@ -70,7 +70,7 @@ export const loginBloodBankWithSession = async (req, res) => {
 };
 
 export const refreshBloodBankSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'bloodbank')) {
+  if (!enforceCsrfForRole(req, 'bloodbank', { allowTrustedOriginFallback: true })) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
 
@@ -86,7 +86,7 @@ export const refreshBloodBankSession = async (req, res) => {
 };
 
 export const logoutBloodBankSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'bloodbank')) {
+  if (!enforceCsrfForRole(req, 'bloodbank', { allowTrustedOriginFallback: true })) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
   clearAuthCookies(res, 'bloodbank');

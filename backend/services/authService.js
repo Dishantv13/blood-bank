@@ -71,7 +71,7 @@ export const googleLoginAndCreateSession = async (req, res) => {
 };
 
 export const refreshUserSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'user')) {
+  if (!enforceCsrfForRole(req, 'user', { allowTrustedOriginFallback: true })) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
 
@@ -93,7 +93,7 @@ export const refreshUserSession = async (req, res) => {
 };
 
 export const logoutUserSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'user')) {
+  if (!enforceCsrfForRole(req, 'user', { allowTrustedOriginFallback: true })) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
   clearAuthCookies(res, 'user');
