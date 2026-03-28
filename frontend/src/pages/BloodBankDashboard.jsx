@@ -884,6 +884,14 @@ const BloodBankDashboard = () => {
     return isInterBankRequest(request) && requesterId === currentBankId;
   };
 
+  const pendingRequests = requests.filter((request) => {
+    const requestStatus = String(request?.status || '').toLowerCase();
+    const responseStatus = String(request?.bloodBankResponse?.status || '').toLowerCase();
+
+    if (requestStatus !== 'pending') return false;
+    return !responseStatus || responseStatus === 'pending';
+  });
+
   if (loading) {
     return <SkeletonLoader />;
   }
@@ -1631,7 +1639,7 @@ const BloodBankDashboard = () => {
                       <div className="loading-spinner"></div>
                       <p>Loading requests...</p>
                     </div>
-                  ) : requests.length === 0 ? (
+                  ) : pendingRequests.length === 0 ? (
                     <div className="empty-state">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M9 11l3 3L22 4" />
@@ -1642,7 +1650,7 @@ const BloodBankDashboard = () => {
                     </div>
                   ) : (
                     <div className="requests-list pending-grid">
-                      {requests.map(request => {
+                      {pendingRequests.map(request => {
                         const isMyOutgoingRequest = isInterBankRequest(request) && isOutgoingInterBankRequest(request);
                         const responseStatus = request.bloodBankResponse?.status || request.status || 'pending';
 

@@ -16,51 +16,51 @@ const buildBloodBankAddress = (address = {}) => {
 
 export const getAllRequests = async (bloodBankId, query) => {
   const { status = 'pending', bloodGroup, urgency, requestType, direction, limit, page } = query;
-  const pendingStatuses = status === 'pending' ? ['pending', null] : [status];
-
-  let filter;
-  if (status === 'pending') {
-    filter = {
-      status: 'pending',
-      $or: [
-        { requestType: 'user', 'bloodBankResponse.status': { $in: ['pending', null] } },
-        { requestType: 'bloodbank', targetBloodBank: bloodBankId, 'bloodBankResponse.status': { $in: ['pending', null] } }
-      ]
-    };
-  } else {
-    filter = {
-      status,
-      $or: [
-        { requestType: 'user', bloodBank: bloodBankId, 'bloodBankResponse.status': { $in: pendingStatuses } },
-        {
-          requestType: 'bloodbank',
-          $or: [{ targetBloodBank: bloodBankId }, { requestingBloodBank: bloodBankId }],
-          'bloodBankResponse.status': { $in: pendingStatuses }
-        }
-      ]
-    };
-  }
-
+  const normalizedStatus = String(status).toLowerCase();
+  const isPending = normalizedStatus === 'pending';
+  const responseStatuses = isPending ? ['pending', null] : [normalizedStatus];
   const directionFilter = direction === 'sent' || direction === 'received' ? direction : 'all';
-  if (directionFilter !== 'all') {
-    filter.$or = filter.$or
-      .map((entry) => {
-        if (entry.requestType !== 'bloodbank') return entry;
-        const scoped = { ...entry };
-        if (scoped.$or) {
-          scoped.$or = scoped.$or.filter((cond) =>
-            directionFilter === 'sent'
-              ? Object.prototype.hasOwnProperty.call(cond, 'requestingBloodBank')
-              : Object.prototype.hasOwnProperty.call(cond, 'targetBloodBank')
-          );
-          if (!scoped.$or.length) return null;
-        }
-        return scoped;
-      })
-      .filter(Boolean);
+
+  const requestScopes = [];
+  const includeUserRequests = requestType !== 'bloodbank';
+  const includeBloodBankRequests = requestType !== 'user';
+
+  if (includeUserRequests) {
+    const userScope = {
+      requestType: 'user',
+      'bloodBankResponse.status': { $in: responseStatuses }
+    };
+
+    // Non-pending user requests should only include requests already handled by this blood bank.
+    if (!isPending) {
+      userScope.bloodBank = bloodBankId;
+    }
+
+    requestScopes.push(userScope);
   }
 
-  if (requestType === 'user' || requestType === 'bloodbank') filter.$or = filter.$or.filter((e) => e.requestType === requestType);
+  if (includeBloodBankRequests) {
+    const interBankScope = {
+      requestType: 'bloodbank',
+      'bloodBankResponse.status': { $in: responseStatuses }
+    };
+
+    if (directionFilter === 'sent') {
+      interBankScope.requestingBloodBank = bloodBankId;
+    } else if (directionFilter === 'received') {
+      interBankScope.targetBloodBank = bloodBankId;
+    } else {
+      interBankScope.$or = [{ targetBloodBank: bloodBankId }, { requestingBloodBank: bloodBankId }];
+    }
+
+    requestScopes.push(interBankScope);
+  }
+
+  const filter = {
+    status: isPending ? 'pending' : normalizedStatus,
+    $or: requestScopes
+  };
+
   if (bloodGroup) filter.bloodGroup = bloodGroup;
   if (urgency) filter.urgency = urgency;
 
