@@ -71,7 +71,8 @@ const getRoleConfig = (role) => {
 };
 
 const resolveSameSite = () => {
-  const raw = String(process.env.AUTH_COOKIE_SAME_SITE || 'lax').toLowerCase();
+  const defaultSameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
+  const raw = String(process.env.AUTH_COOKIE_SAME_SITE || defaultSameSite).toLowerCase();
   if (raw === 'none') return 'none';
   if (raw === 'strict') return 'strict';
   return 'lax';
@@ -83,16 +84,33 @@ const resolveSecure = () => {
   return process.env.NODE_ENV === 'production';
 };
 
+const resolveCookieDomain = () => {
+  const rawDomain = String(process.env.AUTH_COOKIE_DOMAIN || '').trim();
+  if (!rawDomain) return null;
+
+  // Accept either plain host (example.com) or full URL (https://example.com).
+  try {
+    if (rawDomain.includes('://')) {
+      return new URL(rawDomain).hostname;
+    }
+  } catch (_error) {
+    return null;
+  }
+
+  return rawDomain.replace(/^www\./i, '');
+};
+
 const cookieBaseOptions = () => {
   const sameSite = resolveSameSite();
   const secure = resolveSecure() || sameSite === 'none';
+  const domain = resolveCookieDomain();
 
   return {
     httpOnly: true,
     secure,
     sameSite,
     path: '/',
-    ...(process.env.AUTH_COOKIE_DOMAIN ? { domain: process.env.AUTH_COOKIE_DOMAIN } : {}),
+    ...(domain ? { domain } : {}),
   };
 };
 
