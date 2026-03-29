@@ -105,6 +105,13 @@ const UserSchema = new mongoose.Schema({
     gender: String,
     bloodGroup: String
   },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date
+  },
   passwordReset: {
     token: String,
     expiresAt: Date
