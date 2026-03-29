@@ -20,6 +20,9 @@ import {
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 const toPublicUser = (user) => ({
   id: user._id,
   name: user.name,
@@ -137,19 +140,34 @@ export const loginUser = async (email, password) => {
   validatePassword(password);
 
   const user = await User.findOne({ email })
-    .select('_id name email password bloodGroup phone role isDonor photoURL activeMode donorInfo address')
-    .lean();
+    .select('_id name email password bloodGroup phone role isDonor photoURL activeMode donorInfo address loginAttempts lockUntil');
 
   if (!user) {
     throw new ApiError(401, 'Invalid email or password');
   }
 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-  if (!isPasswordValid) {
+  // Check if account is temporarily locked
+  if (user.lockUntil && user.lockUntil > Date.now()) {
     throw new ApiError(401, 'Invalid email or password');
   }
 
-  delete user.password;
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    const attempts = (user.loginAttempts || 0) + 1;
+    user.loginAttempts = attempts;
+    if (attempts >= MAX_LOGIN_ATTEMPTS) {
+      user.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
+    }
+    await user.save();
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
+  // Successful login – clear lockout state
+  if (user.loginAttempts || user.lockUntil) {
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
+  }
 
   return {
     user: toPublicUser(user)
