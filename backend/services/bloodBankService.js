@@ -21,6 +21,9 @@ import {
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+
 /**
  * Blood Bank Service
  * All business logic for blood bank operations
@@ -208,8 +211,8 @@ export const loginBloodBank = async (email, password) => {
     throw new ApiError(400, 'Email and password are required');
   }
 
-  // Find blood bank
-  const bloodBank = await BloodBank.findOne({ email }).select('+password');
+  // Find blood bank (include lockout fields alongside password)
+  const bloodBank = await BloodBank.findOne({ email }).select('+password loginAttempts lockUntil');
   if (!bloodBank) {
     throw new ApiError(401, 'Invalid credentials');
   }
@@ -229,10 +232,28 @@ export const loginBloodBank = async (email, password) => {
     throw new ApiError(403, 'Your blood bank account is not active. Please contact the admin.');
   }
 
+  // Check if account is temporarily locked
+  if (bloodBank.lockUntil && bloodBank.lockUntil > Date.now()) {
+    throw new ApiError(401, 'Invalid credentials');
+  }
+
   // Check password
   const isMatch = await bloodBank.comparePassword(password);
   if (!isMatch) {
+    const attempts = (bloodBank.loginAttempts || 0) + 1;
+    bloodBank.loginAttempts = attempts;
+    if (attempts >= MAX_LOGIN_ATTEMPTS) {
+      bloodBank.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
+    }
+    await bloodBank.save();
     throw new ApiError(401, 'Invalid credentials');
+  }
+
+  // Successful login – clear lockout state
+  if (bloodBank.loginAttempts || bloodBank.lockUntil) {
+    bloodBank.loginAttempts = 0;
+    bloodBank.lockUntil = undefined;
+    await bloodBank.save();
   }
 
   return {
