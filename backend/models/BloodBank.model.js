@@ -132,6 +132,13 @@ const BloodBankSchema = new mongoose.Schema({
     trim: true,
     default: ''
   },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date
+  },
   passwordReset: {
     token: String,
     expiresAt: Date
