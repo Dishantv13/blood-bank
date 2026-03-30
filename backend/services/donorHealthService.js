@@ -1,5 +1,6 @@
 import DonorHealth from '../models/DonorHealth.model.js';
 import { ApiError } from '../utils/apiError.js';
+import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 
 export const submitHealthForm = async (userId, data) => {
   const { consent } = data;
@@ -23,7 +24,10 @@ export const submitHealthForm = async (userId, data) => {
 };
 
 export const getMyForms = async (userId) => {
-  return DonorHealth.find({ donor: userId }).sort({ submittedAt: -1 }).lean();
+  return DonorHealth.find({ donor: userId })
+    .select('_id status eligibility submittedAt reviewNotes reviewedAt')
+    .sort({ submittedAt: -1 })
+    .lean();
 };
 
 export const getLatestForm = async (userId) => {
@@ -46,14 +50,22 @@ export const checkEligibility = async (userId) => {
 };
 
 export const getAllForms = async (query) => {
+  const { page, limit, skip } = getPaginationParams({ query });
   const filter = {};
   if (query.status) filter.status = query.status;
   if (query.isEligible !== undefined) filter['eligibility.isEligible'] = query.isEligible === 'true';
 
-  return DonorHealth.find(filter)
-    .populate('donor', 'name email phone')
-    .sort({ submittedAt: -1 })
-    .lean();
+  const [forms, total] = await Promise.all([
+    DonorHealth.find(filter)
+      .populate('donor', 'name email phone')
+      .sort({ submittedAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    DonorHealth.countDocuments(filter)
+  ]);
+
+  return buildPaginatedResponse(forms, total, page, limit);
 };
 
 export const getFormById = async (id) => {
