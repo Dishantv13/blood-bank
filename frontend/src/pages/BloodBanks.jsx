@@ -3,6 +3,7 @@ import { useGetAllBloodBanksQuery } from '../store/bloodBankApi';
 import ImageLightbox from '../components/ImageLightbox';
 import MapModal from '../components/MapModal';
 import InventoryModal from '../components/InventoryModal';
+import { BLOOD_GROUPS } from '../config/constants';
 import '../pages.css/BloodBanks.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 
@@ -41,7 +42,7 @@ const BloodBanks = () => {
     }
   ];
 
-  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  // bloodGroups imported from constants
 
   if (loadingBloodBanks) {
     return <SkeletonLoader />;

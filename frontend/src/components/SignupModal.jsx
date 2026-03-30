@@ -12,6 +12,7 @@ import {
   emailValidator,
   pincodeValidator,
 } from "../validation/validation";
+import { BLOOD_GROUPS } from "../config/constants";
 
 const SignupModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
@@ -28,7 +29,7 @@ const SignupModal = ({ isOpen, onClose }) => {
 
   const password = watch("password");
 
-  const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+  // bloodGroups imported from constants
 
   const onSubmit = async (data) => {
     const payload = {

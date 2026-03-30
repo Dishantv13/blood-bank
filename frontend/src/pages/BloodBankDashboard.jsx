@@ -652,7 +652,6 @@ const BloodBankDashboard = () => {
 
   const handleCreateCamp = async (e) => {
     e.preventDefault();
-    console.log('Submitting camp form...', campForm);
 
     try {
       const campData = {
@@ -672,8 +671,6 @@ const BloodBankDashboard = () => {
         latitude: campForm.latitude,
         longitude: campForm.longitude
       };
-
-      console.log('Sending camp data to API:', campData);
 
       if (editingCamp) {
         await updateCampMutation({ id: editingCamp._id, ...campData }).unwrap();
