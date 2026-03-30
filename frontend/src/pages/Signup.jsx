@@ -11,6 +11,7 @@ import {
   phoneValidator,
   pincodeValidator,
 } from '../validation/validation';
+import { BLOOD_GROUPS, MIN_PASSWORD_LENGTH } from '../config/constants';
 import '../pages.css/Auth.css';
 
 const defaultFormValues = {
@@ -68,7 +69,7 @@ const Signup = () => {
       return;
     }
 
-    if (data.password.length < 6) {
+    if (data.password.length < MIN_PASSWORD_LENGTH) {
       setError('Password must be at least 6 characters');
       return;
     }
@@ -121,7 +122,7 @@ const Signup = () => {
     }
   };
 
-  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  // bloodGroups imported from constants
 
   return (
     <div className="login-page-wrapper">

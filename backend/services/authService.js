@@ -19,9 +19,7 @@ import {
   getPublicCookieOptions,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
-
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
 
 const toPublicUser = (user) => ({
   id: user._id,

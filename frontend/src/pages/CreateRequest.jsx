@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer';
 import { useCreateRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
+import { BLOOD_GROUPS } from '../config/constants';
 import '../pages.css/CreateRequest.css';
 
 const CreateRequest = () => {
@@ -66,7 +67,7 @@ const CreateRequest = () => {
     }
   };
 
-  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  // bloodGroups imported from constants
 
   return (
     <div className="page-container">

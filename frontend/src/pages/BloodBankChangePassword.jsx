@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
+import { MIN_PASSWORD_LENGTH } from '../config/constants';
 import '../pages.css/BloodBankChangePassword.css'
 
 const BloodBankChangePassword = () => {
@@ -21,7 +22,7 @@ const BloodBankChangePassword = () => {
       return false;
     }
 
-    if (newPassword.length < 6) {
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
       setError('New password must be at least 6 characters');
       return false;
     }

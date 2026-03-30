@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { auth } from '../middleware/auth.js';
-import { requestCreationLimiter } from '../middleware/rateLimiter.js';
+import { cacheResponse } from '../middleware/cache.js';
 import {
   getAllRequests,
   getMyRequests,
@@ -8,13 +8,14 @@ import {
   updateRequest,
   updateRequestStatus
 } from '../controller/request.controller.js';
+import { requestCreationLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
 // @route   GET /api/requests
 // @desc    Get all blood requests
 // @access  Public
-router.route('/').get(getAllRequests);
+router.route('/').get(cacheResponse(60), getAllRequests);
 
 // @route   GET /api/requests/my-requests
 // @desc    Get user's blood requests

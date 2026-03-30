@@ -1,30 +1,49 @@
 import Event from '../models/Event.model.js';
 import { ApiError } from '../utils/apiError.js';
+import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
+
+const EVENT_LIST_FIELDS = '_id title description organizer eventType location date startTime endTime contactInfo expectedDonors isActive visibility maxParticipants';
 
 export const getAllEvents = async (query) => {
   const { latitude, longitude, maxDistance } = query;
+  const { page, limit, skip } = getPaginationParams({ query });
   const now = new Date();
+  const baseFilter = { isActive: true, date: { $gte: now } };
 
+  // Geo-filtered queries: $near is incompatible with countDocuments;
+  // return a single bounded result page without total count.
   if (latitude && longitude) {
-    return Event.find({
-      isActive: true,
-      date: { $gte: now },
+    const geoFilter = {
+      ...baseFilter,
       'location.coordinates.coordinates': {
         $near: {
           $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
           $maxDistance: maxDistance ? parseInt(maxDistance, 10) : 50000
         }
       }
-    })
+    };
+    const events = await Event.find(geoFilter)
+      .select(EVENT_LIST_FIELDS)
       .populate('organizedBy', 'name email phone')
       .sort({ date: 1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
+    return buildPaginatedResponse(events, events.length, page, limit);
   }
 
-  return Event.find({ isActive: true, date: { $gte: now } })
-    .populate('organizedBy', 'name email phone')
-    .sort({ date: 1 })
-    .lean();
+  const [events, total] = await Promise.all([
+    Event.find(baseFilter)
+      .select(EVENT_LIST_FIELDS)
+      .populate('organizedBy', 'name email phone')
+      .sort({ date: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    Event.countDocuments(baseFilter)
+  ]);
+
+  return buildPaginatedResponse(events, total, page, limit);
 };
 
 export const createEvent = async (data) => {

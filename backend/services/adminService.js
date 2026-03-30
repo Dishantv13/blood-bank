@@ -221,53 +221,31 @@ export const exportAllData = async (format = 'xlsx') => {
     const csv = buildCsvBuffer(Object.values(allData).flat());
     return { buffer: Buffer.from(csv), filename: `all_data_${timestamp}.csv` };
   } else {
-    // XLSX format
+    // XLSX format — fetch all collections in parallel
+    const [usersRows, banksRows, campsRows, eventsRows, requestsRows] = await Promise.all([
+      User.find().select('-password').lean(),
+      BloodBank.find().select('-password').lean(),
+      BloodCamp.find().lean(),
+      Event.find().lean(),
+      BloodRequest.find().lean(),
+    ]);
+
     const workbook = new ExcelJS.Workbook();
 
-    // Users sheet
-    const usersRows = await User.find().select('-password').lean();
-    const usersSheet = workbook.addWorksheet('Users');
-    if (usersRows.length > 0) {
-      const headers = Object.keys(usersRows[0]);
-      usersSheet.addRow(headers);
-      usersRows.forEach((row) => usersSheet.addRow(headers.map((h) => row[h])));
-    }
+    const addSheet = (name, rows) => {
+      const sheet = workbook.addWorksheet(name);
+      if (rows.length > 0) {
+        const headers = Object.keys(rows[0]);
+        sheet.addRow(headers);
+        rows.forEach((row) => sheet.addRow(headers.map((h) => row[h])));
+      }
+    };
 
-    // Blood Banks sheet
-    const banksRows = await BloodBank.find().select('-password').lean();
-    const banksSheet = workbook.addWorksheet('BloodBanks');
-    if (banksRows.length > 0) {
-      const headers = Object.keys(banksRows[0]);
-      banksSheet.addRow(headers);
-      banksRows.forEach((row) => banksSheet.addRow(headers.map((h) => row[h])));
-    }
-
-    // Camps sheet
-    const campsRows = await BloodCamp.find().lean();
-    const campsSheet = workbook.addWorksheet('Camps');
-    if (campsRows.length > 0) {
-      const headers = Object.keys(campsRows[0]);
-      campsSheet.addRow(headers);
-      campsRows.forEach((row) => campsSheet.addRow(headers.map((h) => row[h])));
-    }
-
-    // Events sheet
-    const eventsRows = await Event.find().lean();
-    const eventsSheet = workbook.addWorksheet('Events');
-    if (eventsRows.length > 0) {
-      const headers = Object.keys(eventsRows[0]);
-      eventsSheet.addRow(headers);
-      eventsRows.forEach((row) => eventsSheet.addRow(headers.map((h) => row[h])));
-    }
-
-    // Requests sheet
-    const requestsRows = await BloodRequest.find().lean();
-    const requestsSheet = workbook.addWorksheet('Requests');
-    if (requestsRows.length > 0) {
-      const headers = Object.keys(requestsRows[0]);
-      requestsSheet.addRow(headers);
-      requestsRows.forEach((row) => requestsSheet.addRow(headers.map((h) => row[h])));
-    }
+    addSheet('Users', usersRows);
+    addSheet('BloodBanks', banksRows);
+    addSheet('Camps', campsRows);
+    addSheet('Events', eventsRows);
+    addSheet('Requests', requestsRows);
 
     const buffer = await workbook.xlsx.writeBuffer();
     return { buffer, filename: `all_data_${timestamp}.xlsx` };

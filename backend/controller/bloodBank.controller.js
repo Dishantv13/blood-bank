@@ -1,16 +1,7 @@
-import { validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import * as bloodBankService from '../services/bloodBankService.js';
-
-const ensureValid = (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    res.status(400).json({ errors: errors.array() });
-    return false;
-  }
-  return true;
-};
+import { ensureValid } from '../middleware/validateRequest.js';
 
 export const register = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
