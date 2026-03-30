@@ -197,8 +197,10 @@ export const createBankToBankRequest = async (requestingBankId, data) => {
     bloodBankResponse: { status: 'pending' }
   });
 
-  await request.populate('requestingBloodBank', 'name email phone address');
-  await request.populate('targetBloodBank', 'name email phone address');
+  await request.populate([
+    { path: 'requestingBloodBank', select: 'name email phone address' },
+    { path: 'targetBloodBank', select: 'name email phone address' }
+  ]);
   return request;
 };
 

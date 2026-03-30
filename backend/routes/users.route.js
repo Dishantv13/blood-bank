@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { auth } from "../middleware/auth.js";
+import { cacheResponse } from "../middleware/cache.js";
 import {
   getProfile,
   updateProfile,
@@ -36,7 +37,7 @@ router.route("/donor-info").put(auth, updateDonorInfo);
 // @route   GET /api/users/donors
 // @desc    Get available donors by blood group
 // @access  Private
-router.route("/donors").get(auth, getDonors);
+router.route("/donors").get(auth, cacheResponse(120), getDonors);
 
 // @route   PUT /api/users/toggle-mode
 // @desc    Toggle between donor and patient mode

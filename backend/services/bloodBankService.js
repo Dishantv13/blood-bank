@@ -340,13 +340,15 @@ export const getAllBloodBanks = async (query) => {
 
 // Get blood bank by ID
 export const getBloodBankById = async (bloodBankId) => {
-  const bloodBank = await BloodBank.findById(bloodBankId).select('-password').lean();
+  const [bloodBank, inventory] = await Promise.all([
+    BloodBank.findById(bloodBankId).select('-password').lean(),
+    Inventory.findOne({ bloodBank: bloodBankId }).lean()
+  ]);
+
   if (!bloodBank || bloodBank.approvalStatus !== 'approved' || !bloodBank.isActive) {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  // Fetch inventory from Inventory collection
-  const inventory = await Inventory.findOne({ bloodBank: bloodBankId }).lean();
   bloodBank.inventory = inventory?.items || [];
 
   return bloodBank;
@@ -354,12 +356,15 @@ export const getBloodBankById = async (bloodBankId) => {
 
 // Get blood bank profile (for authenticated blood bank)
 export const getBloodBankProfile = async (bloodBankId) => {
-  const bloodBank = await BloodBank.findById(bloodBankId).select('-password').lean();
+  const [bloodBank, inventory] = await Promise.all([
+    BloodBank.findById(bloodBankId).select('-password').lean(),
+    Inventory.findOne({ bloodBank: bloodBankId }).lean()
+  ]);
+
   if (!bloodBank) {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  const inventory = await Inventory.findOne({ bloodBank: bloodBankId }).lean();
   bloodBank.inventory = inventory?.items || [];
 
   return bloodBank;
@@ -392,25 +397,27 @@ export const getSessionBloodBank = async (bloodBankId) => {
 export const updateBloodBankProfile = async (bloodBankId, updateData) => {
   const { name, phone, address, city, state, pincode, operatingHours, services, logo } = updateData;
 
-  const bloodBank = await BloodBank.findByIdAndUpdate(
-    bloodBankId,
-    {
-      name,
-      phone,
-      address: { street: address, city, state, pincode },
-      operatingHours,
-      services,
-      logo,
-      imageUrl: logo
-    },
-    { new: true, runValidators: true }
-  ).select('-password').lean();
+  const [bloodBank, inventory] = await Promise.all([
+    BloodBank.findByIdAndUpdate(
+      bloodBankId,
+      {
+        name,
+        phone,
+        address: { street: address, city, state, pincode },
+        operatingHours,
+        services,
+        logo,
+        imageUrl: logo
+      },
+      { new: true, runValidators: true }
+    ).select('-password').lean(),
+    Inventory.findOne({ bloodBank: bloodBankId }).lean()
+  ]);
 
   if (!bloodBank) {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  const inventory = await Inventory.findOne({ bloodBank: bloodBankId }).lean();
   bloodBank.inventory = inventory?.items || [];
 
   return bloodBank;
