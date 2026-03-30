@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForgotBloodBankPasswordMutation, useResetBloodBankPasswordMutation, useVerifyBloodBankResetTokenMutation } from '../store/bloodBankApi';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
+import { MIN_PASSWORD_LENGTH } from '../config/constants';
 import '../pages.css/BloodBankResetPassword.css'
 
 const BloodBankResetPassword = () => {
@@ -54,7 +55,7 @@ const BloodBankResetPassword = () => {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < MIN_PASSWORD_LENGTH) {
       setError('Password must be at least 6 characters');
       return;
     }

@@ -128,17 +128,22 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
     { new: true, runValidators: true }
   ).lean();
 
-  // Update donor info asynchronously (non-blocking)
-  User.findByIdAndUpdate(
-    donation.donor,
-    {
-      $set: { 'donorInfo.lastDonationDate': new Date() },
-      $inc: {
-        'donorInfo.totalDonations': 1,
-        'donorInfo.totalDonatedVolume': volumeDonated
+  // Update donor info — awaited via Promise.allSettled to prevent silent data loss
+  const [donorUpdateResult] = await Promise.allSettled([
+    User.findByIdAndUpdate(
+      donation.donor,
+      {
+        $set: { 'donorInfo.lastDonationDate': new Date() },
+        $inc: {
+          'donorInfo.totalDonations': 1,
+          'donorInfo.totalDonatedVolume': volumeDonated
+        }
       }
-    }
-  ).catch(err => console.error('Failed to update donor info:', err));
+    )
+  ]);
+  if (donorUpdateResult.status === 'rejected') {
+    console.error('Failed to update donor info:', donorUpdateResult.reason);
+  }
 
   return updatedDonation;
 };

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import MapModal from '../components/MapModal';
 import { nameValidator, phoneValidator, pincodeValidator } from '../validation/validation';
+import { BLOOD_GROUPS, MAX_IMAGE_SIZE_BYTES, MESSAGE_DISPLAY_MS } from '../config/constants';
 import '../pages.css/Profile.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 
@@ -39,6 +40,7 @@ const Profile = () => {
 
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('success');
   const [profileImage, setProfileImage] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -123,9 +125,10 @@ const Profile = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        setMessageType('error');
         setMessage('Image size should be less than 5MB');
-        setTimeout(() => setMessage(''), 3000);
+        setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
         return;
       }
       setProfileImage(file);
@@ -139,25 +142,28 @@ const Profile = () => {
 
   const handleImageUpload = async () => {
     if (!profileImage) {
+      setMessageType('error');
       setMessage('Please select an image first');
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
       return;
     }
     
     try {
       setUploadingImage(true);
       
-      // Save to localStorage for now
+      // Save to localStorage
       const userId = user?._id || 'default';
       localStorage.setItem(`userPhoto_${userId}`, previewImage);
       
+      setMessageType('success');
       setMessage('Profile picture updated successfully!');
       setProfileImage(null);
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
     } catch (error) {
       console.error('Error uploading image:', error);
+      setMessageType('error');
       setMessage('Failed to upload image. Please try again.');
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
     } finally {
       setUploadingImage(false);
     }
@@ -180,6 +186,7 @@ const Profile = () => {
 
       const response = await updateProfileMutation(normalizedData).unwrap();
       
+      setMessageType('success');
       setMessage('Profile updated successfully!');
       toast.success('Profile updated successfully!');
       setEditing(false);
@@ -188,11 +195,12 @@ const Profile = () => {
       const updatedUser = response.user;
       setAuthUser(updatedUser);
       
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
     } catch (error) {
+      setMessageType('error');
       setMessage('Failed to update profile');
       toast.error('Failed to update profile. Please try again.');
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
     }
   };
 
@@ -200,7 +208,7 @@ const Profile = () => {
     return <SkeletonLoader />;
   }
 
-  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  // bloodGroups imported from constants
 
   return (
     <div className="page-container">
@@ -246,7 +254,7 @@ const Profile = () => {
         </div>
 
         {message && (
-          <div className={`message ${message.includes('success') ? 'success-message' : 'error-message'}`}>
+          <div className={`message ${messageType === 'success' ? 'success-message' : 'error-message'}`}>
             {message}
           </div>
         )}

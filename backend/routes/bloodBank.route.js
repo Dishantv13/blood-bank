@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { auth, bloodBankAuth } from '../middleware/auth.js';
 import { cacheResponse } from '../middleware/cache.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
 import {
   register,
   login,
@@ -22,8 +23,8 @@ const router = Router();
 
 router.route('/csrf-token').get(getCsrfToken);
 
-router.route('/register').post(upload.single('logo'), register);
-router.route('/login').post(login);
+router.route('/register').post(authLimiter, upload.single('logo'), register);
+router.route('/login').post(authLimiter, login);
 router.route('/refresh').post(refreshSession);
 router.route('/logout').post(logout);
 router.route('/session').get(bloodBankAuth, getSession);
@@ -34,7 +35,7 @@ router.route('/:id').get(cacheResponse(120), getBloodBankById);
 router.route('/').post(auth, createBloodBank);
 router.route('/:id/inventory').put(auth, updateBloodBankInventory);
 
-router.route('/forgot-password').post(forgotPassword);
+router.route('/forgot-password').post(authLimiter, forgotPassword);
 router.route('/reset-password').post(resetPassword);
 router.route('/verify-reset-token').post(verifyResetToken);
 

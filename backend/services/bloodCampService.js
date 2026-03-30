@@ -3,9 +3,13 @@ import BloodCamp from '../models/BloodCamp.model.js';
 import User from '../models/User.model.js';
 import Donation from '../models/Donation.model.js';
 import { ApiError } from '../utils/apiError.js';
+import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
+
+const CAMP_LIST_FIELDS = '_id name organizer organizerName date startTime endTime venue address city state targetUnits collectedUnits description contactPhone status';
 
 export const getAllCamps = async (query) => {
   const { city, status, upcoming } = query;
+  const { page, limit, skip } = getPaginationParams({ query });
   const filter = {};
 
   if (city) filter.city = new RegExp(city, 'i');
@@ -15,10 +19,18 @@ export const getAllCamps = async (query) => {
     filter.status = { $in: ['scheduled', 'upcoming'] };
   }
 
-  return BloodCamp.find(filter)
-    .populate('organizer', 'name email phone')
-    .sort({ date: 1 })
-    .lean();
+  const [camps, total] = await Promise.all([
+    BloodCamp.find(filter)
+      .select(CAMP_LIST_FIELDS)
+      .populate('organizer', 'name email phone')
+      .sort({ date: 1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    BloodCamp.countDocuments(filter)
+  ]);
+
+  return buildPaginatedResponse(camps, total, page, limit);
 };
 
 export const getCampById = async (campId) => {
@@ -104,7 +116,6 @@ export const registerCamp = async (campId, userId) => {
     bloodGroup: user.bloodGroup || 'Not specified',
     registeredAt: new Date()
   });
-  await camp.save();
 
   const donation = new Donation({
     donor: userId,
@@ -116,7 +127,8 @@ export const registerCamp = async (campId, userId) => {
     notes: `Registered for camp: ${camp.name}`,
     status: 'pending'
   });
-  await donation.save();
+
+  await Promise.all([camp.save(), donation.save()]);
 
   return {
     registration: {

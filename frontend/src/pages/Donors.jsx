@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useGetDonorsQuery } from '../store/userApi';
 import { useAuth } from '../context/AuthContext';
 import MapModal from '../components/MapModal';
+import { BLOOD_GROUPS } from '../config/constants';
 import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Donors.css';
 import SkeletonLoader from '../components/SkeletonLoader';
@@ -63,7 +64,7 @@ const Donors = () => {
     setShowContactModal(true);
   };
 
-  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  // bloodGroups imported from constants
 
   if (loadingDonors) {
     return <SkeletonLoader />;
