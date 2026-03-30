@@ -4,9 +4,8 @@ import { useGetBloodBankByIdQuery } from '../store/bloodBankApi';
 import { useCreateInterBankRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useToast } from '../components/ToastContainer';
+import { BLOOD_GROUPS } from '../config/constants';
 import '../pages.css/BloodBankDirectoryDetails.css';
-
-const ALL_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 const getInventoryStatus = (units) => {
   if (units <= 0) return 'critical';
@@ -43,7 +42,7 @@ const normalizeInventory = (inventory) => {
     });
   }
 
-  return ALL_BLOOD_GROUPS.map((bloodGroup) => {
+  return BLOOD_GROUPS.map((bloodGroup) => {
     const units = map.get(bloodGroup) || 0;
     return {
       bloodGroup,
