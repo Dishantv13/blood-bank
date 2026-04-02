@@ -563,6 +563,10 @@ export const changePassword = async (bloodBankId, currentPassword, newPassword) 
   if (!isMatch) throw new ApiError(401, 'Current password is incorrect');
 
   bloodBank.password = newPassword;
+  bloodBank.authSession = {
+    refreshTokenHash: null,
+    refreshTokenIssuedAt: null,
+  };
   await bloodBank.save();
   return { success: true };
 };

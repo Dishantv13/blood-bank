@@ -29,8 +29,8 @@ const app = express();
 app.set("trust proxy", 1);
 
 // ==================== CORS CONFIGURATION ====================
-const envOrigins = String(process.env.FRONTEND_URLS || '')
-  .split(',')
+const envOrigins = String(process.env.FRONTEND_URLS || "")
+  .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
 
@@ -41,17 +41,21 @@ const allowedOrigins = [
   "http://localhost:3001",
   "http://127.0.0.1:3000",
   "http://127.0.0.1:3001"
-].filter(Boolean).map(url => url.replace(/\/$/, "")); // Remove trailing slashes
+].filter(Boolean).map((url) => url.replace(/\/$/, ""));
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    if (!origin) {
+      if (process.env.ALLOW_NO_ORIGIN === "true") {
+        return callback(null, true);
+      }
+      console.warn("CORS: Request blocked - missing Origin header");
+      return callback(new Error("Origin header is required"));
+    }
 
-    // Clean the incoming origin to match our list
     const cleanOrigin = origin.replace(/\/$/, "");
 
-    if (allowedOrigins.includes(cleanOrigin) || process.env.NODE_ENV === 'development') {
+    if (allowedOrigins.includes(cleanOrigin)) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked for origin: ${origin}`);
@@ -67,16 +71,16 @@ const corsOptions = {
     "X-CSRF-Token"
   ],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
-  maxAge: 86400, // 24 hours
+  maxAge: 86400,
 };
 
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 
 // ==================== SECURITY MIDDLEWARE ====================
-app.use(helmet()); // Set security headers
-app.use(mongoSanitize()); // Prevent MongoDB injection
-app.use(compression()); // Compress response payloads for faster network transfer
+app.use(helmet());
+app.use(mongoSanitize());
+app.use(compression());
 app.use(requestLogger(1000));
 app.use(cookieParser());
 
@@ -88,26 +92,17 @@ app.use(json({ limit: "10mb" }));
 app.use(urlencoded({ extended: true, limit: "10mb" }));
 
 // ==================== HEALTH CHECK ====================
-app.get("/", (req, res) => {
-  const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+app.get("/", (_req, res) => {
   res.json({
-    status: "online",
-    message: "RaktSarthi API is running successfully ✅",
-    database: dbStatus,
-    environment: process.env.NODE_ENV || "development",
-    version: "1.0.0",
-    uptime: process.uptime().toFixed(2) + " seconds",
+    status: "ok",
+    message: "RaktSarthi API is running",
     timestamp: new Date().toISOString()
   });
 });
 
-app.get("/api/health", (req, res) => {
-  const dbStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+app.get("/api/health", (_req, res) => {
   res.json({
-    status: mongoose.connection.readyState === 1 ? "healthy" : "degraded",
-    db: dbStatus,
-    uptime: process.uptime().toFixed(2) + " seconds",
-    version: process.env.npm_package_version || "1.0.0",
+    status: mongoose.connection.readyState === 1 ? "ok" : "degraded",
     timestamp: new Date().toISOString()
   });
 });
@@ -117,15 +112,15 @@ app.use("/api/auth", authRoutes);
 app.use("/api/admin-auth", adminAuthRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/bloodbanks", bloodBankRoutes);
-app.use("/api/blood-banks", bloodBankRoutes); // Alias for blood bank routes
-app.use("/api/bloodbank", bloodBankPortalRoutes); // Blood Bank Portal Routes
+app.use("/api/blood-banks", bloodBankRoutes);
+app.use("/api/bloodbank", bloodBankPortalRoutes);
 app.use("/api/blood-camps", bloodCampsRoutes);
 app.use("/api/donor-health", donorHealthRoutes);
 app.use("/api/requests", requestsRoutes);
 app.use("/api/events", eventsRoutes);
-app.use("/api/admin", adminRoutes); // Admin routes for Excel export
+app.use("/api/admin", adminRoutes);
 app.use("/api/donations", donationsRoutes);
-app.use("/api/upload", uploadRoutes); // Generic upload routes (Cloudinary)
+app.use("/api/upload", uploadRoutes);
 
 // ==================== ERROR HANDLING MIDDLEWARE (must be AFTER routes) ====================
 app.use(globalErrorHandler);

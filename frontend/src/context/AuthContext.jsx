@@ -9,6 +9,7 @@ import {
   useLazyGetUserSessionQuery,
   useLazyGetAdminSessionQuery,
 } from '../store/authApi';
+import { useLazyGetBloodBankSessionQuery, useLogoutBloodBankMutation } from '../store/bloodBankApi';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
 import { signInWithPopup } from 'firebase/auth';
@@ -25,23 +26,11 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUserState] = useState(() => {
-    try {
-      const saved = localStorage.getItem('user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const [adminUser, setAdminUserState] = useState(() => {
-    try {
-      const saved = localStorage.getItem('adminUser');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // SECURITY FIX: Use in-memory state instead of localStorage
+  // Backend manages authentication via httpOnly cookies (XSS-proof)
+  const [user, setUserState] = useState(null);
+  const [adminUser, setAdminUserState] = useState(null);
+  const [bloodBank, setBloodBankState] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
@@ -52,25 +41,26 @@ export const AuthProvider = ({ children }) => {
   const [googleLoginMutation] = useGoogleLoginMutation();
   const [logoutMutation] = useLogoutMutation();
   const [adminLogoutMutation] = useAdminLogoutMutation();
+  const [logoutBloodBankMutation] = useLogoutBloodBankMutation();
   const [triggerUserSession] = useLazyGetUserSessionQuery();
   const [triggerAdminSession] = useLazyGetAdminSessionQuery();
+  const [triggerBloodBankSession] = useLazyGetBloodBankSessionQuery();
 
+  // SECURITY FIX: Store in memory only, not localStorage
+  // httpOnly cookies handle authentication persistence
   const setUser = useCallback((userData) => {
     setUserState(userData);
-    if (userData) {
-      localStorage.setItem('user', JSON.stringify(userData));
-    } else {
-      localStorage.removeItem('user');
-    }
+    // Note: Tokens are in httpOnly cookies managed by backend
   }, []);
 
   const setAdminUser = useCallback((adminData) => {
     setAdminUserState(adminData);
-    if (adminData) {
-      localStorage.setItem('adminUser', JSON.stringify(adminData));
-    } else {
-      localStorage.removeItem('adminUser');
-    }
+    // Note: Tokens are in httpOnly cookies managed by backend
+  }, []);
+
+  const setBloodBank = useCallback((bloodBankData) => {
+    setBloodBankState(bloodBankData);
+    // Note: Tokens are in httpOnly cookies managed by backend
   }, []);
 
   useEffect(() => {
@@ -83,45 +73,54 @@ export const AuthProvider = ({ children }) => {
         currentPath === '/admin/login' ||
         currentPath === '/admin/forgot-password' ||
         currentPath.startsWith('/admin/reset-password');
+      const isBloodBankPublicAuthPath =
+        currentPath === '/blood-bank/login' ||
+        currentPath === '/bloodbank/login' ||
+        currentPath === '/blood-bank/register' ||
+        currentPath === '/bloodbank/register' ||
+        currentPath === '/blood-bank/forgot-password' ||
+        currentPath === '/bloodbank/forgot-password' ||
+        currentPath.startsWith('/blood-bank/reset-password') ||
+        currentPath.startsWith('/bloodbank/reset-password');
       const isPublicAuthPath = (
         currentPath === '/login' ||
         currentPath === '/signup' ||
         currentPath === '/forgot-password' ||
         currentPath.startsWith('/reset-password') ||
         currentPath === '/admin/login' ||
-        currentPath === '/blood-bank/login' ||
-        currentPath === '/bloodbank/login' ||
-        currentPath === '/blood-bank/register' ||
-        currentPath === '/bloodbank/register' ||
         currentPath === '/admin/forgot-password' ||
         currentPath.startsWith('/admin/reset-password') ||
-        currentPath === '/blood-bank/forgot-password' ||
-        currentPath === '/bloodbank/forgot-password' ||
-        currentPath.startsWith('/blood-bank/reset-password') ||
-        currentPath.startsWith('/bloodbank/reset-password')
+        isBloodBankPublicAuthPath
       );
       const shouldCheckAdminSession =
         currentPath.startsWith('/admin') &&
         !isAdminPublicAuthPath;
+      const shouldCheckBloodBankSession =
+        isBloodBankRoute &&
+        !isBloodBankPublicAuthPath;
       const shouldCheckUserSession =
         !isPublicAuthPath &&
         !currentPath.startsWith('/admin') &&
         !isBloodBankRoute;
 
-      if (!shouldCheckUserSession && !shouldCheckAdminSession) {
+      if (!shouldCheckUserSession && !shouldCheckAdminSession && !shouldCheckBloodBankSession) {
         setUser(null);
         setAdminUser(null);
+        setBloodBank(null);
         setLoading(false);
         return;
       }
 
       try {
-        const [userSession, adminSession] = await Promise.allSettled([
+        const [userSession, adminSession, bloodBankSession] = await Promise.allSettled([
           shouldCheckUserSession
             ? triggerUserSession().unwrap()
             : Promise.resolve(null),
           shouldCheckAdminSession
             ? triggerAdminSession().unwrap()
+            : Promise.resolve(null),
+          shouldCheckBloodBankSession
+            ? triggerBloodBankSession().unwrap()
             : Promise.resolve(null),
         ]);
 
@@ -133,8 +132,14 @@ export const AuthProvider = ({ children }) => {
 
         if (shouldCheckAdminSession && adminSession.status === 'fulfilled') {
           setAdminUser(adminSession.value.admin || adminSession.value.data || null);
-        } else {
+        } else if (shouldCheckAdminSession) {
           setAdminUser(null);
+        }
+
+        if (shouldCheckBloodBankSession && bloodBankSession.status === 'fulfilled') {
+          setBloodBank(bloodBankSession.value.bloodBank || bloodBankSession.value.data || null);
+        } else if (shouldCheckBloodBankSession) {
+          setBloodBank(null);
         }
       } finally {
         setLoading(false);
@@ -142,7 +147,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     bootstrapSessions();
-  }, [setAdminUser, setUser, triggerAdminSession, triggerUserSession]);
+  }, [setAdminUser, setUser, setBloodBank, triggerAdminSession, triggerUserSession, triggerBloodBankSession]);
 
   const loginAdmin = useCallback(async (credentials) => {
     try {
@@ -211,6 +216,20 @@ export const AuthProvider = ({ children }) => {
     }
   }, [adminLogoutMutation, dispatch, setAdminUser]);
 
+  const logoutBloodBank = useCallback(async () => {
+    window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
+    setBloodBank(null);
+    dispatch(apiSlice.util.resetApiState());
+
+    try {
+      await logoutBloodBankMutation().unwrap();
+    } catch (_error) {
+      // Continue local cleanup even if server logout fails.
+    } finally {
+      window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
+    }
+  }, [logoutBloodBankMutation, dispatch, setBloodBank]);
+
   const loginWithGoogle = useCallback(async () => {
     if (!isFirebaseConfigured || !auth || !googleProvider) {
       return {
@@ -226,11 +245,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       const googleUser = result.user;
+      const idToken = await googleUser.getIdToken(true);
       const response = await googleLoginMutation({
-        email: googleUser.email,
-        name: googleUser.displayName || googleUser.email.split('@')[0],
-        googleId: googleUser.uid,
-        photoURL: googleUser.photoURL,
+        idToken,
       }).unwrap();
 
       setUser(response.user);
@@ -264,25 +281,32 @@ export const AuthProvider = ({ children }) => {
     setUser,
     adminUser,
     setAdminUser,
+    bloodBank,
+    setBloodBank,
     loginAdmin,
     login,
     register,
     logout,
     logoutAdmin,
+    logoutBloodBank,
     loginWithGoogle,
     isAuthenticated: !!user,
     isAdminAuthenticated: !!adminUser,
+    isBloodBankAuthenticated: !!bloodBank,
     loading,
   }), [
     user,
     setUser,
     adminUser,
     setAdminUser,
+    bloodBank,
+    setBloodBank,
     loginAdmin,
     login,
     register,
     logout,
     logoutAdmin,
+    logoutBloodBank,
     loginWithGoogle,
     loading
   ]);

@@ -6,18 +6,8 @@ import { ROUTE_PATH } from '../enum/routePath';
 
 import SkeletonLoader from './SkeletonLoader';
 
-const hasBloodBankSession = () => {
-  try {
-    const bloodBankData = localStorage.getItem('bloodBankData');
-    const bloodBankUser = localStorage.getItem('bloodBankUser');
-    return Boolean(bloodBankData || bloodBankUser);
-  } catch {
-    return false;
-  }
-};
-
 const PrivateRoute = ({ children, requireAdmin = false, requireBloodBank = false }) => {
-  const { isAuthenticated, isAdminAuthenticated, loading } = useAuth();
+  const { isAuthenticated, isAdminAuthenticated, isBloodBankAuthenticated, loading } = useAuth();
 
   if (loading) {
     return <SkeletonLoader />;
@@ -28,7 +18,8 @@ const PrivateRoute = ({ children, requireAdmin = false, requireBloodBank = false
   }
 
   if (requireBloodBank) {
-    return hasBloodBankSession() ? children : <Navigate to={ROUTE_PATH.BLOOD_BANK_LOGIN} replace />;
+    // SECURITY FIX: Use AuthContext with httpOnly cookies instead of localStorage
+    return isBloodBankAuthenticated ? children : <Navigate to={ROUTE_PATH.BLOOD_BANK_LOGIN} replace />;
   }
 
   return isAuthenticated ? children : <Navigate to={ROUTE_PATH.LOGIN} />;
