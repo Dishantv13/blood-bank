@@ -14,12 +14,14 @@ import {
   generateCsrfToken,
   getCookieNamesForRole,
   getRefreshTokenFromRequest,
+  hashToken,
   setAuthCookies,
   verifyRefreshToken,
   getPublicCookieOptions,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
+import { verifyFirebaseIdToken } from '../utils/firebaseAdmin.js';
 
 const toPublicUser = (user) => ({
   id: user._id,
@@ -42,6 +44,32 @@ const buildUserClaims = (user) => ({
   type: 'user',
 });
 
+const persistUserRefreshToken = async (userId, refreshToken) => {
+  await User.updateOne(
+    { _id: userId },
+    {
+      $set: {
+        'authSession.refreshTokenHash': hashToken(refreshToken),
+        'authSession.refreshTokenIssuedAt': new Date(),
+      },
+    }
+  );
+};
+
+const clearUserRefreshToken = async (userId) => {
+  if (!userId) return;
+
+  await User.updateOne(
+    { _id: userId },
+    {
+      $set: {
+        'authSession.refreshTokenHash': null,
+        'authSession.refreshTokenIssuedAt': null,
+      },
+    }
+  );
+};
+
 export const issueUserCsrfToken = (res) => {
   const { csrfCookie } = getCookieNamesForRole('user');
   const csrfToken = generateCsrfToken();
@@ -53,26 +81,29 @@ export const issueUserCsrfToken = (res) => {
 
 export const registerAndCreateSession = async (req, res) => {
   const result = await registerUser(req.body);
-  const { csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  const { refreshToken, csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  await persistUserRefreshToken(result.user.id, refreshToken);
   return { user: result.user, csrfToken };
 };
 
 export const loginAndCreateSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginUser(email, password);
-  const { csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  const { refreshToken, csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  await persistUserRefreshToken(result.user.id, refreshToken);
   return { user: result.user, csrfToken };
 };
 
 export const googleLoginAndCreateSession = async (req, res) => {
-  const { email, name, googleId, photoURL } = req.body;
-  const result = await googleLogin(email, name, googleId, photoURL);
-  const { csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  const { idToken } = req.body;
+  const result = await googleLogin(idToken);
+  const { refreshToken, csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  await persistUserRefreshToken(result.user.id, refreshToken);
   return { user: result.user, csrfToken };
 };
 
 export const refreshUserSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'user', { allowTrustedOriginFallback: true })) {
+  if (!enforceCsrfForRole(req, 'user')) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
 
@@ -82,21 +113,42 @@ export const refreshUserSession = async (req, res) => {
   }
 
   const decoded = verifyRefreshToken('user', refreshToken);
-  const { csrfToken } = setAuthCookies(res, 'user', {
+  const sessionUser = await User.findById(decoded.userId)
+    .select('_id authSession.refreshTokenHash')
+    .lean();
+
+  if (!sessionUser?.authSession?.refreshTokenHash || sessionUser.authSession.refreshTokenHash !== hashToken(refreshToken)) {
+    clearAuthCookies(res, 'user');
+    throw new ApiError(401, 'Refresh token is invalid');
+  }
+
+  const { refreshToken: nextRefreshToken, csrfToken } = setAuthCookies(res, 'user', {
     userId: decoded.userId,
     email: decoded.email,
     role: decoded.role,
     type: 'user',
   });
+  await persistUserRefreshToken(decoded.userId, nextRefreshToken);
 
   const result = await getSessionUser(decoded.userId);
   return { user: result.user, csrfToken };
 };
 
 export const logoutUserSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'user', { allowTrustedOriginFallback: true })) {
+  if (!enforceCsrfForRole(req, 'user')) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
+
+  const refreshToken = getRefreshTokenFromRequest(req, 'user');
+  if (refreshToken) {
+    try {
+      const decoded = verifyRefreshToken('user', refreshToken);
+      await clearUserRefreshToken(decoded.userId);
+    } catch (_error) {
+      // Still clear client cookies even if refresh token is already invalid.
+    }
+  }
+
   clearAuthCookies(res, 'user');
   return { success: true };
 };
@@ -173,8 +225,18 @@ export const loginUser = async (email, password) => {
 };
 
 // Google OAuth login/register
-export const googleLogin = async (email, name, googleId, photoURL) => {
-  if (!email || !name || !googleId) {
+export const googleLogin = async (idToken) => {
+  const decodedToken = await verifyFirebaseIdToken(idToken);
+  const email = decodedToken.email?.trim().toLowerCase();
+  const name = decodedToken.name?.trim() || email?.split('@')[0] || 'Google User';
+  const googleId = decodedToken.uid;
+  const photoURL = decodedToken.picture || '';
+
+  if (!decodedToken.email_verified) {
+    throw new ApiError(403, 'Google account email must be verified');
+  }
+
+  if (!email || !googleId) {
     throw new ApiError(400, 'Missing required Google user data');
   }
 
@@ -271,6 +333,10 @@ export const resetPassword = async (token, newPassword) => {
 
   user.password = hashedPassword;
   user.passwordReset = undefined;
+  user.authSession = {
+    refreshTokenHash: null,
+    refreshTokenIssuedAt: null,
+  };
 
   await user.save();
 
@@ -324,6 +390,10 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
   const hashedPassword = await bcrypt.hash(newPassword, salt);
 
   user.password = hashedPassword;
+  user.authSession = {
+    refreshTokenHash: null,
+    refreshTokenIssuedAt: null,
+  };
   await user.save();
 
   return { success: true };

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllEventsQuery, useRegisterForEventMutation } from '../store/eventApi';
 import { useToast } from '../components/ToastContainer';
+import { useAuth } from '../context/AuthContext';
 import '../pages.css/EventDetails.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 
@@ -10,6 +11,7 @@ const EventDetails = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { success, error } = useToast();
+  const { user } = useAuth();
   
   const [currentUserId, setCurrentUserId] = useState(null);
   const [hasJustRegistered, setHasJustRegistered] = useState(false);
@@ -23,21 +25,9 @@ const EventDetails = () => {
   const event = eventData || null;
 
   useEffect(() => {
-    checkUserLogin();
+    setCurrentUserId(user?.id || user?._id || null);
     setHasJustRegistered(false);
-  }, [eventId]);
-
-  const checkUserLogin = () => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      try {
-        const user = JSON.parse(userData);
-        setCurrentUserId(user.id || user._id);
-      } catch (e) {
-        console.error('Error parsing user data:', e);
-      }
-    }
-  };
+  }, [eventId, user]);
 
   const getRegistrantId = (entry) => {
     if (!entry) return null;

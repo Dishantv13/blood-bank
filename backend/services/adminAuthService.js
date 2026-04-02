@@ -5,11 +5,22 @@ import {
   generateCsrfToken,
   getCookieNamesForRole,
   getRefreshTokenFromRequest,
+  hashToken,
   setAuthCookies,
   verifyRefreshToken,
   getPublicCookieOptions,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
+
+let adminRefreshTokenHash = null;
+
+const persistAdminRefreshToken = (refreshToken) => {
+  adminRefreshTokenHash = hashToken(refreshToken);
+};
+
+const clearAdminRefreshToken = () => {
+  adminRefreshTokenHash = null;
+};
 
 const getAdminConfig = () => {
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -86,12 +97,13 @@ export const issueAdminCsrfToken = (res) => {
 export const loginAdminWithSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginAdmin(email, password);
-  const { csrfToken } = setAuthCookies(res, 'admin', result.tokenClaims);
+  const { refreshToken, csrfToken } = setAuthCookies(res, 'admin', result.tokenClaims);
+  persistAdminRefreshToken(refreshToken);
   return { admin: result.admin, csrfToken };
 };
 
 export const refreshAdminSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'admin', { allowTrustedOriginFallback: true })) {
+  if (!enforceCsrfForRole(req, 'admin')) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
 
@@ -101,20 +113,27 @@ export const refreshAdminSession = async (req, res) => {
   }
 
   const decoded = verifyRefreshToken('admin', refreshToken);
-  const { csrfToken } = setAuthCookies(res, 'admin', {
+  if (!adminRefreshTokenHash || adminRefreshTokenHash !== hashToken(refreshToken)) {
+    clearAuthCookies(res, 'admin');
+    throw new ApiError(401, 'Refresh token is invalid');
+  }
+
+  const { refreshToken: nextRefreshToken, csrfToken } = setAuthCookies(res, 'admin', {
     type: 'admin',
     role: 'admin',
     adminEmail: decoded.adminEmail,
   });
+  persistAdminRefreshToken(nextRefreshToken);
 
   const session = await getSessionAdmin();
   return { ...session, csrfToken };
 };
 
 export const logoutAdminSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'admin', { allowTrustedOriginFallback: true })) {
+  if (!enforceCsrfForRole(req, 'admin')) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
+  clearAdminRefreshToken();
   clearAuthCookies(res, 'admin');
   return { success: true };
 };

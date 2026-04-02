@@ -5,6 +5,7 @@ import { useCreateInterBankRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useToast } from '../components/ToastContainer';
 import { BLOOD_GROUPS } from '../config/constants';
+import { useAuth } from '../context/AuthContext';
 import '../pages.css/BloodBankDirectoryDetails.css';
 
 const getInventoryStatus = (units) => {
@@ -62,6 +63,7 @@ const BloodBankDirectoryDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { success, error } = useToast();
+  const { bloodBank: currentBloodBank, isBloodBankAuthenticated, loading: authLoading } = useAuth();
 
   const [bank, setBank] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -86,8 +88,11 @@ const BloodBankDirectoryDetails = () => {
   const [createInterBankRequest] = useCreateInterBankRequestMutation();
 
   useEffect(() => {
-    const data = localStorage.getItem('bloodBankData');
-    if (!data) {
+    if (authLoading) {
+      return;
+    }
+
+    if (!isBloodBankAuthenticated) {
       navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
       return;
     }
@@ -99,7 +104,7 @@ const BloodBankDirectoryDetails = () => {
       setBank(bankData);
       setLoading(false);
     }
-  }, [bankData, navigate]);
+  }, [authLoading, bankData, isBloodBankAuthenticated, navigate]);
 
   useEffect(() => {
     if (queryError) {
@@ -119,8 +124,7 @@ const BloodBankDirectoryDetails = () => {
   const inventory = useMemo(() => normalizeInventory(bank?.inventory), [bank]);
   const services = useMemo(() => normalizeServices(bank?.services), [bank]);
   const totalUnits = useMemo(() => inventory.reduce((sum, item) => sum + item.units, 0), [inventory]);
-  const currentBloodBankData = useMemo(() => JSON.parse(localStorage.getItem('bloodBankData') || '{}'), []);
-  const currentBloodBankId = String(currentBloodBankData?.id || currentBloodBankData?._id || '');
+  const currentBloodBankId = String(currentBloodBank?.id || currentBloodBank?._id || '');
 
   const showRequestMessage = (type, text) => {
     setRequestMessage({ type, text });

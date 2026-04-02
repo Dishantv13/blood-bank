@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { apiSlice } from '../store/apiSlice';
 import { Link, useNavigate } from 'react-router-dom';
-import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation, useLogoutBloodBankMutation } from '../store/bloodBankApi';
+import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { useGetBloodBankRequestsQuery, useGetBloodBankApprovedRequestsQuery, useApproveRequestMutation, useRejectRequestMutation } from '../store/requestApi';
 import { useGetBloodBankCampsQuery, useDeleteCampMutation, useLazyGetCampRegistrationsQuery, useDeleteCampRegistrationMutation, useCreateCampMutation, useUpdateCampMutation } from '../store/bloodCampApi';
 import { useGetBloodBankEventsQuery } from '../store/eventApi';
@@ -13,50 +11,30 @@ import BloodBankDonations from '../components/BloodBankDonations';
 import ThemeToggle from '../components/ThemeToggle';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { ROUTE_PATH } from '../enum/routePath';
+import { useAuth } from '../context/AuthContext';
 import '../pages.css/BloodBankDashboard.css';
+
+const DEFAULT_INVENTORY = [
+  { type: 'A+', units: 0, status: 'critical' },
+  { type: 'A-', units: 0, status: 'critical' },
+  { type: 'B+', units: 0, status: 'critical' },
+  { type: 'B-', units: 0, status: 'critical' },
+  { type: 'AB+', units: 0, status: 'critical' },
+  { type: 'AB-', units: 0, status: 'critical' },
+  { type: 'O+', units: 0, status: 'critical' },
+  { type: 'O-', units: 0, status: 'critical' }
+];
 
 const BloodBankDashboard = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const { bloodBank: sessionBloodBank, isBloodBankAuthenticated, loading: authLoading, logoutBloodBank } = useAuth();
   const { success, error, info, warning } = useToast();
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem('bloodBankDashboardTab') || 'overview';
   });
-  const [bloodBank, setBloodBank] = useState(() => {
-    try {
-      const cached = localStorage.getItem('bloodBankData');
-      return cached ? JSON.parse(cached) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const [bloodBank, setBloodBank] = useState(sessionBloodBank || null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [inventory, setInventory] = useState(() => {
-    try {
-      const cached = localStorage.getItem('inventory_last');
-      return cached ? JSON.parse(cached) : [
-        { type: 'A+', units: 0, status: 'critical' },
-        { type: 'A-', units: 0, status: 'critical' },
-        { type: 'B+', units: 0, status: 'critical' },
-        { type: 'B-', units: 0, status: 'critical' },
-        { type: 'AB+', units: 0, status: 'critical' },
-        { type: 'AB-', units: 0, status: 'critical' },
-        { type: 'O+', units: 0, status: 'critical' },
-        { type: 'O-', units: 0, status: 'critical' }
-      ];
-    } catch (e) {
-      return [
-        { type: 'A+', units: 0, status: 'critical' },
-        { type: 'A-', units: 0, status: 'critical' },
-        { type: 'B+', units: 0, status: 'critical' },
-        { type: 'B-', units: 0, status: 'critical' },
-        { type: 'AB+', units: 0, status: 'critical' },
-        { type: 'AB-', units: 0, status: 'critical' },
-        { type: 'O+', units: 0, status: 'critical' },
-        { type: 'O-', units: 0, status: 'critical' }
-      ];
-    }
-  });
+  const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
   const [camps, setCamps] = useState([]);
   const [events, setEvents] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -175,8 +153,6 @@ const BloodBankDashboard = () => {
   const [deleteCampRegistrationMutation] = useDeleteCampRegistrationMutation();
   const [triggerGetRegistrations] = useLazyGetCampRegistrationsQuery();
   const [changePassword, { isLoading: changingPassword }] = useChangeBloodBankPasswordMutation();
-  const [logoutBloodBank] = useLogoutBloodBankMutation();
-
   // Only show full-screen loader if we have NO profile data
   const loading = (loadingProfile && !bloodBank);
 
@@ -214,12 +190,8 @@ const BloodBankDashboard = () => {
         lastUpdated: item.lastUpdated
       }));
       setInventory(mappedInventory);
-
-      const bloodBankId = bloodBank?.id || bloodBank?._id || 'default';
-      localStorage.setItem(`inventory_${bloodBankId}`, JSON.stringify(mappedInventory));
-      localStorage.setItem('inventory_last', JSON.stringify(mappedInventory));
     }
-  }, [inventoryData, bloodBank, inventoryChanged]);
+  }, [inventoryData, inventoryChanged]);
 
   // Effect to automatically determine if inventory has changed based on server data
   useEffect(() => {
@@ -311,8 +283,6 @@ const BloodBankDashboard = () => {
       if (bb.location?.coordinates && (bb.location.coordinates[0] !== 0 || bb.location.coordinates[1] !== 0)) {
         setBankLocation({ type: 'Point', coordinates: bb.location.coordinates });
       }
-      const existingData = JSON.parse(localStorage.getItem('bloodBankData') || '{}');
-      localStorage.setItem('bloodBankData', JSON.stringify({ ...existingData, ...bb }));
     }
   }, [profileData]);
 
@@ -322,44 +292,25 @@ const BloodBankDashboard = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    const data = localStorage.getItem('bloodBankData');
-
-    if (!data) {
-      navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
+    if (authLoading) {
       return;
     }
 
-    const bloodBankData = JSON.parse(data);
-    setBloodBank(bloodBankData);
-
-    // Initial inventory from localStorage for snappiness
-    const bloodBankId = bloodBankData.id || bloodBankData._id || 'default';
-    const savedInventory = localStorage.getItem(`inventory_${bloodBankId}`);
-    if (savedInventory) {
-      try {
-        const parsedInventory = JSON.parse(savedInventory);
-        if (parsedInventory && parsedInventory.length > 0) {
-          setInventory(parsedInventory);
-        }
-      } catch (e) { }
+    if (!isBloodBankAuthenticated) {
+      navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
+      return;
     }
-  }, [navigate]);
+  }, [authLoading, isBloodBankAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (sessionBloodBank) {
+      setBloodBank(sessionBloodBank);
+    }
+  }, [sessionBloodBank]);
 
   const handleLogout = async () => {
-    window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
-    localStorage.removeItem('bloodBankData');
-    localStorage.removeItem('bloodBankUser');
-    // Reset RTK Query cache first so pending secured queries are cancelled.
-    dispatch(apiSlice.util.resetApiState());
+    await logoutBloodBank();
     navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
-
-    try {
-      await logoutBloodBank().unwrap();
-    } catch (_error) {
-      // Continue local logout even if request fails.
-    } finally {
-      window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
-    }
   };
 
   const handleCampFormChange = (e) => {
