@@ -15,6 +15,7 @@ import {
   generateCsrfToken,
   getCookieNamesForRole,
   getRefreshTokenFromRequest,
+  hashToken,
   setAuthCookies,
   verifyRefreshToken,
   getPublicCookieOptions,
@@ -33,6 +34,32 @@ const buildBloodBankClaims = (bloodBank) => ({
   role: 'bloodbank',
   email: bloodBank.email,
 });
+
+const persistBloodBankRefreshToken = async (bloodBankId, refreshToken) => {
+  await BloodBank.updateOne(
+    { _id: bloodBankId },
+    {
+      $set: {
+        'authSession.refreshTokenHash': hashToken(refreshToken),
+        'authSession.refreshTokenIssuedAt': new Date(),
+      },
+    }
+  );
+};
+
+const clearBloodBankRefreshToken = async (bloodBankId) => {
+  if (!bloodBankId) return;
+
+  await BloodBank.updateOne(
+    { _id: bloodBankId },
+    {
+      $set: {
+        'authSession.refreshTokenHash': null,
+        'authSession.refreshTokenIssuedAt': null,
+      },
+    }
+  );
+};
 
 export const issueBloodBankCsrfToken = (res) => {
   const { csrfCookie } = getCookieNamesForRole('bloodbank');
@@ -66,12 +93,13 @@ export const registerBloodBankFromRequest = async (req) => {
 export const loginBloodBankWithSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginBloodBank(email, password);
-  const { csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  const { refreshToken, csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  await persistBloodBankRefreshToken(result.bloodBank.id, refreshToken);
   return { bloodBank: result.bloodBank, csrfToken };
 };
 
 export const refreshBloodBankSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'bloodbank', { allowTrustedOriginFallback: true })) {
+  if (!enforceCsrfForRole(req, 'bloodbank')) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
 
@@ -81,15 +109,36 @@ export const refreshBloodBankSession = async (req, res) => {
   }
 
   const decoded = verifyRefreshToken('bloodbank', refreshToken);
+  const bloodBankSession = await BloodBank.findById(decoded.bloodBankId)
+    .select('_id authSession.refreshTokenHash')
+    .lean();
+
+  if (!bloodBankSession?.authSession?.refreshTokenHash || bloodBankSession.authSession.refreshTokenHash !== hashToken(refreshToken)) {
+    clearAuthCookies(res, 'bloodbank');
+    throw new ApiError(401, 'Refresh token is invalid');
+  }
+
   const result = await getSessionBloodBank(decoded.bloodBankId);
-  const { csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  const { refreshToken: nextRefreshToken, csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  await persistBloodBankRefreshToken(decoded.bloodBankId, nextRefreshToken);
   return { bloodBank: result.bloodBank, csrfToken };
 };
 
 export const logoutBloodBankSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'bloodbank', { allowTrustedOriginFallback: true })) {
+  if (!enforceCsrfForRole(req, 'bloodbank')) {
     throw new ApiError(403, 'Invalid or missing CSRF token');
   }
+
+  const refreshToken = getRefreshTokenFromRequest(req, 'bloodbank');
+  if (refreshToken) {
+    try {
+      const decoded = verifyRefreshToken('bloodbank', refreshToken);
+      await clearBloodBankRefreshToken(decoded.bloodBankId);
+    } catch (_error) {
+      // Still clear client cookies even if refresh token is already invalid.
+    }
+  }
+
   clearAuthCookies(res, 'bloodbank');
   return { success: true };
 };
@@ -550,6 +599,10 @@ export const resetPassword = async (token, password) => {
   // Update password and clear reset token
   bloodBank.password = hashedPassword;
   bloodBank.passwordReset = undefined;
+  bloodBank.authSession = {
+    refreshTokenHash: null,
+    refreshTokenIssuedAt: null,
+  };
 
   await bloodBank.save();
 

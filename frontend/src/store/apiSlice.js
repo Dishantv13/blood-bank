@@ -3,7 +3,19 @@ import { TAGS } from '../enum/tagType';
 import { AUTH_API_URLS, BLOODBANK_API_URLS, DONATION_API_URLS } from '../enum/apiUrl';
 import { ROUTE_PATH } from '../enum/routePath';
 
+// Enforce HTTPS in production - prevent insecure connections
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+if (!API_URL) {
+  throw new Error('❌ VITE_API_URL environment variable is not configured. Please set it in your .env file.');
+}
+
+// SECURITY: Enforce HTTPS in production builds
+if (import.meta.env.PROD && !API_URL.startsWith('https://')) {
+  throw new Error('❌ SECURITY VIOLATION: Production API must use HTTPS. Current API_URL: ' + API_URL);
+}
+
+console.info('🔗 API URL configured:', API_URL);
 
 const getUrlFromArgs = (args) => {
   if (typeof args === 'string') return args;
@@ -151,18 +163,7 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
-const removeRoleState = (role) => {
-  if (role === 'admin') {
-    localStorage.removeItem('adminUser');
-    return;
-  }
-  if (role === 'bloodbank') {
-    localStorage.removeItem('bloodBankData');
-    localStorage.removeItem('bloodBankUser');
-    return;
-  }
-  localStorage.removeItem('user');
-};
+const removeRoleState = (_role) => {};
 
 const isLogoutInProgress = () =>
   typeof window !== 'undefined' && window.__AUTH_LOGOUT_IN_PROGRESS__ === true;

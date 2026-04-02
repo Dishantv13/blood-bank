@@ -33,7 +33,9 @@ router.route('/login').post([
   body('password').notEmpty().withMessage('Password is required')
 ], authLimiter, login);
 
-router.route('/google').post(authLimiter, googleLogin);
+router.route('/google').post([
+  body('idToken').notEmpty().withMessage('Google ID token is required')
+], authLimiter, googleLogin);
 
 router.route('/refresh').post(refreshSession);
 router.route('/logout').post(logout);

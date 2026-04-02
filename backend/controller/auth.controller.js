@@ -16,6 +16,7 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const googleLogin = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
   const result = await authService.googleLoginAndCreateSession(req, res);
   successResponse(res, result, 200, 'Google login successful');
 });

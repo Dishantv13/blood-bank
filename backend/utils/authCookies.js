@@ -123,6 +123,8 @@ export const isStateChangingMethod = (method) =>
   ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method || '').toUpperCase());
 
 export const generateCsrfToken = () => crypto.randomBytes(32).toString('hex');
+export const hashToken = (token) =>
+  crypto.createHash('sha256').update(String(token || '')).digest('hex');
 
 export const getCookieNamesForRole = (role) => {
   const config = getRoleConfig(role);
@@ -184,7 +186,7 @@ export const setAuthCookies = (res, role, payload) => {
     maxAge: ms(config.refreshExpiresIn, 7 * 24 * 60 * 60 * 1000),
   });
 
-  return { csrfToken };
+  return { accessToken, refreshToken, csrfToken };
 };
 
 export const clearAuthCookies = (res, role) => {
