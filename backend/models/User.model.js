@@ -116,6 +116,16 @@ const UserSchema = new mongoose.Schema({
     token: String,
     expiresAt: Date
   },
+  authSession: {
+    refreshTokenHash: {
+      type: String,
+      default: null
+    },
+    refreshTokenIssuedAt: {
+      type: Date,
+      default: null
+    }
+  },
   createdAt: {
     type: Date,
     default: Date.now

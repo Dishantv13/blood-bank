@@ -52,22 +52,9 @@ const BloodBankLogin = () => {
     try {
       const response = await loginBloodBank(formData).unwrap();
       
-      // Store non-sensitive blood bank profile data only
-      localStorage.setItem('bloodBankData', JSON.stringify(response.bloodBank));
-      
-      // Store inventory from login response if available
-      const bloodBankId = response.bloodBank.id;
-      
-      if (response.bloodBank.inventory && response.bloodBank.inventory.length > 0) {
-        // Map backend format to frontend format
-        const mappedInventory = response.bloodBank.inventory.map(item => ({
-          type: item.bloodGroup || item.type,
-          units: item.units || 0,
-          status: item.units > 10 ? 'good' : item.units > 5 ? 'low' : 'critical',
-          lastUpdated: item.lastUpdated
-        }));
-        localStorage.setItem(`inventory_${bloodBankId}`, JSON.stringify(mappedInventory));
-      }
+      // SECURITY FIX: Authentication handled by httpOnly cookies
+      // No need to store tokens or sensitive data in localStorage
+      // Backend sets cookies automatically with credentials: 'include'
       
       toast.success('Login successful! Welcome back.');
       navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD);

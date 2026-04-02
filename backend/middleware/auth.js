@@ -11,7 +11,7 @@ const forbidden = (res, message = "Not authorized") =>
 
 const applyCsrfGuard = (req, res, role) => {
   if (!isStateChangingMethod(req.method)) return true;
-  if (enforceCsrfForRole(req, role, { allowTrustedOriginFallback: true })) return true;
+  if (enforceCsrfForRole(req, role)) return true;
   forbidden(res, "Invalid or missing CSRF token");
   return false;
 };
