@@ -43,7 +43,8 @@ const updateRequest = asyncHandler(async (req, res) => {
   }
 
   const { id } = req.params;
-  const result = await requestService.updateRequestStatus(id, req.body.status);
+  const userId = req.user.userId || req.user._id || req.user.id;
+  const result = await requestService.updateBloodRequest(id, userId, req.body);
   successResponse(res, result, 200, 'Request updated successfully');
 });
 
@@ -56,7 +57,10 @@ const updateRequestStatus = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   const { status } = req.body;
-  const result = await requestService.updateRequestStatus(id, status);
+  const actor = req.bloodBank
+    ? { type: 'bloodbank', id: req.bloodBank.bloodBankId || req.bloodBank._id || req.bloodBank.id }
+    : { type: 'user', id: req.user.userId || req.user._id || req.user.id };
+  const result = await requestService.updateRequestStatus(id, status, actor);
   successResponse(res, result, 200, `Request ${status} successfully`);
 });
 

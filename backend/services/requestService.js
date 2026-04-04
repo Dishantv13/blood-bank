@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { validateBloodRequest, validateBloodGroup } from './validationService.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import { ApiError } from '../utils/apiError.js';
+import { ensureValidObjectId } from '../utils/dbGuards.js';
 
 // Create blood request
 export const createBloodRequest = async (userId, data) => {
@@ -86,6 +87,7 @@ export const getUserRequests = async (userId, query) => {
 
 // Get request by ID
 export const getRequestById = async (requestId) => {
+  ensureValidObjectId(requestId, 'request id');
   const request = await BloodRequest.findById(requestId)
     .select('_id patientName bloodGroup units urgency status createdAt requiredBy hospital description contactNumber bloodBankResponse')
     .populate('requestedBy', 'name email phone')
@@ -100,6 +102,9 @@ export const getRequestById = async (requestId) => {
 
 // Update request (user can only update own request)
 export const updateBloodRequest = async (requestId, userId, data) => {
+  ensureValidObjectId(requestId, 'request id');
+  ensureValidObjectId(userId, 'user id');
+
   const request = await BloodRequest.findById(requestId)
     .select('requestedBy status')
     .lean();
@@ -118,23 +123,85 @@ export const updateBloodRequest = async (requestId, userId, data) => {
 
   // Validate data if provided
   if (data.bloodGroup) validateBloodGroup(data.bloodGroup);
+  if (data.units !== undefined) {
+    const parsedUnits = Number(data.units);
+    if (!Number.isInteger(parsedUnits) || parsedUnits <= 0) {
+      throw new ApiError(400, 'Units must be a positive integer');
+    }
+  }
+
+  const editableFields = ['patientName', 'bloodGroup', 'units', 'urgency', 'hospital', 'contactNumber', 'requiredBy', 'description'];
+  const safeUpdateData = editableFields.reduce((accumulator, field) => {
+    if (data[field] !== undefined) {
+      accumulator[field] = field === 'units' ? Number(data[field]) : data[field];
+    }
+    return accumulator;
+  }, {});
+
+  if (safeUpdateData.contactNumber) {
+    const normalizedPhone = String(safeUpdateData.contactNumber).replace(/\D/g, '');
+    if (!/^[0-9]{10}$/.test(normalizedPhone)) {
+      throw new ApiError(400, 'Contact number must be 10 digits');
+    }
+    safeUpdateData.contactNumber = normalizedPhone;
+  }
 
   // Atomic update
   const updatedRequest = await BloodRequest.findByIdAndUpdate(
     requestId,
-    { $set: { ...data, updatedAt: new Date() } },
+    { $set: { ...safeUpdateData, updatedAt: new Date() } },
     { new: true, runValidators: true }
   ).lean();
 
   return updatedRequest;
 };
 
-// Update request status
-export const updateRequestStatus = async (requestId, status) => {
+export const updateRequestStatus = async (requestId, status, actor) => {
+  ensureValidObjectId(requestId, 'request id');
+
   const validStatuses = ['pending', 'approved', 'rejected', 'fulfilled', 'cancelled'];
   
   if (!validStatuses.includes(status)) {
     throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+  }
+
+  const request = await BloodRequest.findById(requestId)
+    .select('requestType requestedBy targetBloodBank bloodBank status')
+    .lean();
+
+  if (!request) {
+    throw new ApiError(404, 'Blood request not found');
+  }
+
+  const actorType = actor?.type;
+  const actorId = actor?.id ? String(actor.id) : null;
+
+  if (actorType === 'user') {
+    if (!actorId || String(request.requestedBy) !== actorId) {
+      throw new ApiError(403, 'Not authorized to update this request');
+    }
+
+    if (status !== 'cancelled') {
+      throw new ApiError(403, 'Users can only cancel their own requests');
+    }
+
+    if (!['pending', 'approved'].includes(request.status)) {
+      throw new ApiError(400, 'Request can no longer be cancelled');
+    }
+  } else if (actorType === 'bloodbank') {
+    if (request.requestType !== 'bloodbank') {
+      throw new ApiError(403, 'Blood banks cannot update user request status from this endpoint');
+    }
+
+    if (!actorId || String(request.targetBloodBank) !== actorId) {
+      throw new ApiError(403, 'Not authorized to update this request');
+    }
+
+    if (!['approved', 'rejected', 'fulfilled'].includes(status)) {
+      throw new ApiError(403, 'Blood banks can only approve, reject, or fulfill assigned requests');
+    }
+  } else {
+    throw new ApiError(403, 'Request status update is not authorized');
   }
 
   const updatedRequest = await BloodRequest.findByIdAndUpdate(
@@ -142,10 +209,6 @@ export const updateRequestStatus = async (requestId, status) => {
     { $set: { status, updatedAt: new Date() } },
     { new: true, runValidators: true }
   ).lean();
-
-  if (!updatedRequest) {
-    throw new ApiError(404, 'Blood request not found');
-  }
 
   return updatedRequest;
 };

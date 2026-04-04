@@ -7,6 +7,8 @@ import Event from '../models/Event.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { addInventoryUnits, subtractInventoryUnits } from './inventoryService.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
+import { BLOOD_BANK_SAFE_FIELDS, sanitizeBloodBank } from '../utils/serializers.js';
+import * as validationService from './validationService.js';
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return '';
@@ -533,9 +535,9 @@ export const getDashboard = async (bloodBankId) => {
 };
 
 export const getProfile = async (bloodBankId) => {
-  const bloodBank = await BloodBank.findById(bloodBankId).select('-password').lean();
+  const bloodBank = await BloodBank.findById(bloodBankId).select(BLOOD_BANK_SAFE_FIELDS).lean();
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
-  return bloodBank;
+  return sanitizeBloodBank(bloodBank);
 };
 
 export const updateProfile = async (bloodBankId, payload) => {
@@ -548,15 +550,16 @@ export const updateProfile = async (bloodBankId, payload) => {
   });
 
   await bloodBank.save();
-  return BloodBank.findById(bloodBank._id).select('-password').lean();
+  const updatedBloodBank = await BloodBank.findById(bloodBank._id).select(BLOOD_BANK_SAFE_FIELDS).lean();
+  return sanitizeBloodBank(updatedBloodBank);
 };
 
 export const changePassword = async (bloodBankId, currentPassword, newPassword) => {
   if (!currentPassword || !newPassword) throw new ApiError(400, 'Please provide current and new password');
   if (currentPassword === newPassword) throw new ApiError(400, 'New password must be different from current password');
-  if (newPassword.length < 6) throw new ApiError(400, 'New password must be at least 6 characters');
+  validationService.validatePassword(newPassword);
 
-  const bloodBank = await BloodBank.findById(bloodBankId);
+  const bloodBank = await BloodBank.findById(bloodBankId).select('+password');
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
   const isMatch = await bloodBank.comparePassword(currentPassword);

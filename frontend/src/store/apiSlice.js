@@ -37,10 +37,22 @@ const parseCookie = (name) => {
   return match ? decodeURIComponent(match[1]) : null;
 };
 
-const isBloodBankPath = (url = '') => {
+const isBloodBankPath = (url = '', method = 'GET') => {
   const cleanUrl = String(url).split('?')[0].toLowerCase();
+  const cleanMethod = String(method || 'GET').toUpperCase();
   const bloodBankDashboardPrefix = BLOODBANK_API_URLS.GET_DASHBOARD.toLowerCase().split('/dashboard')[0];
+
+  // Blood camp management endpoints are protected by blood bank auth,
+  // except donor registration endpoint which is user-authenticated.
+  const isCampPath = cleanUrl.startsWith('/blood-camps');
+  const isCampRegistrationPath = /^\/blood-camps\/[^/]+\/register$/.test(cleanUrl);
+  const isBloodBankCampManagementPath =
+    isCampPath &&
+    cleanMethod !== 'GET' &&
+    !isCampRegistrationPath;
+
   return (
+    isBloodBankCampManagementPath ||
     cleanUrl.startsWith(bloodBankDashboardPrefix) ||
     cleanUrl.startsWith(BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase().split('/login')[0]) ||
     cleanUrl.startsWith(DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS.toLowerCase())
@@ -57,8 +69,8 @@ const isAdminAuthPath = (url = '') => {
   return cleanUrl.startsWith('/admin-auth');
 };
 
-const getRoleFromUrl = (url = '') => {
-  if (isBloodBankPath(url)) return 'bloodbank';
+const getRoleFromUrl = (url = '', method = 'GET') => {
+  if (isBloodBankPath(url, method)) return 'bloodbank';
   if (isAdminPath(url) || isAdminAuthPath(url)) return 'admin';
   return 'user';
 };
@@ -145,6 +157,7 @@ const baseQuery = fetchBaseQuery({
   credentials: 'include',
   prepareHeaders: (headers, { arg }) => {
     const method = getMethodFromArgs(arg);
+    const url = getUrlFromArgs(arg);
     const isFormData = arg && arg.body instanceof FormData;
 
     if (!isFormData) {
@@ -152,7 +165,7 @@ const baseQuery = fetchBaseQuery({
     }
 
     if (isStateChangingMethod(method)) {
-      const role = getRoleFromUrl(getUrlFromArgs(arg));
+      const role = getRoleFromUrl(url, method);
       const csrfToken = parseCookie(getCsrfCookieName(role));
       if (csrfToken) {
         headers.set('x-csrf-token', csrfToken);
@@ -187,9 +200,16 @@ const buildSkippedDuringLogoutError = () => ({
   },
 });
 
+const isCsrfError = (result) => {
+  const status = result?.error?.status;
+  const message = String(result?.error?.data?.message || '').toLowerCase();
+  return status === 403 && message.includes('csrf');
+};
+
 const baseQueryWithReauth = async (args, api, extraOptions) => {
   const requestUrl = getUrlFromArgs(args);
-  const requestRole = getRoleFromUrl(requestUrl);
+  const requestMethod = getMethodFromArgs(args);
+  const requestRole = getRoleFromUrl(requestUrl, requestMethod);
   const currentPath = window.location.pathname.toLowerCase();
   const logoutInProgress = isLogoutInProgress();
 
@@ -199,6 +219,12 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
   }
 
   let result = await baseQuery(args, api, extraOptions);
+
+  // If CSRF is missing/expired, fetch a new token and retry state-changing calls once.
+  if (isStateChangingMethod(requestMethod) && isCsrfError(result)) {
+    await baseQuery({ url: getCsrfEndpoint(requestRole), method: 'GET' }, api, extraOptions);
+    result = await baseQuery(args, api, extraOptions);
+  }
 
   if (result.error && result.error.status === 401) {
     if (logoutInProgress && !isLogoutPath(requestUrl)) {
@@ -214,11 +240,21 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
         await baseQuery({ url: getCsrfEndpoint(requestRole), method: 'GET' }, api, extraOptions);
       }
 
-      const refreshResult = await baseQuery(
+      let refreshResult = await baseQuery(
         { url: getRefreshEndpoint(requestRole), method: 'POST' },
         api,
         extraOptions
       );
+
+      // Refresh can itself fail on stale CSRF cookie; renew token and retry once.
+      if (isCsrfError(refreshResult)) {
+        await baseQuery({ url: getCsrfEndpoint(requestRole), method: 'GET' }, api, extraOptions);
+        refreshResult = await baseQuery(
+          { url: getRefreshEndpoint(requestRole), method: 'POST' },
+          api,
+          extraOptions
+        );
+      }
 
       if (refreshResult.data) {
         result = await baseQuery(args, api, extraOptions);
@@ -252,5 +288,10 @@ export const apiSlice = createApi({
   reducerPath: 'api',
   baseQuery: baseQueryWithReauth,
   tagTypes: Object.values(TAGS),
+  // Keep data reasonably fresh across tabs/devices while still benefiting from cache.
+  keepUnusedDataFor: 120,
+  refetchOnFocus: true,
+  refetchOnReconnect: true,
+  refetchOnMountOrArgChange: 30,
   endpoints: () => ({}),
 });

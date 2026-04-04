@@ -1,12 +1,6 @@
 import { uploadOnCloudinary } from '../utils/cloudinary.js';
 import { ApiError } from '../utils/apiError.js';
 
-/**
- * Service to handle single file upload logic
- * @param {string} localFilePath - Path to the temporary file
- * @param {string} folder - Destination folder on Cloudinary
- * @returns {Promise<object>} - Uploaded file metadata
- */
 export const handleSingleUpload = async (localFilePath, folder = 'general/uploads') => {
   if (!localFilePath) {
     throw new ApiError(400, 'No file found to upload');
@@ -24,12 +18,6 @@ export const handleSingleUpload = async (localFilePath, folder = 'general/upload
   };
 };
 
-/**
- * Service to handle multiple file uploads logic
- * @param {Array} files - Array of Multer file objects
- * @param {string} folder - Destination folder on Cloudinary
- * @returns {Promise<object>} - Array of uploaded file metadata
- */
 export const handleMultipleUploads = async (files, folder = 'general/uploads') => {
   if (!files || files.length === 0) {
     throw new ApiError(400, 'No files found to upload');

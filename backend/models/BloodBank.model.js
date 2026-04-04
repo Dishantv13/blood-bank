@@ -17,19 +17,27 @@ const BloodBankSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    minlength: 6
+    minlength: 12,
+    select: false
   },
   phone: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    validate: {
+      validator: (value) => /^[0-9]{10}$/.test(String(value).replace(/\D/g, '')),
+      message: 'Phone number must be 10 digits'
+    }
   },
   logo: {
     type: String,
-    default: ''
+    default: '',
+    trim: true
   },
   imageUrl: {
     type: String,
-    default: ''
+    default: '',
+    trim: true
   },
   licenseNumber: {
     type: String,
@@ -50,11 +58,13 @@ const BloodBankSchema = new mongoose.Schema({
   },
   profileImage: {
     type: String,
-    default: ''
+    default: '',
+    trim: true
   },
   profileImagePublicId: {
     type: String,
-    default: ''
+    default: '',
+    trim: true
   },
   location: {
     type: {
@@ -64,7 +74,11 @@ const BloodBankSchema = new mongoose.Schema({
     },
     coordinates: {
       type: [Number],
-      default: [0, 0]
+      default: [0, 0],
+      validate: {
+        validator: (coords) => Array.isArray(coords) && coords.length === 2 && coords.every((value) => Number.isFinite(value)),
+        message: 'Location coordinates must contain valid longitude and latitude values'
+      }
     }
   },
   inventory: [{
@@ -134,23 +148,27 @@ const BloodBankSchema = new mongoose.Schema({
   },
   loginAttempts: {
     type: Number,
-    default: 0
+    default: 0,
+    select: false
   },
   lockUntil: {
-    type: Date
+    type: Date,
+    select: false
   },
   passwordReset: {
-    token: String,
-    expiresAt: Date
+    token: { type: String, select: false },
+    expiresAt: { type: Date, select: false }
   },
   authSession: {
     refreshTokenHash: {
       type: String,
-      default: null
+      default: null,
+      select: false
     },
     refreshTokenIssuedAt: {
       type: Date,
-      default: null
+      default: null,
+      select: false
     }
   },
   createdAt: {
@@ -165,7 +183,7 @@ const BloodBankSchema = new mongoose.Schema({
 
 // Index for geospatial queries
 BloodBankSchema.index({ location: '2dsphere' });
-BloodBankSchema.index({ isActive: 1, isVerified: 1 });
+BloodBankSchema.index({ isActive: 1, approvalStatus: 1, isVerified: 1 });
 BloodBankSchema.index({ createdAt: -1 });
 
 // Hash password before saving

@@ -20,7 +20,8 @@ export const bloodBankApi = apiSlice.injectEndpoints({
         url: BLOODBANK_API_URLS.GET_ALL_BLOOD_BANKS,
         params,
       }),
-      keepUnusedDataFor: 600,
+      keepUnusedDataFor: 120,
+      refetchOnMountOrArgChange: 30,
       providesTags: (result) => tagListWithIds(TAGS.BLOOD_BANK, result?.data),
     }),
     getBloodBankById: builder.query({

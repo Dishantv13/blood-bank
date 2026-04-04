@@ -414,7 +414,7 @@ const Profile = () => {
                       })}
                     >
                       <option value="">Select blood group</option>
-                      {bloodGroups.map((group) => (
+                      {BLOOD_GROUPS.map((group) => (
                         <option key={group} value={group}>
                           {group}
                         </option>

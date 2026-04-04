@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import * as validationService from './validationService.js';
 import { ApiError } from '../utils/apiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
+import { sanitizeUser, USER_DONOR_FIELDS, USER_PROFILE_FIELDS } from '../utils/serializers.js';
 
 /**
  * User Service
@@ -41,7 +42,7 @@ const invalidateDashboardStatsCache = (userId) => {
 // Get user profile
 export const getUserProfile = async (userId) => {
   const user = await User.findById(userId)
-    .select('-password')
+    .select(USER_PROFILE_FIELDS)
     .populate('healthForm')
     .lean();
 
@@ -55,7 +56,7 @@ export const getUserProfile = async (userId) => {
     user.activeMode = 'patient';
   }
 
-  return user;
+  return sanitizeUser(user);
 };
 
 // Update user profile photo
@@ -114,7 +115,7 @@ export const updateUserProfile = async (userId, updateData) => {
     userId,
     { $set: updateFields },
     { new: true, runValidators: true }
-  ).select('-password').lean();
+  ).select(USER_PROFILE_FIELDS).lean();
 
   if (!user) {
     throw new ApiError(404, 'User not found');
@@ -122,7 +123,7 @@ export const updateUserProfile = async (userId, updateData) => {
 
   invalidateDashboardStatsCache(userId);
 
-  return user;
+  return sanitizeUser(user);
 };
 
 // Update donor information
@@ -251,7 +252,7 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
 
   invalidateDashboardStatsCache(userId);
 
-  return user;
+  return sanitizeUser(user.toObject());
 };
 
 // Get available donors by blood group
@@ -277,12 +278,12 @@ export const getAvailableDonors = async (query) => {
           $maxDistance: maxDistance ? parseInt(maxDistance) : 10000
         }
       }
-    }).select('-password').lean();
+    }).select(USER_DONOR_FIELDS).lean();
   } else {
-    donors = await User.find(filterQuery).select('-password').lean();
+    donors = await User.find(filterQuery).select(USER_DONOR_FIELDS).lean();
   }
 
-  return donors;
+  return donors.map((donor) => sanitizeUser(donor));
 };
 
 // Toggle between donor and patient mode
@@ -329,85 +330,86 @@ export const getDashboardStats = async (userId) => {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const [
-    myRequestsStats,
-    bloodGroupStats,
-    urgencyStats,
-    monthlyTrend,
-    donorCount,
-    totalUsers,
-    upcomingEvents,
-    registeredEventsCount,
-    donationStats,
-    user,
-    latestDonation
-  ] = await Promise.all([
+  const [requestFacetResult, eventFacetResult, donationFacetResult, donorCount, totalUsers, user] = await Promise.all([
     BloodRequest.aggregate([
-      { $match: { requestedBy: userObjectId } },
       {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 }
+        $facet: {
+          myRequests: [
+            { $match: { requestedBy: userObjectId } },
+            { $group: { _id: '$status', count: { $sum: 1 } } }
+          ],
+          bloodGroups: [
+            { $match: { status: 'pending' } },
+            { $group: { _id: '$bloodGroup', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          urgency: [
+            { $match: { status: 'pending' } },
+            { $group: { _id: '$urgency', count: { $sum: 1 } } }
+          ],
+          monthlyTrend: [
+            { $match: { createdAt: { $gte: sixMonthsAgo } } },
+            {
+              $group: {
+                _id: {
+                  year: { $year: '$createdAt' },
+                  month: { $month: '$createdAt' }
+                },
+                count: { $sum: 1 }
+              }
+            },
+            { $sort: { '_id.year': 1, '_id.month': 1 } }
+          ]
         }
       }
     ]),
-    BloodRequest.aggregate([
-      { $match: { status: 'pending' } },
+    Event.aggregate([
       {
-        $group: {
-          _id: '$bloodGroup',
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { count: -1 } }
-    ]),
-    BloodRequest.aggregate([
-      { $match: { status: 'pending' } },
-      {
-        $group: {
-          _id: '$urgency',
-          count: { $sum: 1 }
+        $facet: {
+          upcoming: [
+            { $match: { date: { $gte: now }, isActive: true } },
+            { $count: 'count' }
+          ],
+          registered: [
+            { $match: { registeredDonors: userObjectId, date: { $gte: now } } },
+            { $count: 'count' }
+          ]
         }
       }
     ]),
-    BloodRequest.aggregate([
-      { $match: { createdAt: { $gte: sixMonthsAgo } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } }
-    ]),
-    User.countDocuments({ isDonor: true, isAvailable: true }),
-    User.countDocuments({}),
-    Event.countDocuments({ date: { $gte: now }, isActive: true }),
-    Event.countDocuments({ registeredDonors: userObjectId, date: { $gte: now } }),
     Donation.aggregate([
       { $match: { donor: userObjectId, status: 'completed' } },
       {
-        $group: {
-          _id: null,
-          totalCount: { $sum: 1 },
-          totalVolume: { $sum: '$volumeDonated' }
+        $facet: {
+          summary: [
+            {
+              $group: {
+                _id: null,
+                totalCount: { $sum: 1 },
+                totalVolume: { $sum: '$volumeDonated' }
+              }
+            }
+          ],
+          latest: [
+            { $sort: { donationDate: -1 } },
+            { $limit: 1 },
+            { $project: { _id: 0, donationDate: 1 } }
+          ]
         }
       }
     ]),
-    User.findById(userId).lean(),
-    Donation.findOne({ donor: userObjectId, status: 'completed' })
-      .sort({ donationDate: -1 })
-      .select('donationDate')
-      .lean()
+    User.countDocuments({ isDonor: true, isAvailable: true }),
+    User.countDocuments({}),
+    User.findById(userId).select(USER_PROFILE_FIELDS).lean()
   ]);
 
-  const realTotalDonations = donationStats[0]?.totalCount || user?.donorInfo?.totalDonations || 0;
-  const realTotalVolume = donationStats[0]?.totalVolume || user?.donorInfo?.totalDonatedVolume || 0;
+  const requestFacet = requestFacetResult[0] || {};
+  const eventFacet = eventFacetResult[0] || {};
+  const donationFacet = donationFacetResult[0] || {};
 
-  const realLastDonationDate = latestDonation?.donationDate || user?.donorInfo?.lastDonationDate || user?.lastDonationDate;
+  const realTotalDonations = donationFacet.summary?.[0]?.totalCount || user?.donorInfo?.totalDonations || 0;
+  const realTotalVolume = donationFacet.summary?.[0]?.totalVolume || user?.donorInfo?.totalDonatedVolume || 0;
+  const realLastDonationDate = donationFacet.latest?.[0]?.donationDate || user?.donorInfo?.lastDonationDate || user?.lastDonationDate;
 
   // Sync back to user model if there's a disconnect
   if (user.donorInfo && (
@@ -427,15 +429,15 @@ export const getDashboardStats = async (userId) => {
 
   const result = {
     stats: {
-      myRequests: myRequestsStats,
-      bloodGroups: bloodGroupStats,
-      urgency: urgencyStats,
-      monthlyTrend,
+      myRequests: requestFacet.myRequests || [],
+      bloodGroups: requestFacet.bloodGroups || [],
+      urgency: requestFacet.urgency || [],
+      monthlyTrend: requestFacet.monthlyTrend || [],
       overview: {
         totalDonors: donorCount,
         totalUsers,
-        upcomingEvents,
-        registeredEvents: registeredEventsCount,
+        upcomingEvents: eventFacet.upcoming?.[0]?.count || 0,
+        registeredEvents: eventFacet.registered?.[0]?.count || 0,
         personalStats: {
           totalDonations: realTotalDonations,
           totalDonatedVolume: realTotalVolume,

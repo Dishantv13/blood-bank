@@ -31,7 +31,7 @@ export const donationApi = apiSlice.injectEndpoints({
       }),
       // Invalidate both the specific donation AND the full list so tabs/counts update
       invalidatesTags: (result, error, { donationId }) => [
-        tagById(TAGS.DONATION, donationId),
+        ...tagById(TAGS.DONATION, donationId),
         ...tagList(TAGS.DONATION),
       ],
     }),
@@ -43,7 +43,7 @@ export const donationApi = apiSlice.injectEndpoints({
       }),
       // Invalidate both the item and the list so pending/completed tabs re-render
       invalidatesTags: (result, error, { donationId }) => [
-        tagById(TAGS.DONATION, donationId),
+        ...tagById(TAGS.DONATION, donationId),
         ...tagList(TAGS.DONATION),
       ],
     }),

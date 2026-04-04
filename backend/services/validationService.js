@@ -43,11 +43,32 @@ export const validateUnits = (units) => {
   return true;
 };
 
-// Password validation
+// Password validation - enforce strong password policy
 export const validatePassword = (password) => {
-  if (password.length < 6) {
-    throw new ApiError(400, 'Password must be at least 6 characters');
+  if (password.length < 12) {
+    throw new ApiError(400, 'Password must be at least 12 characters');
   }
+  
+  // Check for uppercase letter
+  if (!/[A-Z]/.test(password)) {
+    throw new ApiError(400, 'Password must contain at least one uppercase letter');
+  }
+  
+  // Check for lowercase letter
+  if (!/[a-z]/.test(password)) {
+    throw new ApiError(400, 'Password must contain at least one lowercase letter');
+  }
+  
+  // Check for number
+  if (!/\d/.test(password)) {
+    throw new ApiError(400, 'Password must contain at least one number');
+  }
+  
+  // Check for special character
+  if (!/[@$!%*?&]/.test(password)) {
+    throw new ApiError(400, 'Password must contain at least one special character (@$!%*?&)');
+  }
+  
   return true;
 };
 

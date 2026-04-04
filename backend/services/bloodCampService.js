@@ -5,17 +5,19 @@ import Donation from '../models/Donation.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 
-const CAMP_LIST_FIELDS = '_id name organizer organizerName date startTime endTime venue address city state targetUnits collectedUnits description contactPhone status';
+const CAMP_LIST_FIELDS = '_id name organizer organizerName date startTime endTime venue address city state targetUnits collectedUnits description contactPhone status registeredDonors.donor';
 
 export const getAllCamps = async (query) => {
   const { city, status, upcoming } = query;
   const { page, limit, skip } = getPaginationParams({ query });
   const filter = {};
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
 
   if (city) filter.city = new RegExp(city, 'i');
   if (status) filter.status = status;
   if (upcoming === 'true' || !status) {
-    filter.date = { $gte: new Date() };
+    filter.date = { $gte: startOfToday };
     filter.status = { $in: ['scheduled', 'upcoming'] };
   }
 
@@ -96,7 +98,7 @@ export const registerCamp = async (campId, userId) => {
   if (!user) throw new ApiError(404, 'User not found');
 
   const alreadyRegistered = camp.registeredDonors.some(
-    (donor) => donor.donor && donor.donor.toString() === userId.toString()
+    (donor) => donor && donor.donor && donor.donor.toString() === userId.toString()
   );
   if (alreadyRegistered) throw new ApiError(400, 'You have already registered for this camp');
 

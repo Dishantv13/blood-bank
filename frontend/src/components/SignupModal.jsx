@@ -340,7 +340,7 @@ const SignupModal = ({ isOpen, onClose }) => {
             >
               <option value="">Select Blood Group</option>
 
-              {bloodGroups.map((group) => (
+              {BLOOD_GROUPS.map((group) => (
                 <option key={group}>{group}</option>
               ))}
             </select>

@@ -22,6 +22,8 @@ import {
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
+import { sanitizeBloodBank, BLOOD_BANK_LIST_FIELDS, BLOOD_BANK_SAFE_FIELDS } from '../utils/serializers.js';
+import { ensureValidObjectId } from '../utils/dbGuards.js';
 
 /**
  * Blood Bank Service
@@ -34,6 +36,30 @@ const buildBloodBankClaims = (bloodBank) => ({
   role: 'bloodbank',
   email: bloodBank.email,
 });
+
+const PUBLIC_BANKS_CACHE_TTL_MS = 30 * 1000;
+const publicBloodBanksCache = new Map();
+
+const getCachedPublicBanks = (key) => {
+  const cached = publicBloodBanksCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    publicBloodBanksCache.delete(key);
+    return null;
+  }
+  return cached.payload;
+};
+
+const setCachedPublicBanks = (key, payload) => {
+  publicBloodBanksCache.set(key, {
+    payload,
+    expiresAt: Date.now() + PUBLIC_BANKS_CACHE_TTL_MS,
+  });
+};
+
+export const invalidatePublicBloodBanksCache = () => {
+  publicBloodBanksCache.clear();
+};
 
 const persistBloodBankRefreshToken = async (bloodBankId, refreshToken) => {
   await BloodBank.updateOne(
@@ -110,7 +136,7 @@ export const refreshBloodBankSession = async (req, res) => {
 
   const decoded = verifyRefreshToken('bloodbank', refreshToken);
   const bloodBankSession = await BloodBank.findById(decoded.bloodBankId)
-    .select('_id authSession.refreshTokenHash')
+    .select('_id +authSession.refreshTokenHash')
     .lean();
 
   if (!bloodBankSession?.authSession?.refreshTokenHash || bloodBankSession.authSession.refreshTokenHash !== hashToken(refreshToken)) {
@@ -241,13 +267,7 @@ export const registerBloodBank = async (data) => {
   await inventory.save();
 
   return {
-    bloodBank: {
-      id: bloodBank._id,
-      name: bloodBank.name,
-      email: bloodBank.email,
-      phone: bloodBank.phone,
-      approvalStatus: bloodBank.approvalStatus
-    },
+    bloodBank: sanitizeBloodBank(bloodBank),
     requiresApproval: true
   };
 };
@@ -259,7 +279,7 @@ export const loginBloodBank = async (email, password) => {
   }
 
   // Find blood bank (include lockout fields alongside password)
-  const bloodBank = await BloodBank.findOne({ email }).select('+password loginAttempts lockUntil');
+  const bloodBank = await BloodBank.findOne({ email }).select('+password +loginAttempts +lockUntil');
   if (!bloodBank) {
     throw new ApiError(401, 'Invalid credentials');
   }
@@ -304,26 +324,23 @@ export const loginBloodBank = async (email, password) => {
   }
 
   return {
-    bloodBank: {
-      id: bloodBank._id,
-      name: bloodBank.name,
-      email: bloodBank.email,
-      phone: bloodBank.phone,
-      licenseNumber: bloodBank.licenseNumber,
-      address: bloodBank.address,
-      operatingHours: bloodBank.operatingHours,
-      services: bloodBank.services,
-      isVerified: bloodBank.isVerified,
-      approvalStatus: bloodBank.approvalStatus,
-      inventory: bloodBank.inventory || []
-    }
+    bloodBank: sanitizeBloodBank(bloodBank)
   };
 };
 
 // Get all public blood banks or nearby ones
 export const getAllBloodBanks = async (query) => {
   const { latitude, longitude, maxDistance, bloodGroup } = query;
-  const listProjection = 'name email phone logo imageUrl profileImage address location inventory';
+  const cacheKey = JSON.stringify({
+    latitude: latitude || null,
+    longitude: longitude || null,
+    maxDistance: maxDistance || null,
+    bloodGroup: bloodGroup || null,
+  });
+  const cached = getCachedPublicBanks(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
   let bloodBanks;
   if (latitude && longitude) {
@@ -342,9 +359,9 @@ export const getAllBloodBanks = async (query) => {
       }
     };
 
-    bloodBanks = await BloodBank.find(geoQuery).select(listProjection).lean();
+    bloodBanks = await BloodBank.find(geoQuery).select(BLOOD_BANK_LIST_FIELDS).lean();
   } else {
-    bloodBanks = await BloodBank.find({ isActive: true, approvalStatus: 'approved' }).select(listProjection).lean();
+    bloodBanks = await BloodBank.find({ isActive: true, approvalStatus: 'approved' }).select(BLOOD_BANK_LIST_FIELDS).lean();
   }
 
   // Batch fetch inventories (avoid N+1)
@@ -371,7 +388,7 @@ export const getAllBloodBanks = async (query) => {
   };
 
   const bloodBanksWithInventory = bloodBanks.map(bank => ({
-    ...bank,
+    ...sanitizeBloodBank(bank),
     logo: resolveLightweightLogo(bank),
     inventory: inventoryMap.get(bank._id.toString()) || bank.inventory || []
   }));
@@ -379,18 +396,22 @@ export const getAllBloodBanks = async (query) => {
   // Filter by blood group availability if specified
   if (bloodGroup) {
     validationService.validateBloodGroup(bloodGroup);
-    return bloodBanksWithInventory.filter(bank =>
+    const filteredBanks = bloodBanksWithInventory.filter(bank =>
       bank.inventory.some(item => item.bloodGroup === bloodGroup && item.units > 0)
     );
+    setCachedPublicBanks(cacheKey, filteredBanks);
+    return filteredBanks;
   }
 
+  setCachedPublicBanks(cacheKey, bloodBanksWithInventory);
   return bloodBanksWithInventory;
 };
 
 // Get blood bank by ID
 export const getBloodBankById = async (bloodBankId) => {
+  ensureValidObjectId(bloodBankId, 'blood bank id');
   const [bloodBank, inventory] = await Promise.all([
-    BloodBank.findById(bloodBankId).select('-password').lean(),
+    BloodBank.findById(bloodBankId).select(BLOOD_BANK_SAFE_FIELDS).lean(),
     Inventory.findOne({ bloodBank: bloodBankId }).lean()
   ]);
 
@@ -398,15 +419,17 @@ export const getBloodBankById = async (bloodBankId) => {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  bloodBank.inventory = inventory?.items || [];
-
-  return bloodBank;
+  return sanitizeBloodBank({
+    ...bloodBank,
+    inventory: inventory?.items || []
+  });
 };
 
 // Get blood bank profile (for authenticated blood bank)
 export const getBloodBankProfile = async (bloodBankId) => {
+  ensureValidObjectId(bloodBankId, 'blood bank id');
   const [bloodBank, inventory] = await Promise.all([
-    BloodBank.findById(bloodBankId).select('-password').lean(),
+    BloodBank.findById(bloodBankId).select(BLOOD_BANK_SAFE_FIELDS).lean(),
     Inventory.findOne({ bloodBank: bloodBankId }).lean()
   ]);
 
@@ -414,31 +437,21 @@ export const getBloodBankProfile = async (bloodBankId) => {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  bloodBank.inventory = inventory?.items || [];
-
-  return bloodBank;
+  return sanitizeBloodBank({
+    ...bloodBank,
+    inventory: inventory?.items || []
+  });
 };
 
 export const getSessionBloodBank = async (bloodBankId) => {
-  const bloodBank = await BloodBank.findById(bloodBankId).select('-password').lean();
+  ensureValidObjectId(bloodBankId, 'blood bank id');
+  const bloodBank = await BloodBank.findById(bloodBankId).select(BLOOD_BANK_SAFE_FIELDS).lean();
   if (!bloodBank) {
     throw new ApiError(401, 'Blood bank session is invalid');
   }
 
   return {
-    bloodBank: {
-      id: bloodBank._id,
-      name: bloodBank.name,
-      email: bloodBank.email,
-      phone: bloodBank.phone,
-      licenseNumber: bloodBank.licenseNumber,
-      address: bloodBank.address,
-      operatingHours: bloodBank.operatingHours,
-      services: bloodBank.services,
-      isVerified: bloodBank.isVerified,
-      approvalStatus: bloodBank.approvalStatus,
-      inventory: bloodBank.inventory || []
-    }
+    bloodBank: sanitizeBloodBank(bloodBank)
   };
 };
 
@@ -459,7 +472,7 @@ export const updateBloodBankProfile = async (bloodBankId, updateData) => {
         imageUrl: logo
       },
       { new: true, runValidators: true }
-    ).select('-password').lean(),
+    ).select(BLOOD_BANK_SAFE_FIELDS).lean(),
     Inventory.findOne({ bloodBank: bloodBankId }).lean()
   ]);
 
@@ -467,9 +480,12 @@ export const updateBloodBankProfile = async (bloodBankId, updateData) => {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  bloodBank.inventory = inventory?.items || [];
+  invalidatePublicBloodBanksCache();
 
-  return bloodBank;
+  return sanitizeBloodBank({
+    ...bloodBank,
+    inventory: inventory?.items || []
+  });
 };
 
 // Create a new blood bank (Admin only)
@@ -504,11 +520,13 @@ export const createBloodBank = async (data) => {
   });
 
   await bloodBank.save();
-  return bloodBank;
+  invalidatePublicBloodBanksCache();
+  return sanitizeBloodBank(bloodBank);
 };
 
 // Update blood bank inventory by blood group
 export const updateBloodBankInventory = async (bloodBankId, bloodGroup, units) => {
+  ensureValidObjectId(bloodBankId, 'blood bank id');
   validationService.validateBloodGroup(bloodGroup);
   validationService.validateUnits(units);
 
@@ -537,6 +555,7 @@ export const updateBloodBankInventory = async (bloodBankId, bloodGroup, units) =
     }
   );
 
+  invalidatePublicBloodBanksCache();
   return inventory.items;
 };
 
