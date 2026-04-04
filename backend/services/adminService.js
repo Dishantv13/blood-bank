@@ -10,8 +10,10 @@ import Inventory from '../models/Inventory.model.js';
 import { ApiError } from '../utils/apiError.js';
 import {
   sendBloodBankRegistrationApprovedEmail,
-  sendBloodBankRegistrationRejectedEmail
+  sendBloodBankRegistrationRejectedEmail,
+  invalidatePublicBloodBanksCache
 } from './bloodBankService.js';
+import { BLOOD_BANK_SAFE_FIELDS, USER_SAFE_FIELDS, sanitizeBloodBank, sanitizeUser } from '../utils/serializers.js';
 
 const buildWorkbookBuffer = async (sheetName, rows) => {
   const workbook = new ExcelJS.Workbook();
@@ -27,7 +29,7 @@ const buildWorkbookBuffer = async (sheetName, rows) => {
 };
 
 export const exportUsers = async () => {
-  const users = await User.find().select('-password').lean();
+  const users = await User.find().select(USER_SAFE_FIELDS).lean();
   const rows = users.map((user) => ({
     Name: user.name,
     Email: user.email,
@@ -61,7 +63,7 @@ export const exportRequests = async () => {
 };
 
 export const exportBloodBanks = async () => {
-  const banks = await BloodBank.find().select('-password').lean();
+  const banks = await BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean();
   const rows = banks.map((bank) => ({
     Name: bank.name,
     Email: bank.email,
@@ -119,7 +121,7 @@ const buildCsvBuffer = (rows) => {
 };
 
 export const exportUsersCsv = async () => {
-  const users = await User.find().select('-password').lean();
+  const users = await User.find().select(USER_SAFE_FIELDS).lean();
   const rows = users.map((user) => ({
     Name: user.name,
     Email: user.email,
@@ -151,7 +153,7 @@ export const exportRequestsCsv = async () => {
 };
 
 export const exportBloodBanksCsv = async () => {
-  const banks = await BloodBank.find().select('-password').lean();
+  const banks = await BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean();
   const rows = banks.map((bank) => ({
     Name: bank.name,
     Email: bank.email,
@@ -203,9 +205,9 @@ export const exportAllData = async (format = 'xlsx') => {
   
   if (format === 'csv') {
     const [usersData, requestsData, banksData, campsData, eventsData] = await Promise.all([
-      User.find().select('-password').lean(),
+      User.find().select(USER_SAFE_FIELDS).lean(),
       BloodRequest.find().lean(),
-      BloodBank.find().select('-password').lean(),
+      BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean(),
       BloodCamp.find().lean(),
       Event.find().lean(),
     ]);
@@ -223,8 +225,8 @@ export const exportAllData = async (format = 'xlsx') => {
   } else {
     // XLSX format — fetch all collections in parallel
     const [usersRows, banksRows, campsRows, eventsRows, requestsRows] = await Promise.all([
-      User.find().select('-password').lean(),
-      BloodBank.find().select('-password').lean(),
+      User.find().select(USER_SAFE_FIELDS).lean(),
+      BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean(),
       BloodCamp.find().lean(),
       Event.find().lean(),
       BloodRequest.find().lean(),
@@ -258,16 +260,32 @@ export const getAllUsers = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.status) {
+  // Whitelist-based filtering to prevent NoSQL injection
+  const ALLOWED_STATUS_VALUES = ['active', 'inactive', 'suspended'];
+  const ALLOWED_BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+  if (filters.status && ALLOWED_STATUS_VALUES.includes(filters.status)) {
     if (filters.status === 'active') query.isAvailable = true;
     if (filters.status === 'inactive' || filters.status === 'suspended') query.isAvailable = false;
   }
-  if (filters.bloodType) query.bloodGroup = filters.bloodType;
-  if (filters.search) {
+  
+  // Validate blood type against whitelist
+  if (filters.bloodType && ALLOWED_BLOOD_TYPES.includes(filters.bloodType)) {
+    query.bloodGroup = filters.bloodType;
+  }
+  
+  // Escape regex special characters in search to prevent ReDoS attacks
+  if (filters.search && typeof filters.search === 'string') {
+    // Escape special regex characters
+    const escapedSearch = filters.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Limit search string length to prevent DoS
+    const sanitizedSearch = escapedSearch.substring(0, 100);
+    
     query.$or = [
-      { name: { $regex: filters.search, $options: 'i' } },
-      { email: { $regex: filters.search, $options: 'i' } },
-      { phone: { $regex: filters.search, $options: 'i' } },
+      { name: { $regex: sanitizedSearch, $options: 'i' } },
+      { email: { $regex: sanitizedSearch, $options: 'i' } },
+      { phone: { $regex: sanitizedSearch, $options: 'i' } },
     ];
   }
 
@@ -321,14 +339,14 @@ export const getAllUsers = async (page = 1, limit = 10, filters = {}) => {
 
 export const getUserById = async (userId) => {
   const user = await User.findById(userId)
-    .select('-password')
+    .select(USER_SAFE_FIELDS)
     .lean();
 
   if (!user) {
     throw new ApiError(404, 'User not found');
   }
 
-  return user;
+  return sanitizeUser(user);
 };
 
 export const updateUserStatus = async (userId, status) => {
@@ -406,13 +424,13 @@ export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
 };
 
 export const getBloodBankById = async (bankId) => {
-  const bank = await BloodBank.findById(bankId).lean();
+  const bank = await BloodBank.findById(bankId).select(BLOOD_BANK_SAFE_FIELDS).lean();
 
   if (!bank) {
     throw new ApiError(404, 'Blood bank not found');
   }
 
-  return bank;
+  return sanitizeBloodBank(bank);
 };
 
 export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) => {
@@ -448,6 +466,7 @@ export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) 
     await bank.save();
 
     await sendBloodBankRegistrationRejectedEmail(bank, rejectionReason);
+    invalidatePublicBloodBanksCache();
     return bank.toObject();
   }
 
@@ -461,6 +480,7 @@ export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) 
     await bank.save();
 
     await sendBloodBankRegistrationApprovedEmail(bank);
+    invalidatePublicBloodBanksCache();
     return bank.toObject();
   }
 
@@ -471,6 +491,7 @@ export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) 
   bank.reviewedAt = new Date();
   bank.reviewedBy = reviewer;
   await bank.save();
+  invalidatePublicBloodBanksCache();
 
   return bank.toObject();
 };

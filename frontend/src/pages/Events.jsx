@@ -10,13 +10,15 @@ const Events = () => {
   const { user } = useAuth();
   const { success, error, info } = useToast();
   const [activeTab, setActiveTab] = useState('all');
+  const [registeredEventIds, setRegisteredEventIds] = useState(new Set());
+  const [registeredCampIds, setRegisteredCampIds] = useState(new Set());
   
   // Use user ID from context
   const currentUserId = user?.id || user?._id || null;
 
   // RTK Queries automatically fetch and cache data on mount
-  const { data: campsResponse, isLoading: loadingCamps } = useGetAllCampsQuery({ upcoming: true });
-  const { data: eventsResponse, isLoading: loadingEvents } = useGetAllEventsQuery();
+  const { data: campsResponse, isLoading: loadingCamps, refetch: refetchCamps } = useGetAllCampsQuery({ upcoming: true });
+  const { data: eventsResponse, isLoading: loadingEvents, refetch: refetchEvents } = useGetAllEventsQuery();
   
   // RTK Mutations for registrations
   const [registerForEvent] = useRegisterForEventMutation();
@@ -51,6 +53,9 @@ const Events = () => {
   };
 
   const isRegisteredForEvent = (event) => {
+    // Check local state first for immediate UI feedback
+    if (registeredEventIds.has(event._id)) return true;
+    
     if (!currentUserId || !event.registeredDonors) return false;
     return event.registeredDonors.some((donor) => {
       const donorId = getRegistrantId(donor);
@@ -59,6 +64,9 @@ const Events = () => {
   };
 
   const isRegisteredForCamp = (camp) => {
+    // Check local state first for immediate UI feedback
+    if (registeredCampIds.has(camp._id)) return true;
+    
     if (!currentUserId || !camp.registeredDonors) return false;
     return camp.registeredDonors.some((donor) => {
       const donorId = getRegistrantId(donor);
@@ -79,11 +87,15 @@ const Events = () => {
 
     try {
       await registerForEvent(event._id).unwrap();
+      // Add to local state immediately for instant UI feedback
+      setRegisteredEventIds(prev => new Set([...prev, event._id]));
       success(`You have successfully registered for the event: ${event.title}`);
+      refetchEvents();
     } catch (err) {
       const registrationError = err.data?.message || 'Registration failed';
       if (registrationError.toLowerCase().includes('already')) {
         info('You are already registered for this event.');
+        setRegisteredEventIds(prev => new Set([...prev, event._id]));
       } else {
         error(registrationError);
       }
@@ -103,11 +115,15 @@ const Events = () => {
 
     try {
       await registerForCamp({ id: camp._id, data: {} }).unwrap();
+      // Add to local state immediately for instant UI feedback
+      setRegisteredCampIds(prev => new Set([...prev, camp._id]));
       success(`You have successfully registered for the camp: ${camp.name}`);
+      refetchCamps();
     } catch (err) {
       const registrationError = err.data?.message || 'Registration failed. Please try again.';
       if (registrationError.toLowerCase().includes('already')) {
         info('You are already registered for this camp.');
+        setRegisteredCampIds(prev => new Set([...prev, camp._id]));
       } else {
         error(registrationError);
       }

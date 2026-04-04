@@ -83,7 +83,7 @@ const Donors = () => {
               onChange={(e) => setFilterBloodGroup(e.target.value)}
             >
               <option value="">All Blood Groups</option>
-              {bloodGroups.map((group) => (
+              {BLOOD_GROUPS.map((group) => (
                 <option key={group} value={group}>
                   {group}
                 </option>

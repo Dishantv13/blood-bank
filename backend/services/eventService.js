@@ -2,13 +2,14 @@ import Event from '../models/Event.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 
-const EVENT_LIST_FIELDS = '_id title description organizer eventType location date startTime endTime contactInfo expectedDonors isActive visibility maxParticipants';
+const EVENT_LIST_FIELDS = '_id title description organizer eventType location date startTime endTime contactInfo expectedDonors isActive visibility maxParticipants registeredDonors';
 
 export const getAllEvents = async (query) => {
   const { latitude, longitude, maxDistance } = query;
   const { page, limit, skip } = getPaginationParams({ query });
-  const now = new Date();
-  const baseFilter = { isActive: true, date: { $gte: now } };
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const baseFilter = { isActive: true, date: { $gte: startOfToday } };
 
   // Geo-filtered queries: $near is incompatible with countDocuments;
   // return a single bounded result page without total count.
@@ -56,7 +57,7 @@ export const registerEvent = async (eventId, userId) => {
   const event = await Event.findById(eventId);
   if (!event) throw new ApiError(404, 'Event not found');
 
-  if (event.registeredDonors.some((id) => id.toString() === userId.toString())) {
+  if (event.registeredDonors.some((id) => id && id.toString() === userId.toString())) {
     throw new ApiError(400, 'Already registered for this event');
   }
 

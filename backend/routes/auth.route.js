@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import { auth } from '../middleware/auth.js';
-import { authLimiter } from '../middleware/rateLimiter.js';
+import { authLimiter, passwordResetLimiter } from '../middleware/rateLimiter.js';
 import {
   register,
   login,
@@ -23,7 +23,10 @@ router.route('/csrf-token').get(getCsrfToken);
 router.route('/register').post([
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').isEmail().withMessage('Please enter a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('password')
+    .isLength({ min: 12 }).withMessage('Password must be at least 12 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)'),
   body('phone').trim().notEmpty().withMessage('Phone number is required'),
   body('bloodGroup').isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).withMessage('Invalid blood group')
 ], authLimiter, register);
@@ -43,12 +46,15 @@ router.route('/session').get(auth, getSession);
 
 router.route('/forgot-password').post([
   body('email').isEmail().withMessage('Please enter a valid email')
-], authLimiter, forgotPassword);
+], passwordResetLimiter, forgotPassword);
 
 router.route('/reset-password').post([
   body('token').notEmpty().withMessage('Reset token is required'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
-], resetPassword);
+  body('password')
+    .isLength({ min: 12 }).withMessage('Password must be at least 12 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)')
+], passwordResetLimiter, resetPassword);
 
 router.route('/verify-reset-token').post([
   body('token').notEmpty().withMessage('Reset token is required')
@@ -56,7 +62,10 @@ router.route('/verify-reset-token').post([
 
 router.route('/change-password').post(auth, [
   body('currentPassword').notEmpty().withMessage('Current password is required'),
-  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+  body('newPassword')
+    .isLength({ min: 12 }).withMessage('New password must be at least 12 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .withMessage('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)')
 ], changePassword);
 
 export default router;

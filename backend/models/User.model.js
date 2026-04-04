@@ -15,11 +15,17 @@ const UserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: true,
+    select: false
   },
   phone: {
     type: String,
-    required: false
+    required: false,
+    trim: true,
+    validate: {
+      validator: (value) => !value || /^[0-9]{10}$/.test(String(value).replace(/\D/g, '')),
+      message: 'Phone number must be 10 digits'
+    }
   },
   bloodGroup: {
     type: String,
@@ -32,10 +38,12 @@ const UserSchema = new mongoose.Schema({
     sparse: true
   },
   photoURL: {
-    type: String
+    type: String,
+    trim: true
   },
   photoURLPublicId: {
-    type: String
+    type: String,
+    trim: true
   },
   role: {
     type: String,
@@ -69,7 +77,11 @@ const UserSchema = new mongoose.Schema({
     },
     coordinates: {
       type: [Number],
-      default: [0, 0]
+      default: [0, 0],
+      validate: {
+        validator: (coords) => Array.isArray(coords) && coords.length === 2 && coords.every((value) => Number.isFinite(value)),
+        message: 'Location coordinates must contain valid longitude and latitude values'
+      }
     }
   },
   aadharCard: {
@@ -107,23 +119,27 @@ const UserSchema = new mongoose.Schema({
   },
   loginAttempts: {
     type: Number,
-    default: 0
+    default: 0,
+    select: false
   },
   lockUntil: {
-    type: Date
+    type: Date,
+    select: false
   },
   passwordReset: {
-    token: String,
-    expiresAt: Date
+    token: { type: String, select: false },
+    expiresAt: { type: Date, select: false }
   },
   authSession: {
     refreshTokenHash: {
       type: String,
-      default: null
+      default: null,
+      select: false
     },
     refreshTokenIssuedAt: {
       type: Date,
-      default: null
+      default: null,
+      select: false
     }
   },
   createdAt: {

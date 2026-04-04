@@ -19,10 +19,39 @@ const ms = (value, fallbackMs) => {
   return amount * multiplier;
 };
 
+// Validate that a secret meets minimum security requirements
+const validateSecret = (secret, name) => {
+  if (!secret || typeof secret !== 'string') {
+    throw new Error(`[SECURITY] ${name} must be a non-empty string`);
+  }
+
+  if (secret.length < 32) {
+    throw new Error(`[SECURITY] ${name} must be at least 32 characters long (current: ${secret.length}). Use strong random values from environment.`);
+  }
+
+  // Ensure secret is not a default/weak value
+  const weakPatterns = ['123456', 'password', 'secret123', 'test', 'admin'];
+  if (weakPatterns.some(pattern => secret.toLowerCase().includes(pattern))) {
+    throw new Error(`[SECURITY] ${name} appears to use a weak pattern. Use strong cryptographic random values.`);
+  }
+
+  return true;
+};
+
+// Helper function to get secret with validation and no fallback chain
+const getSecret = (primaryEnvVar) => {
+  const secret = process.env[primaryEnvVar];
+  if (!secret) {
+    throw new Error(`[SECURITY] Required environment variable ${primaryEnvVar} is not set. Each role must have its own dedicated secret.`);
+  }
+  validateSecret(secret, primaryEnvVar);
+  return secret;
+};
+
 const ROLE_CONFIG = {
   user: {
-    accessSecret: () => process.env.USER_ACCESS_TOKEN_SECRET || process.env.JWT_SECRET,
-    refreshSecret: () => process.env.USER_REFRESH_TOKEN_SECRET || process.env.JWT_SECRET,
+    accessSecret: () => getSecret('USER_ACCESS_TOKEN_SECRET'),
+    refreshSecret: () => getSecret('USER_REFRESH_TOKEN_SECRET'),
     accessExpiresIn: () => process.env.USER_ACCESS_TOKEN_EXPIRES_IN || '15m',
     refreshExpiresIn: () => process.env.USER_REFRESH_TOKEN_EXPIRES_IN || '7d',
     accessCookie: () => process.env.USER_ACCESS_COOKIE_NAME || 'bb_user_at',
@@ -30,17 +59,17 @@ const ROLE_CONFIG = {
     csrfCookie: () => process.env.USER_CSRF_COOKIE_NAME || 'bb_user_csrf',
   },
   admin: {
-    accessSecret: () => process.env.ADMIN_ACCESS_TOKEN_SECRET || process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET,
-    refreshSecret: () => process.env.ADMIN_REFRESH_TOKEN_SECRET || process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET,
-    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || process.env.ADMIN_JWT_EXPIRES_IN || '15m',
+    accessSecret: () => getSecret('ADMIN_ACCESS_TOKEN_SECRET'),
+    refreshSecret: () => getSecret('ADMIN_REFRESH_TOKEN_SECRET'),
+    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || '15m',
     refreshExpiresIn: () => process.env.ADMIN_REFRESH_TOKEN_EXPIRES_IN || '7d',
     accessCookie: () => process.env.ADMIN_ACCESS_COOKIE_NAME || 'bb_admin_at',
     refreshCookie: () => process.env.ADMIN_REFRESH_COOKIE_NAME || 'bb_admin_rt',
     csrfCookie: () => process.env.ADMIN_CSRF_COOKIE_NAME || 'bb_admin_csrf',
   },
   bloodbank: {
-    accessSecret: () => process.env.BLOODBANK_ACCESS_TOKEN_SECRET || process.env.JWT_SECRET,
-    refreshSecret: () => process.env.BLOODBANK_REFRESH_TOKEN_SECRET || process.env.JWT_SECRET,
+    accessSecret: () => getSecret('BLOODBANK_ACCESS_TOKEN_SECRET'),
+    refreshSecret: () => getSecret('BLOODBANK_REFRESH_TOKEN_SECRET'),
     accessExpiresIn: () => process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || '15m',
     refreshExpiresIn: () => process.env.BLOODBANK_REFRESH_TOKEN_EXPIRES_IN || '30d',
     accessCookie: () => process.env.BLOODBANK_ACCESS_COOKIE_NAME || 'bb_bank_at',
@@ -53,21 +82,31 @@ const getRoleConfig = (role) => {
   const config = ROLE_CONFIG[role];
   if (!config) throw new Error(`Unsupported auth role: ${role}`);
 
-  const resolved = {
-    accessSecret: config.accessSecret(),
-    refreshSecret: config.refreshSecret(),
-    accessExpiresIn: config.accessExpiresIn(),
-    refreshExpiresIn: config.refreshExpiresIn(),
-    accessCookie: config.accessCookie(),
-    refreshCookie: config.refreshCookie(),
-    csrfCookie: config.csrfCookie(),
-  };
+  try {
+    const resolved = {
+      accessSecret: config.accessSecret(),
+      refreshSecret: config.refreshSecret(),
+      accessExpiresIn: config.accessExpiresIn(),
+      refreshExpiresIn: config.refreshExpiresIn(),
+      accessCookie: config.accessCookie(),
+      refreshCookie: config.refreshCookie(),
+      csrfCookie: config.csrfCookie(),
+    };
 
-  if (!resolved.accessSecret || !resolved.refreshSecret) {
-    throw new Error(`Missing token secrets for auth role: ${role}`);
+    // Verify secrets are different for different roles
+    if (resolved.accessSecret && process.env.NODE_ENV === 'production') {
+      // In production, ensure no secret collisions across roles
+      // This check can be extended to compare all role secrets
+      if (!process.env[`${role.toUpperCase()}_ACCESS_TOKEN_SECRET`]) {
+        throw new Error(`[SECURITY] Missing dedicated secret for ${role} role`);
+      }
+    }
+
+    return resolved;
+  } catch (error) {
+    console.error(`[SECURITY] Configuration error for role '${role}':`, error.message);
+    throw error;
   }
-
-  return resolved;
 };
 
 const resolveSameSite = () => {
@@ -88,16 +127,37 @@ const resolveCookieDomain = () => {
   const rawDomain = String(process.env.AUTH_COOKIE_DOMAIN || '').trim();
   if (!rawDomain) return null;
 
-  // Accept either plain host (example.com) or full URL (https://example.com).
+  // Validate domain format using strict regex
+  const domainRegex = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i;
+
+  let domain = rawDomain;
+
+  // Accept either plain host (example.com) or full URL (https://example.com)
   try {
     if (rawDomain.includes('://')) {
-      return new URL(rawDomain).hostname;
+      domain = new URL(rawDomain).hostname;
     }
   } catch (_error) {
+    console.warn('[SECURITY] Invalid AUTH_COOKIE_DOMAIN URL format, ignoring domain restriction');
     return null;
   }
 
-  return rawDomain.replace(/^www\./i, '');
+  // Validate domain format
+  if (!domainRegex.test(domain)) {
+    console.warn(`[SECURITY] Invalid domain format: ${domain}. Cookie domain restriction disabled. Use format: example.com`);
+    return null;
+  }
+
+  const cleanDomain = domain.replace(/^www\./i, '');
+
+  // Additional security check: prevent overly broad domains
+  const parts = cleanDomain.split('.');
+  if (parts.length < 2) {
+    console.warn('[SECURITY] Domain must include at least a second-level domain (e.g., example.com)');
+    return null;
+  }
+
+  return cleanDomain;
 };
 
 const cookieBaseOptions = () => {
@@ -122,9 +182,51 @@ export const getPublicCookieOptions = () => ({
 export const isStateChangingMethod = (method) =>
   ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method || '').toUpperCase());
 
-export const generateCsrfToken = () => crypto.randomBytes(32).toString('hex');
-export const hashToken = (token) =>
-  crypto.createHash('sha256').update(String(token || '')).digest('hex');
+// Generate cryptographically secure CSRF token (64 bytes = 512 bits)
+export const generateCsrfToken = () => {
+  const token = crypto.randomBytes(64).toString('hex');
+  const timestamp = Date.now().toString();
+  // Include timestamp to prevent token reuse across requests
+  const tokenWithTimestamp = `${token}.${timestamp}`;
+  return tokenWithTimestamp;
+};
+
+// Hash token for storage/comparison using HMAC for added security
+export const hashToken = (token) => {
+  if (!token || typeof token !== 'string') {
+    throw new Error('Invalid token provided');
+  }
+  return crypto
+    .createHmac('sha256', process.env.CSRF_HASH_SECRET || process.env.JWT_SECRET)
+    .update(token)
+    .digest('hex');
+};
+
+// Validate CSRF token with timestamp check (max age: 1 hour)
+export const validateCsrfToken = (token, maxAgeMs = 3600000) => {
+  try {
+    if (!token || typeof token !== 'string') {
+      return false;
+    }
+
+    const parts = token.split('.');
+    if (parts.length !== 2) {
+      return false;
+    }
+
+    const [, timestamp] = parts;
+    const tokenAge = Date.now() - parseInt(timestamp, 10);
+
+    // Token must be valid within the max age
+    if (tokenAge > maxAgeMs || tokenAge < 0) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
 
 export const getCookieNamesForRole = (role) => {
   const config = getRoleConfig(role);

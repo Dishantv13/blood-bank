@@ -31,7 +31,7 @@ export const requestApi = apiSlice.injectEndpoints({
         body: data,
       }),
       invalidatesTags: (result, error, { id }) => [
-        tagById(TAGS.REQUEST, id),
+        ...tagById(TAGS.REQUEST, id),
         ...tagList(TAGS.REQUEST),
       ],
     }),
@@ -42,7 +42,7 @@ export const requestApi = apiSlice.injectEndpoints({
         body: { status },
       }),
       invalidatesTags: (result, error, { id }) => [
-        tagById(TAGS.REQUEST, id),
+        ...tagById(TAGS.REQUEST, id),
         ...tagList(TAGS.REQUEST),
       ],
     }),
@@ -93,7 +93,7 @@ export const requestApi = apiSlice.injectEndpoints({
         body: data,
       }),
       invalidatesTags: (result, error, { id }) => [
-        tagById(TAGS.REQUEST, id),
+        ...tagById(TAGS.REQUEST, id),
         ...tagList(TAGS.REQUEST),
       ],
     }),

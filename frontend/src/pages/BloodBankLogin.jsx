@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useLoginBloodBankMutation } from '../store/bloodBankApi';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import ThemeToggle from "../components/ThemeToggle";
 import { ROUTE_PATH } from '../enum/routePath';
@@ -10,6 +11,7 @@ const BloodBankLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const { setBloodBank } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -51,6 +53,12 @@ const BloodBankLogin = () => {
 
     try {
       const response = await loginBloodBank(formData).unwrap();
+
+      // Sync auth context immediately so protected blood-bank routes allow navigation.
+      const bloodBankProfile = response?.bloodBank || response?.data?.bloodBank || null;
+      if (bloodBankProfile) {
+        setBloodBank(bloodBankProfile);
+      }
       
       // SECURITY FIX: Authentication handled by httpOnly cookies
       // No need to store tokens or sensitive data in localStorage

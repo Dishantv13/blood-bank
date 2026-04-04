@@ -23,7 +23,9 @@ const BloodRequestSchema = new mongoose.Schema({
   },
   patientName: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    maxlength: 120
   },
   bloodGroup: {
     type: String,
@@ -56,7 +58,12 @@ const BloodRequestSchema = new mongoose.Schema({
   },
   contactNumber: {
     type: String,
-    required: true
+    required: true,
+    trim: true,
+    validate: {
+      validator: (value) => /^[0-9]{10}$/.test(String(value).replace(/\D/g, '')),
+      message: 'Contact number must be 10 digits'
+    }
   },
   requiredBy: {
     type: Date,
@@ -68,7 +75,9 @@ const BloodRequestSchema = new mongoose.Schema({
     default: 'pending'
   },
   description: {
-    type: String
+    type: String,
+    trim: true,
+    maxlength: 1000
   },
   bloodBank: {
     type: mongoose.Schema.Types.ObjectId,
@@ -103,11 +112,12 @@ const BloodRequestSchema = new mongoose.Schema({
 });
 
 // Indexes for efficient queries
-BloodRequestSchema.index({ status: 1, requestType: 1 });
+BloodRequestSchema.index({ status: 1, requestType: 1, createdAt: -1 });
 BloodRequestSchema.index({ bloodBank: 1, status: 1 });
 BloodRequestSchema.index({ targetBloodBank: 1, status: 1 });
 BloodRequestSchema.index({ requestingBloodBank: 1, status: 1 });
-BloodRequestSchema.index({ requestedBy: 1 });
+BloodRequestSchema.index({ requestedBy: 1, requestType: 1, createdAt: -1 });
 BloodRequestSchema.index({ createdAt: -1 });
+BloodRequestSchema.index({ status: 1, bloodGroup: 1, urgency: 1, createdAt: -1 });
 
 export default mongoose.model('BloodRequest', BloodRequestSchema);

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth.js';
+import { auth, authOrBloodBank } from '../middleware/auth.js';
 import { cacheResponse } from '../middleware/cache.js';
 import {
   getAllRequests,
@@ -35,6 +35,6 @@ router.route('/:id').put(auth, updateRequest);
 // @route   PATCH /api/requests/:id/status
 // @desc    Update blood request status (for users to cancel OR blood banks to approve/decline)
 // @access  Private (User or Blood Bank)
-router.route('/:id/status').patch(auth, updateRequestStatus);
+router.route('/:id/status').patch(authOrBloodBank, updateRequestStatus);
 
 export default router;

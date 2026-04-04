@@ -10,6 +10,8 @@ export const bloodCampApi = apiSlice.injectEndpoints({
         url: BLOOD_CAMP_API_URLS.GET_ALL_CAMPS,
         params,
       }),
+      keepUnusedDataFor: 60,
+      refetchOnMountOrArgChange: 30,
       providesTags: (result) => tagListWithIds(TAGS.BLOOD_CAMP, result?.data),
     }),
     getCampById: builder.query({
@@ -22,7 +24,10 @@ export const bloodCampApi = apiSlice.injectEndpoints({
         method: 'POST',
         body: data, // expecting timeSlot etc
       }),
-      invalidatesTags: (result, error, { id }) => tagById(TAGS.BLOOD_CAMP, id),
+      invalidatesTags: (result, error, { id }) => [
+        ...tagById(TAGS.BLOOD_CAMP, id),
+        ...tagList(TAGS.BLOOD_CAMP),
+      ],
     }),
 
     // Blood Bank Portal Endpoints

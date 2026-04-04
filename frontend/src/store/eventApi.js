@@ -10,6 +10,8 @@ export const eventApi = apiSlice.injectEndpoints({
         url: EVENT_API_URLS.GET_ALL_EVENTS,
         params,
       }),
+      keepUnusedDataFor: 60,
+      refetchOnMountOrArgChange: 30,
       providesTags: (result) => tagListWithIds(TAGS.EVENT, result?.data),
     }),
     registerForEvent: builder.mutation({
@@ -17,8 +19,11 @@ export const eventApi = apiSlice.injectEndpoints({
         url: EVENT_API_URLS.REGISTER_FOR_EVENT(id),
         method: 'POST',
       }),
-      // Invalidating EVENT refreshes the registered attendee count
-      invalidatesTags: (result, error, id) => tagById(TAGS.EVENT, id),
+      // Refresh the specific event and any event list variants.
+      invalidatesTags: (result, error, id) => [
+        ...tagById(TAGS.EVENT, id),
+        ...tagList(TAGS.EVENT),
+      ],
     }),
 
     // Blood Bank Portal Endpoints

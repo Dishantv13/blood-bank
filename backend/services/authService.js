@@ -22,20 +22,9 @@ import {
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
 import { verifyFirebaseIdToken } from '../utils/firebaseAdmin.js';
+import { sanitizeUser, USER_SAFE_FIELDS } from '../utils/serializers.js';
 
-const toPublicUser = (user) => ({
-  id: user._id,
-  name: user.name,
-  email: user.email,
-  bloodGroup: user.bloodGroup,
-  phone: user.phone,
-  role: user.role,
-  isDonor: user.isDonor,
-  photoURL: user.photoURL,
-  activeMode: user.activeMode,
-  donorInfo: user.donorInfo,
-  address: user.address,
-});
+const toPublicUser = (user) => sanitizeUser(user);
 
 const buildUserClaims = (user) => ({
   userId: String(user.id),
@@ -114,7 +103,7 @@ export const refreshUserSession = async (req, res) => {
 
   const decoded = verifyRefreshToken('user', refreshToken);
   const sessionUser = await User.findById(decoded.userId)
-    .select('_id authSession.refreshTokenHash')
+    .select('_id +authSession.refreshTokenHash')
     .lean();
 
   if (!sessionUser?.authSession?.refreshTokenHash || sessionUser.authSession.refreshTokenHash !== hashToken(refreshToken)) {
@@ -190,7 +179,7 @@ export const loginUser = async (email, password) => {
   validatePassword(password);
 
   const user = await User.findOne({ email })
-    .select('_id name email password bloodGroup phone role isDonor photoURL activeMode donorInfo address loginAttempts lockUntil');
+    .select('_id name email +password bloodGroup phone role isDonor photoURL activeMode donorInfo address +loginAttempts +lockUntil');
 
   if (!user) {
     throw new ApiError(401, 'Invalid email or password');
@@ -270,7 +259,7 @@ export const googleLogin = async (idToken) => {
 
 export const getSessionUser = async (userId) => {
   const user = await User.findById(userId)
-    .select('_id name email bloodGroup phone role isDonor photoURL activeMode donorInfo address')
+    .select(USER_SAFE_FIELDS)
     .lean();
 
   if (!user) {
@@ -281,31 +270,34 @@ export const getSessionUser = async (userId) => {
 };
 
 // Request password reset
+// Uses constant-time response to prevent account enumeration
 export const requestPasswordReset = async (email) => {
   validateEmail(email);
 
   const user = await User.findOne({ email });
-  if (!user) {
-    return { success: true };
-  }
-
+  
+  // Always generate a token even if user doesn't exist (timing attack prevention)
   const resetToken = crypto.randomBytes(32).toString('hex');
   const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-  user.passwordReset = {
-    token: resetTokenHash,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000)
-  };
+  if (user) {
+    user.passwordReset = {
+      token: resetTokenHash,
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour expiration
+    };
 
-  await user.save();
+    await user.save();
 
-  try {
-    await sendPasswordResetEmail(email, resetToken, 'user');
-  } catch (error) {
-    console.error('Email sending failed:', error);
-    throw new ApiError(500, 'Failed to send reset email. Please try again later.');
+    try {
+      await sendPasswordResetEmail(email, resetToken, 'user');
+    } catch (error) {
+      console.error('Email sending failed:', error);
+      throw new ApiError(500, 'Failed to send reset email. Please try again later.');
+    }
   }
-
+  
+  // Always return success to prevent user enumeration
+  // Attacker cannot determine if email exists in system
   return { success: true };
 };
 
@@ -371,7 +363,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
     throw new ApiError(400, 'Current password is required');
   }
 
-  const user = await User.findById(userId).select('password');
+  const user = await User.findById(userId).select('+password');
   if (!user) {
     throw new ApiError(404, 'User not found');
   }
