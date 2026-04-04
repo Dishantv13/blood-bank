@@ -54,11 +54,8 @@ const allowedOrigins = [
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) {
-      if (process.env.ALLOW_NO_ORIGIN === "true") {
-        return callback(null, true);
-      }
-      console.warn("CORS: Request blocked - missing Origin header");
-      return callback(new Error("Origin header is required"));
+      // Non-browser requests (health checks, server-to-server, curl) often omit Origin.
+      return callback(null, true);
     }
 
     const cleanOrigin = origin.replace(/\/$/, "");
