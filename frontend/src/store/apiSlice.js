@@ -99,15 +99,14 @@ const getLoginPath = (role) => {
   return ROUTE_PATH.LOGIN;
 };
 
-const isAuthBootstrapOrLoginPath = (url = '') => {
+const isLoginOrAuthMutationPath = (url = '') => {
   const cleanUrl = String(url).split('?')[0].toLowerCase();
   return (
     cleanUrl === AUTH_API_URLS.LOGIN.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.REGISTER.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.GOOGLE_LOGIN.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.ADMIN_LOGIN.toLowerCase() ||
-    cleanUrl === BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase() ||
-    cleanUrl.endsWith('/session')
+    cleanUrl === BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase()
   );
 };
 
@@ -232,7 +231,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     }
 
     const isRefreshCall = requestUrl.toLowerCase().includes('/refresh');
-    const skipReauthForThisCall = isAuthBootstrapOrLoginPath(requestUrl);
+    const skipReauthForThisCall = isLoginOrAuthMutationPath(requestUrl);
 
     if (!isRefreshCall && !skipReauthForThisCall) {
       const csrfCookie = parseCookie(getCsrfCookieName(requestRole));

@@ -12,7 +12,7 @@ import {
 import { useLazyGetBloodBankSessionQuery, useLogoutBloodBankMutation } from '../store/bloodBankApi';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
-import { signInWithPopup } from 'firebase/auth';
+import { inMemoryPersistence, setPersistence, signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 
 const AuthContext = createContext();
@@ -239,6 +239,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
+      // Keep Firebase auth ephemeral because the backend owns the real app session.
+      await setPersistence(auth, inMemoryPersistence);
       const result = await signInWithPopup(auth, googleProvider);
       if (!result.user) {
         throw new Error('No user data received from Google');
@@ -273,6 +275,15 @@ export const AuthProvider = ({ children }) => {
           ? 'Google Login is not configured correctly. Please check server environment variables.'
           : (error.data?.message || 'Google login failed. Please try again later.'),
       };
+    } finally {
+      // Avoid keeping a parallel Firebase client session after exchanging the ID token.
+      if (auth.currentUser) {
+        try {
+          await signOut(auth);
+        } catch (_signOutError) {
+          // The backend cookie session is already established, so ignore Firebase cleanup failures.
+        }
+      }
     }
   }, [googleLoginMutation, setUser]);
 

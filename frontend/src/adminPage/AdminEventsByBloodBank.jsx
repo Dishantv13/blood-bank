@@ -72,14 +72,6 @@ const AdminEventsByBloodBank = () => {
         <p className="page-subtitle">View and monitor blood events for: {bloodBankName}</p>
       </div>
 
-      <button
-        style={{ marginBottom: "1.5rem" }}
-        className="btn-premium"
-        onClick={() => navigate(ROUTE_PATH.ADMIN_EVENTS)}
-      >
-        Back to Events
-      </button>
-
       <div className="filters-panel">
         <input
           type="text"

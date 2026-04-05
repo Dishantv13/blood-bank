@@ -97,7 +97,8 @@
   z-index: 99;
 }
 
-.sidebar-header {
+.sidebar-header1 {
+  height: 102px;  
   padding: 1rem;
   text-align: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -120,7 +121,7 @@
   color: white;
 }
 
-.sidebar-header h2 {
+.sidebar-header1 h2 {
   font-size: 1.2rem;
   font-weight: 600;
   margin: 0;

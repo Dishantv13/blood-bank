@@ -20,7 +20,7 @@ const AdminInventoryDetails = () => {
   const details = response?.data;
 
   return (
-    <>
+    <div className="admin-inventory-page">
       <div className="dashboard-header-premium">
         <h1 className="page-title">Inventory Details</h1>
         <p className="page-subtitle">View complete blood-group inventory for the selected blood bank</p>
@@ -79,7 +79,7 @@ const AdminInventoryDetails = () => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

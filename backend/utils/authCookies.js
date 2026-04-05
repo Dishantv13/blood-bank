@@ -52,7 +52,7 @@ const ROLE_CONFIG = {
   user: {
     accessSecret: () => getSecret('USER_ACCESS_TOKEN_SECRET'),
     refreshSecret: () => getSecret('USER_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.USER_ACCESS_TOKEN_EXPIRES_IN || '1hr',
+    accessExpiresIn: () => process.env.USER_ACCESS_TOKEN_EXPIRES_IN || '1h',
     refreshExpiresIn: () => process.env.USER_REFRESH_TOKEN_EXPIRES_IN || '7d',
     accessCookie: () => process.env.USER_ACCESS_COOKIE_NAME || 'bb_user_at',
     refreshCookie: () => process.env.USER_REFRESH_COOKIE_NAME || 'bb_user_rt',
@@ -61,7 +61,7 @@ const ROLE_CONFIG = {
   admin: {
     accessSecret: () => getSecret('ADMIN_ACCESS_TOKEN_SECRET'),
     refreshSecret: () => getSecret('ADMIN_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || '1hr',
+    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || '1h',
     refreshExpiresIn: () => process.env.ADMIN_REFRESH_TOKEN_EXPIRES_IN || '7d',
     accessCookie: () => process.env.ADMIN_ACCESS_COOKIE_NAME || 'bb_admin_at',
     refreshCookie: () => process.env.ADMIN_REFRESH_COOKIE_NAME || 'bb_admin_rt',
@@ -70,7 +70,7 @@ const ROLE_CONFIG = {
   bloodbank: {
     accessSecret: () => getSecret('BLOODBANK_ACCESS_TOKEN_SECRET'),
     refreshSecret: () => getSecret('BLOODBANK_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || '1hr',
+    accessExpiresIn: () => process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || '1h',
     refreshExpiresIn: () => process.env.BLOODBANK_REFRESH_TOKEN_EXPIRES_IN || '30d',
     accessCookie: () => process.env.BLOODBANK_ACCESS_COOKIE_NAME || 'bb_bank_at',
     refreshCookie: () => process.env.BLOODBANK_REFRESH_COOKIE_NAME || 'bb_bank_rt',
