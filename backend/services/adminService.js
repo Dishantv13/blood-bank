@@ -8,6 +8,7 @@ import Event from '../models/Event.model.js';
 import Donation from '../models/Donation.model.js';
 import Inventory from '../models/Inventory.model.js';
 import { ApiError } from '../utils/apiError.js';
+import { ensureValidObjectId } from '../utils/dbGuards.js';
 import {
   sendBloodBankRegistrationApprovedEmail,
   sendBloodBankRegistrationRejectedEmail,
@@ -1062,6 +1063,8 @@ export const getInventoryOverview = async (page = 1, limit = 10, filters = {}) =
 };
 
 export const getInventoryById = async (inventoryId) => {
+  ensureValidObjectId(inventoryId, 'inventoryId');
+
   const inventoryDoc = await Inventory.findById(inventoryId)
     .select('_id bloodBank bloodBankName items lastModified updatedAt')
     .lean();

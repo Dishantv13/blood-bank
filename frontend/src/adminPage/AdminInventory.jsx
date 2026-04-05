@@ -45,13 +45,13 @@ const AdminInventory = () => {
   ];
 
   return (
-    <>
+    <div className="admin-inventory-page">
       <div className="dashboard-header-premium">
         <h1 className="page-title">Inventory Management</h1>
         <p className="page-subtitle">View and monitor blood inventory across all banks</p>
       </div>
 
-      {inventoryData?.stats && (
+      {/* {inventoryData?.stats && (
         <div className="dashboard-premium-grid" style={{ marginBottom: '1.5rem' }}>
           <div className="stat-card-premium">
             <div className="stat-label-row"><span>Total Units</span></div>
@@ -66,7 +66,7 @@ const AdminInventory = () => {
             <p className="stat-value" style={{ color: '#ef4444' }}>{inventoryData.stats.expired}</p>
           </div>
         </div>
-      )}
+      )} */}
 
       <div className="filters-panel">
         <input
@@ -97,11 +97,11 @@ const AdminInventory = () => {
         columns={columns}
         data={inventoryData?.data || []}
         isLoading={isLoading}
-        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_INVENTORY_DETAILS.replace(":bankId", row._id))}
+        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_INVENTORY_DETAILS.replace(":inventoryId", row._id))}
         pagination={inventoryData?.pagination}
         onPageChange={setPage}
       />
-    </>
+    </div>
   );
 };
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTE_PATH } from '../enum/routePath';
+import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import '../adminPage.css/AdminPremium.css';
 
 const AdminLogin = () => {
@@ -35,35 +36,36 @@ const AdminLogin = () => {
 
   return (
     <div className="admin-login-premium-root">
-      <div className="login-glass-card">
+      <div className="login-mesh-bg"></div>
+      <div className="login-glass-card fade-in-up">
         <div className="login-brand">🩸</div>
-        <h1>BloodBank Admin</h1>
-        <p>Enter your credentials to access the command center.</p>
+        <h1 className="login-title">Command Center</h1>
+        <p className="login-subtitle">Secure access for BloodBank Administrators.</p>
 
         <form onSubmit={handleSubmit} className="admin-login-form">
           <div className="premium-form-group">
-            <label htmlFor="email">Email Address</label>
+            <label htmlFor="email"><FiMail /> Email Address</label>
             <input
               id="email"
               type="email"
               name="email"
-              className="premium-input"
+              className="premium-input-login"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter your email"
+              placeholder="admin@bloodbank.ai"
               required
               autoComplete="username"
             />
           </div>
 
           <div className="premium-form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password"><FiLock /> Password</label>
             <div className="admin-password-wrapper">
               <input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 name="password"
-                className="premium-input"
+                className="premium-input-login"
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
@@ -72,33 +74,25 @@ const AdminLogin = () => {
               />
               <button
                 type="button"
-                className="admin-password-toggle"
+                className="admin-password-toggle-premium"
                 onClick={() => setShowPassword((prev) => !prev)}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
-                {showPassword ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                    <path d="M1 1l22 22"/>
-                    <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                    <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                )}
+                {showPassword ? <FiEyeOff /> : <FiEye />}
               </button>
             </div>
           </div>
 
-          {error && <div className="admin-login-error">{error}</div>}
+          {error && <div className="admin-login-error-premium">{error}</div>}
 
-          <button type="submit" className="btn-premium" style={{ width: '100%' }} disabled={submitting}>
-            {submitting ? 'Authenticating...' : 'Sign In to Panel'}
+          <button type="submit" className="btn-premium-login" disabled={submitting}>
+            {submitting ? 'Authenticating...' : 'Authorize Session'}
           </button>
         </form>
+        
+        <div className="login-footer-text">
+           System protected by end-to-end encryption.
+        </div>
       </div>
     </div>
   );

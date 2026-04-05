@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import '../adminPage.css/AdminTable.css';
 
 const DESTRUCTIVE_STATUSES = new Set(['suspended', 'inactive', 'rejected', 'cancelled']);
 
@@ -8,14 +7,16 @@ const StatusChangeConfirmDialog = ({ pending, onConfirm, onCancel }) => {
   const { newStatus } = pending;
   return (
     <div className="confirm-dialog-overlay" onClick={onCancel}>
-      <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className="confirm-dialog fade-in-up" onClick={(e) => e.stopPropagation()}>
         <div className="confirm-dialog-icon">⚠️</div>
         <h3 className="confirm-dialog-title">Confirm Status Change</h3>
         <p className="confirm-dialog-message">
           Are you sure you want to change the status to{' '}
-          <strong style={{ textTransform: 'uppercase' }}>{newStatus}</strong>?
+          <strong style={{ textTransform: 'uppercase', color: 'var(--admin-primary)' }}>{newStatus}</strong>?
           {DESTRUCTIVE_STATUSES.has(newStatus) && (
-            <> This action may restrict access for the affected record.</>
+            <div style={{ marginTop: '0.5rem', color: '#ef4444', fontSize: '0.8rem' }}>
+               This action will restrict access for this record.
+            </div>
           )}
         </p>
         <div className="confirm-dialog-actions">
@@ -23,7 +24,7 @@ const StatusChangeConfirmDialog = ({ pending, onConfirm, onCancel }) => {
             Cancel
           </button>
           <button className="confirm-dialog-btn confirm-dialog-btn--confirm" onClick={onConfirm}>
-            Yes, Change Status
+            Yes, Update Status
           </button>
         </div>
       </div>
@@ -31,60 +32,16 @@ const StatusChangeConfirmDialog = ({ pending, onConfirm, onCancel }) => {
   );
 };
 
-const formatGeoLocation = (value) => {
-  if (!value || !Array.isArray(value.coordinates) || value.coordinates.length < 2) {
-    return null;
+const formatCellValue = (value, key) => {
+  if (value === null || value === undefined || value === '') return '-';
+
+  if (key === 'status') {
+    const statusClass = `status-pill status-${value.toLowerCase()}`;
+    return <span className={statusClass}>{value}</span>;
   }
 
-  const [longitude, latitude] = value.coordinates;
-
-  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
-    return null;
-  }
-
-  return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-};
-
-const formatCellValue = (value) => {
-  if (value === null || value === undefined || value === '') {
-    return '-';
-  }
-
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
-  }
-
-  if (value instanceof Date) {
-    return value.toLocaleDateString();
-  }
-
-  if (Array.isArray(value)) {
-    const formattedList = value
-      .map((item) => (typeof item === 'object' ? JSON.stringify(item) : item))
-      .filter((item) => item !== null && item !== undefined && item !== '');
-
-    return formattedList.length ? formattedList.join(', ') : '-';
-  }
-
-  if (typeof value === 'object') {
-    const geoLocation = formatGeoLocation(value);
-    if (geoLocation) {
-      return geoLocation;
-    }
-
-    if (typeof value.address === 'string' && value.address.trim()) {
-      return value.address;
-    }
-
-    if (typeof value.name === 'string' && value.name.trim()) {
-      return value.name;
-    }
-
-    try {
-      return JSON.stringify(value);
-    } catch (error) {
-      return '-';
-    }
+  if (typeof value === 'object' && value.coordinates) {
+    return `${value.coordinates[1].toFixed(4)}, ${value.coordinates[0].toFixed(4)}`;
   }
 
   return String(value);
@@ -113,21 +70,13 @@ export const AdminTable = ({
     }
   };
 
-  const handleConfirm = () => {
-    if (pendingStatusChange && onStatusChange) {
-      onStatusChange(pendingStatusChange.rowId, pendingStatusChange.newStatus);
-    }
-    setPendingStatusChange(null);
-  };
-
-  const handleCancel = () => {
-    setPendingStatusChange(null);
-  };
-
   if (isLoading) {
     return (
       <div className="admin-table-container">
-        <div className="loading-spinner">Loading data...</div>
+        <div className="loading-state">
+           <div className="loader"></div>
+           <p>Fetching database records...</p>
+        </div>
       </div>
     );
   }
@@ -135,7 +84,11 @@ export const AdminTable = ({
   if (!data || data.length === 0) {
     return (
       <div className="admin-table-container">
-        <div className="empty-state">No data found</div>
+        <div className="empty-state fade-in-up">
+           <div className="empty-icon">📂</div>
+           <h3>No Records Found</h3>
+           <p>There are no matches for your current filter criteria.</p>
+        </div>
       </div>
     );
   }
@@ -144,35 +97,37 @@ export const AdminTable = ({
     <div className="admin-table-container">
       <StatusChangeConfirmDialog
         pending={pendingStatusChange}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
+        onConfirm={() => {
+          onStatusChange(pendingStatusChange.rowId, pendingStatusChange.newStatus);
+          setPendingStatusChange(null);
+        }}
+        onCancel={() => setPendingStatusChange(null)}
       />
       <table className="admin-table">
         <thead>
-          <tr>
+          <tr className="fade-in-up">
             {columns.map((col) => (
               <th key={col.key} style={{ width: col.width }}>
                 {col.label}
               </th>
             ))}
-            {hasActions && <th style={{ width: '100px' }}>Actions</th>}
+            {hasActions && <th style={{ width: '150px' }}>Quick Actions</th>}
           </tr>
         </thead>
         <tbody>
           {data.map((row, idx) => (
             <tr
               key={row._id || idx}
-              className={selectedRow === idx ? 'selected' : ''}
+              className={`fade-in-up ${selectedRow === idx ? 'selected' : ''}`}
+              style={{ animationDelay: `${idx * 40}ms` }}
               onClick={() => {
                 setSelectedRow(idx);
-                if (onRowClick) {
-                  onRowClick(row);
-                }
+                if (onRowClick) onRowClick(row);
               }}
             >
               {columns.map((col) => (
                 <td key={col.key}>
-                  {col.render ? col.render(row[col.key], row) : formatCellValue(row[col.key])}
+                  {col.render ? col.render(row[col.key], row) : formatCellValue(row[col.key], col.key)}
                 </td>
               ))}
               {hasActions && (
@@ -180,18 +135,15 @@ export const AdminTable = ({
                   <div className="action-buttons">
                     {onStatusChange && (
                       <select
-                        className="status-select"
+                        className="status-select-premium"
                         value={row.status || ''}
                         onChange={(e) => handleStatusSelect(row._id, e.target.value, row.status)}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <option value="">Change Status</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
-                        {row.urgency && <option value="high">High</option>}
-                        {row.urgency && <option value="medium">Medium</option>}
-                        {row.urgency && <option value="low">Low</option>}
+                        <option value="">Update Status</option>
+                        <option value="active">Set Active</option>
+                        <option value="inactive">Set Inactive</option>
+                        <option value="suspended">Suspend</option>
                       </select>
                     )}
                   </div>
@@ -203,17 +155,19 @@ export const AdminTable = ({
       </table>
 
       {pagination && (
-        <div className="pagination">
+        <div className="pagination-premium fade-in-up">
           <button
+            className="pag-btn"
             onClick={() => onPageChange(pagination.page - 1)}
             disabled={pagination.page === 1}
           >
             Previous
           </button>
-          <span className="page-info">
-            Page {pagination.page} of {pagination.pages}
-          </span>
+          <div className="page-indicator">
+            Page <strong>{pagination.page}</strong> of {pagination.pages}
+          </div>
           <button
+            className="pag-btn"
             onClick={() => onPageChange(pagination.page + 1)}
             disabled={pagination.page === pagination.pages}
           >
