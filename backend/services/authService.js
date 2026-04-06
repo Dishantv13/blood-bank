@@ -239,7 +239,6 @@ export const googleLogin = async (idToken) => {
       photoURL,
       password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
       phone: '',
-      bloodGroup: '',
       isDonor: false,
       address: { street: '', city: '', state: '', pincode: '' }
     });
@@ -247,6 +246,10 @@ export const googleLogin = async (idToken) => {
     await newUser.save();
     user = newUser;
   } else if (!user.googleId) {
+    // Guard against legacy empty-string values that violate enum validation on save.
+    if (user.bloodGroup === '') {
+      user.bloodGroup = undefined;
+    }
     user.googleId = googleId;
     user.photoURL = photoURL;
     await user.save();
