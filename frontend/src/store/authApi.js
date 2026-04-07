@@ -37,9 +37,21 @@ export const authApi = apiSlice.injectEndpoints({
         method: 'POST',
       }),
     }),
+    refreshSession: builder.mutation({
+      query: () => ({
+        url: AUTH_API_URLS.REFRESH,
+        method: 'POST',
+      }),
+    }),
     adminLogout: builder.mutation({
       query: () => ({
         url: AUTH_API_URLS.ADMIN_LOGOUT,
+        method: 'POST',
+      }),
+    }),
+    refreshAdminSession: builder.mutation({
+      query: () => ({
+        url: AUTH_API_URLS.ADMIN_REFRESH,
         method: 'POST',
       }),
     }),
@@ -88,7 +100,9 @@ export const {
   useRegisterMutation,
   useGoogleLoginMutation,
   useLogoutMutation,
+  useRefreshSessionMutation,
   useAdminLogoutMutation,
+  useRefreshAdminSessionMutation,
   useLazyGetUserSessionQuery,
   useLazyGetAdminSessionQuery,
   useLazyGetUserCsrfTokenQuery,
