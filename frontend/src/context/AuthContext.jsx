@@ -1,21 +1,30 @@
-import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   useAdminLoginMutation,
   useLoginMutation,
   useRegisterMutation,
   useGoogleLoginMutation,
   useLogoutMutation,
+  useRefreshSessionMutation,
   useAdminLogoutMutation,
+  useRefreshAdminSessionMutation,
   useLazyGetUserSessionQuery,
   useLazyGetAdminSessionQuery,
 } from '../store/authApi';
-import { useLazyGetBloodBankSessionQuery, useLogoutBloodBankMutation } from '../store/bloodBankApi';
+import {
+  useLazyGetBloodBankSessionQuery,
+  useLogoutBloodBankMutation,
+  useRefreshBloodBankSessionMutation,
+} from '../store/bloodBankApi';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
 import { inMemoryPersistence, setPersistence, signInWithPopup, signOut } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
 
 const AuthContext = createContext();
+const REFRESH_BUFFER_MS = 2 * 60 * 1000;
+const MIN_REFRESH_DELAY_MS = 5 * 1000;
+const EXPIRY_CHECK_ON_FOCUS_MS = 3 * 60 * 1000;
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -31,17 +40,28 @@ export const AuthProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
   const [adminUser, setAdminUserState] = useState(null);
   const [bloodBank, setBloodBankState] = useState(null);
+  const [userAccessTokenExpiresAt, setUserAccessTokenExpiresAt] = useState(null);
+  const [adminAccessTokenExpiresAt, setAdminAccessTokenExpiresAt] = useState(null);
+  const [bloodBankAccessTokenExpiresAt, setBloodBankAccessTokenExpiresAt] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
+  const refreshTimeoutsRef = useRef({
+    user: null,
+    admin: null,
+    bloodbank: null,
+  });
 
   const [adminLoginMutation] = useAdminLoginMutation();
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
   const [googleLoginMutation] = useGoogleLoginMutation();
   const [logoutMutation] = useLogoutMutation();
+  const [refreshSessionMutation] = useRefreshSessionMutation();
   const [adminLogoutMutation] = useAdminLogoutMutation();
+  const [refreshAdminSessionMutation] = useRefreshAdminSessionMutation();
   const [logoutBloodBankMutation] = useLogoutBloodBankMutation();
+  const [refreshBloodBankSessionMutation] = useRefreshBloodBankSessionMutation();
   const [triggerUserSession] = useLazyGetUserSessionQuery();
   const [triggerAdminSession] = useLazyGetAdminSessionQuery();
   const [triggerBloodBankSession] = useLazyGetBloodBankSessionQuery();
@@ -62,6 +82,105 @@ export const AuthProvider = ({ children }) => {
     setBloodBankState(bloodBankData);
     // Note: Tokens are in httpOnly cookies managed by backend
   }, []);
+
+  const clearRefreshTimeout = useCallback((role) => {
+    const timerId = refreshTimeoutsRef.current[role];
+    if (timerId) {
+      clearTimeout(timerId);
+      refreshTimeoutsRef.current[role] = null;
+    }
+  }, []);
+
+  const clearAllRefreshTimeouts = useCallback(() => {
+    clearRefreshTimeout('user');
+    clearRefreshTimeout('admin');
+    clearRefreshTimeout('bloodbank');
+  }, [clearRefreshTimeout]);
+
+  const applyUserSession = useCallback((sessionData) => {
+    setUser(sessionData?.user || sessionData?.data || null);
+    setUserAccessTokenExpiresAt(sessionData?.accessTokenExpiresAt || null);
+  }, [setUser]);
+
+  const applyAdminSession = useCallback((sessionData) => {
+    setAdminUser(sessionData?.admin || sessionData?.data || null);
+    setAdminAccessTokenExpiresAt(sessionData?.accessTokenExpiresAt || null);
+  }, [setAdminUser]);
+
+  const applyBloodBankSession = useCallback((sessionData) => {
+    setBloodBank(sessionData?.bloodBank || sessionData?.data || null);
+    setBloodBankAccessTokenExpiresAt(sessionData?.accessTokenExpiresAt || null);
+  }, [setBloodBank]);
+
+  const clearRoleSession = useCallback((role) => {
+    clearRefreshTimeout(role);
+
+    if (role === 'admin') {
+      setAdminUser(null);
+      setAdminAccessTokenExpiresAt(null);
+      return;
+    }
+
+    if (role === 'bloodbank') {
+      setBloodBank(null);
+      setBloodBankAccessTokenExpiresAt(null);
+      return;
+    }
+
+    setUser(null);
+    setUserAccessTokenExpiresAt(null);
+  }, [clearRefreshTimeout, setAdminUser, setBloodBank, setUser]);
+
+  const silentlyRefreshRole = useCallback(async (role) => {
+    try {
+      if (role === 'admin') {
+        const response = await refreshAdminSessionMutation().unwrap();
+        applyAdminSession(response);
+        return true;
+      }
+
+      if (role === 'bloodbank') {
+        const response = await refreshBloodBankSessionMutation().unwrap();
+        applyBloodBankSession(response);
+        return true;
+      }
+
+      const response = await refreshSessionMutation().unwrap();
+      applyUserSession(response);
+      return true;
+    } catch (_error) {
+      clearRoleSession(role);
+      dispatch(apiSlice.util.resetApiState());
+      return false;
+    }
+  }, [
+    applyAdminSession,
+    applyBloodBankSession,
+    applyUserSession,
+    clearRoleSession,
+    dispatch,
+    refreshAdminSessionMutation,
+    refreshBloodBankSessionMutation,
+    refreshSessionMutation,
+  ]);
+
+  const scheduleRefresh = useCallback((role, expiresAt) => {
+    clearRefreshTimeout(role);
+
+    if (!expiresAt) {
+      return;
+    }
+
+    const expiresAtMs = new Date(expiresAt).getTime();
+    if (!Number.isFinite(expiresAtMs)) {
+      return;
+    }
+
+    const delayMs = Math.max(expiresAtMs - Date.now() - REFRESH_BUFFER_MS, MIN_REFRESH_DELAY_MS);
+    refreshTimeoutsRef.current[role] = window.setTimeout(() => {
+      silentlyRefreshRole(role);
+    }, delayMs);
+  }, [clearRefreshTimeout, silentlyRefreshRole]);
 
   useEffect(() => {
     const bootstrapSessions = async () => {
@@ -104,9 +223,9 @@ export const AuthProvider = ({ children }) => {
         !isBloodBankRoute;
 
       if (!shouldCheckUserSession && !shouldCheckAdminSession && !shouldCheckBloodBankSession) {
-        setUser(null);
-        setAdminUser(null);
-        setBloodBank(null);
+        clearRoleSession('user');
+        clearRoleSession('admin');
+        clearRoleSession('bloodbank');
         setLoading(false);
         return;
       }
@@ -125,21 +244,21 @@ export const AuthProvider = ({ children }) => {
         ]);
 
         if (shouldCheckUserSession && userSession.status === 'fulfilled') {
-          setUser(userSession.value.user || userSession.value.data || null);
+          applyUserSession(userSession.value);
         } else if (shouldCheckUserSession) {
-          setUser(null);
+          clearRoleSession('user');
         }
 
         if (shouldCheckAdminSession && adminSession.status === 'fulfilled') {
-          setAdminUser(adminSession.value.admin || adminSession.value.data || null);
+          applyAdminSession(adminSession.value);
         } else if (shouldCheckAdminSession) {
-          setAdminUser(null);
+          clearRoleSession('admin');
         }
 
         if (shouldCheckBloodBankSession && bloodBankSession.status === 'fulfilled') {
-          setBloodBank(bloodBankSession.value.bloodBank || bloodBankSession.value.data || null);
+          applyBloodBankSession(bloodBankSession.value);
         } else if (shouldCheckBloodBankSession) {
-          setBloodBank(null);
+          clearRoleSession('bloodbank');
         }
       } finally {
         setLoading(false);
@@ -147,12 +266,83 @@ export const AuthProvider = ({ children }) => {
     };
 
     bootstrapSessions();
-  }, [setAdminUser, setUser, setBloodBank, triggerAdminSession, triggerUserSession, triggerBloodBankSession]);
+  }, [
+    applyAdminSession,
+    applyBloodBankSession,
+    applyUserSession,
+    clearRoleSession,
+    triggerAdminSession,
+    triggerUserSession,
+    triggerBloodBankSession,
+  ]);
+
+  useEffect(() => {
+    scheduleRefresh('user', user && userAccessTokenExpiresAt ? userAccessTokenExpiresAt : null);
+  }, [scheduleRefresh, user, userAccessTokenExpiresAt]);
+
+  useEffect(() => {
+    scheduleRefresh('admin', adminUser && adminAccessTokenExpiresAt ? adminAccessTokenExpiresAt : null);
+  }, [adminAccessTokenExpiresAt, adminUser, scheduleRefresh]);
+
+  useEffect(() => {
+    scheduleRefresh('bloodbank', bloodBank && bloodBankAccessTokenExpiresAt ? bloodBankAccessTokenExpiresAt : null);
+  }, [bloodBank, bloodBankAccessTokenExpiresAt, scheduleRefresh]);
+
+  useEffect(() => {
+    const refreshSoonIfNeeded = () => {
+      const now = Date.now();
+
+      if (user && userAccessTokenExpiresAt) {
+        const expiresAtMs = new Date(userAccessTokenExpiresAt).getTime();
+        if (Number.isFinite(expiresAtMs) && expiresAtMs - now <= EXPIRY_CHECK_ON_FOCUS_MS) {
+          silentlyRefreshRole('user');
+        }
+      }
+
+      if (adminUser && adminAccessTokenExpiresAt) {
+        const expiresAtMs = new Date(adminAccessTokenExpiresAt).getTime();
+        if (Number.isFinite(expiresAtMs) && expiresAtMs - now <= EXPIRY_CHECK_ON_FOCUS_MS) {
+          silentlyRefreshRole('admin');
+        }
+      }
+
+      if (bloodBank && bloodBankAccessTokenExpiresAt) {
+        const expiresAtMs = new Date(bloodBankAccessTokenExpiresAt).getTime();
+        if (Number.isFinite(expiresAtMs) && expiresAtMs - now <= EXPIRY_CHECK_ON_FOCUS_MS) {
+          silentlyRefreshRole('bloodbank');
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshSoonIfNeeded();
+      }
+    };
+
+    window.addEventListener('focus', refreshSoonIfNeeded);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', refreshSoonIfNeeded);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearAllRefreshTimeouts();
+    };
+  }, [
+    adminAccessTokenExpiresAt,
+    adminUser,
+    bloodBank,
+    bloodBankAccessTokenExpiresAt,
+    clearAllRefreshTimeouts,
+    silentlyRefreshRole,
+    user,
+    userAccessTokenExpiresAt,
+  ]);
 
   const loginAdmin = useCallback(async (credentials) => {
     try {
       const response = await adminLoginMutation(credentials).unwrap();
-      setAdminUser(response.admin);
+      applyAdminSession(response);
       return { success: true };
     } catch (error) {
       return {
@@ -160,12 +350,12 @@ export const AuthProvider = ({ children }) => {
         message: error.data?.message || 'Admin login failed',
       };
     }
-  }, [adminLoginMutation, setAdminUser]);
+  }, [adminLoginMutation, applyAdminSession]);
 
   const login = useCallback(async (credentials) => {
     try {
       const response = await loginMutation(credentials).unwrap();
-      setUser(response.user);
+      applyUserSession(response);
       return { success: true };
     } catch (error) {
       return {
@@ -173,12 +363,12 @@ export const AuthProvider = ({ children }) => {
         message: error.data?.message || 'Login failed',
       };
     }
-  }, [setUser, loginMutation]);
+  }, [applyUserSession, loginMutation]);
 
   const register = useCallback(async (userData) => {
     try {
       const response = await registerMutation(userData).unwrap();
-      setUser(response.user);
+      applyUserSession(response);
       return { success: true };
     } catch (error) {
       return {
@@ -186,11 +376,11 @@ export const AuthProvider = ({ children }) => {
         message: error.data?.message || 'Registration failed',
       };
     }
-  }, [setUser, registerMutation]);
+  }, [applyUserSession, registerMutation]);
 
   const logout = useCallback(async () => {
     window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
-    setUser(null);
+    clearRoleSession('user');
     dispatch(apiSlice.util.resetApiState());
 
     try {
@@ -200,11 +390,11 @@ export const AuthProvider = ({ children }) => {
     } finally {
       window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
     }
-  }, [dispatch, logoutMutation, setUser]);
+  }, [clearRoleSession, dispatch, logoutMutation]);
 
   const logoutAdmin = useCallback(async () => {
     window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
-    setAdminUser(null);
+    clearRoleSession('admin');
     dispatch(apiSlice.util.resetApiState());
 
     try {
@@ -214,11 +404,11 @@ export const AuthProvider = ({ children }) => {
     } finally {
       window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
     }
-  }, [adminLogoutMutation, dispatch, setAdminUser]);
+  }, [adminLogoutMutation, clearRoleSession, dispatch]);
 
   const logoutBloodBank = useCallback(async () => {
     window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
-    setBloodBank(null);
+    clearRoleSession('bloodbank');
     dispatch(apiSlice.util.resetApiState());
 
     try {
@@ -228,7 +418,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
     }
-  }, [logoutBloodBankMutation, dispatch, setBloodBank]);
+  }, [clearRoleSession, dispatch, logoutBloodBankMutation]);
 
   const loginWithGoogle = useCallback(async () => {
     if (!isFirebaseConfigured || !auth || !googleProvider) {
@@ -252,7 +442,7 @@ export const AuthProvider = ({ children }) => {
         idToken,
       }).unwrap();
 
-      setUser(response.user);
+      applyUserSession(response);
       return { success: true };
     } catch (error) {
       if (error.code === 'auth/popup-closed-by-user') {
@@ -285,7 +475,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
     }
-  }, [googleLoginMutation, setUser]);
+  }, [applyUserSession, googleLoginMutation]);
 
   const value = useMemo(() => ({
     user,

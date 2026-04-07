@@ -11,12 +11,6 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-/**
- * Upload a file from the server to Cloudinary
- * @param {string} localFilePath - Path to the file on the local server
- * @param {string} folder - Folder in Cloudinary to store the file
- * @returns {Promise<object|null>} - Cloudinary upload response or null on failure
- */
 export const uploadOnCloudinary = async (localFilePath, folder = 'blood-bank/profiles') => {
   try {
     if (!localFilePath) return null;
@@ -48,11 +42,6 @@ export const uploadOnCloudinary = async (localFilePath, folder = 'blood-bank/pro
   }
 };
 
-/**
- * Delete a file from Cloudinary using its public ID
- * @param {string} publicId - Public ID of the file in Cloudinary
- * @returns {Promise<object|null>} - Cloudinary delete response
- */
 export const deleteFromCloudinary = async (publicId) => {
   try {
     if (!publicId) return null;

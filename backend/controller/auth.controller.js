@@ -32,7 +32,7 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 const getSession = asyncHandler(async (req, res) => {
-  const result = await authService.getSessionUser(req.user.userId || req.user.id);
+  const result = await authService.getUserSessionWithExpiry(req, req.user.userId || req.user.id);
   successResponse(res, result, 200, 'Session fetched successfully');
 });
 

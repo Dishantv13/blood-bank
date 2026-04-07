@@ -51,6 +51,12 @@ export const bloodBankApi = apiSlice.injectEndpoints({
         method: 'POST',
       }),
     }),
+    refreshBloodBankSession: builder.mutation({
+      query: () => ({
+        url: BLOODBANK_API_URLS.REFRESH_BLOOD_BANK,
+        method: 'POST',
+      }),
+    }),
     getBloodBankSession: builder.query({
       query: () => BLOODBANK_API_URLS.SESSION_BLOOD_BANK,
     }),
@@ -150,6 +156,7 @@ export const {
   useCreateBloodBankMutation,
   useLoginBloodBankMutation,
   useLogoutBloodBankMutation,
+  useRefreshBloodBankSessionMutation,
   useLazyGetBloodBankSessionQuery,
   useLazyGetBloodBankCsrfTokenQuery,
   useRegisterBloodBankMutation,

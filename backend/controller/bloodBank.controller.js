@@ -32,7 +32,7 @@ export const logout = asyncHandler(async (req, res) => {
 
 export const getSession = asyncHandler(async (req, res) => {
   const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id;
-  const result = await bloodBankService.getSessionBloodBank(bloodBankId);
+  const result = await bloodBankService.getSessionBloodBankWithExpiry(req, bloodBankId);
   successResponse(res, result, 200, 'Session fetched successfully');
 });
 

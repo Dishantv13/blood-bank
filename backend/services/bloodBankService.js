@@ -13,6 +13,7 @@ import { ApiError } from '../utils/apiError.js';
 import {
   clearAuthCookies,
   generateCsrfToken,
+  getAccessTokenExpiryFromRequest,
   getCookieNamesForRole,
   getRefreshTokenFromRequest,
   hashToken,
@@ -119,9 +120,9 @@ export const registerBloodBankFromRequest = async (req) => {
 export const loginBloodBankWithSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginBloodBank(email, password);
-  const { refreshToken, csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
   await persistBloodBankRefreshToken(result.bloodBank.id, refreshToken);
-  return { bloodBank: result.bloodBank, csrfToken };
+  return { bloodBank: result.bloodBank, csrfToken, accessTokenExpiresAt };
 };
 
 export const refreshBloodBankSession = async (req, res) => {
@@ -145,9 +146,9 @@ export const refreshBloodBankSession = async (req, res) => {
   }
 
   const result = await getSessionBloodBank(decoded.bloodBankId);
-  const { refreshToken: nextRefreshToken, csrfToken } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
+  const { refreshToken: nextRefreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
   await persistBloodBankRefreshToken(decoded.bloodBankId, nextRefreshToken);
-  return { bloodBank: result.bloodBank, csrfToken };
+  return { bloodBank: result.bloodBank, csrfToken, accessTokenExpiresAt };
 };
 
 export const logoutBloodBankSession = async (req, res) => {
@@ -452,6 +453,14 @@ export const getSessionBloodBank = async (bloodBankId) => {
 
   return {
     bloodBank: sanitizeBloodBank(bloodBank)
+  };
+};
+
+export const getSessionBloodBankWithExpiry = async (req, bloodBankId) => {
+  const result = await getSessionBloodBank(bloodBankId);
+  return {
+    ...result,
+    accessTokenExpiresAt: getAccessTokenExpiryFromRequest(req, 'bloodbank'),
   };
 };
 

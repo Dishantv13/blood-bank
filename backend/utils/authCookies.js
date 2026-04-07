@@ -52,7 +52,7 @@ const ROLE_CONFIG = {
   user: {
     accessSecret: () => getSecret('USER_ACCESS_TOKEN_SECRET'),
     refreshSecret: () => getSecret('USER_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.USER_ACCESS_TOKEN_EXPIRES_IN || '1h',
+    accessExpiresIn: () => process.env.USER_ACCESS_TOKEN_EXPIRES_IN || '15m',
     refreshExpiresIn: () => process.env.USER_REFRESH_TOKEN_EXPIRES_IN || '7d',
     accessCookie: () => process.env.USER_ACCESS_COOKIE_NAME || 'bb_user_at',
     refreshCookie: () => process.env.USER_REFRESH_COOKIE_NAME || 'bb_user_rt',
@@ -61,7 +61,7 @@ const ROLE_CONFIG = {
   admin: {
     accessSecret: () => getSecret('ADMIN_ACCESS_TOKEN_SECRET'),
     refreshSecret: () => getSecret('ADMIN_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || '1h',
+    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || '15m',
     refreshExpiresIn: () => process.env.ADMIN_REFRESH_TOKEN_EXPIRES_IN || '7d',
     accessCookie: () => process.env.ADMIN_ACCESS_COOKIE_NAME || 'bb_admin_at',
     refreshCookie: () => process.env.ADMIN_REFRESH_COOKIE_NAME || 'bb_admin_rt',
@@ -70,7 +70,7 @@ const ROLE_CONFIG = {
   bloodbank: {
     accessSecret: () => getSecret('BLOODBANK_ACCESS_TOKEN_SECRET'),
     refreshSecret: () => getSecret('BLOODBANK_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || '1h',
+    accessExpiresIn: () => process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || '15m',
     refreshExpiresIn: () => process.env.BLOODBANK_REFRESH_TOKEN_EXPIRES_IN || '30d',
     accessCookie: () => process.env.BLOODBANK_ACCESS_COOKIE_NAME || 'bb_bank_at',
     refreshCookie: () => process.env.BLOODBANK_REFRESH_COOKIE_NAME || 'bb_bank_rt',
@@ -265,6 +265,14 @@ export const verifyRefreshToken = (role, token) => {
   return jwt.verify(token, config.refreshSecret);
 };
 
+const getTokenExpiryFromToken = (token) => {
+  if (!token) return null;
+
+  const decoded = jwt.decode(token);
+  if (!decoded?.exp) return null;
+  return new Date(decoded.exp * 1000).toISOString();
+};
+
 export const setAuthCookies = (res, role, payload) => {
   const config = getRoleConfig(role);
   const accessToken = signAccessToken(role, payload);
@@ -288,7 +296,13 @@ export const setAuthCookies = (res, role, payload) => {
     maxAge: ms(config.refreshExpiresIn, 7 * 24 * 60 * 60 * 1000),
   });
 
-  return { accessToken, refreshToken, csrfToken };
+  return {
+    accessToken,
+    refreshToken,
+    csrfToken,
+    accessTokenExpiresAt: getTokenExpiryFromToken(accessToken),
+    refreshTokenExpiresAt: getTokenExpiryFromToken(refreshToken),
+  };
 };
 
 export const clearAuthCookies = (res, role) => {
@@ -315,6 +329,11 @@ export const getAccessTokenFromRequest = (req, role) => {
 export const getRefreshTokenFromRequest = (req, role) => {
   const { refreshCookie } = getCookieNamesForRole(role);
   return req.cookies?.[refreshCookie] || null;
+};
+
+export const getAccessTokenExpiryFromRequest = (req, role) => {
+  const accessToken = getAccessTokenFromRequest(req, role);
+  return getTokenExpiryFromToken(accessToken);
 };
 
 export const getCsrfTokenFromRequest = (req, role) => {

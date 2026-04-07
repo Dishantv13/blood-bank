@@ -3,6 +3,7 @@ import { ApiError } from '../utils/apiError.js';
 import {
   clearAuthCookies,
   generateCsrfToken,
+  getAccessTokenExpiryFromRequest,
   getCookieNamesForRole,
   getRefreshTokenFromRequest,
   hashToken,
@@ -85,6 +86,14 @@ export const getSessionAdmin = async () => {
   };
 };
 
+export const getSessionAdminWithExpiry = async (req) => {
+  const session = await getSessionAdmin();
+  return {
+    ...session,
+    accessTokenExpiresAt: getAccessTokenExpiryFromRequest(req, 'admin'),
+  };
+};
+
 export const issueAdminCsrfToken = (res) => {
   const { csrfCookie } = getCookieNamesForRole('admin');
   const csrfToken = generateCsrfToken();
@@ -97,9 +106,9 @@ export const issueAdminCsrfToken = (res) => {
 export const loginAdminWithSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginAdmin(email, password);
-  const { refreshToken, csrfToken } = setAuthCookies(res, 'admin', result.tokenClaims);
+  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'admin', result.tokenClaims);
   persistAdminRefreshToken(refreshToken);
-  return { admin: result.admin, csrfToken };
+  return { admin: result.admin, csrfToken, accessTokenExpiresAt };
 };
 
 export const refreshAdminSession = async (req, res) => {
@@ -118,7 +127,7 @@ export const refreshAdminSession = async (req, res) => {
     throw new ApiError(401, 'Refresh token is invalid');
   }
 
-  const { refreshToken: nextRefreshToken, csrfToken } = setAuthCookies(res, 'admin', {
+  const { refreshToken: nextRefreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'admin', {
     type: 'admin',
     role: 'admin',
     adminEmail: decoded.adminEmail,
@@ -126,7 +135,7 @@ export const refreshAdminSession = async (req, res) => {
   persistAdminRefreshToken(nextRefreshToken);
 
   const session = await getSessionAdmin();
-  return { ...session, csrfToken };
+  return { ...session, csrfToken, accessTokenExpiresAt };
 };
 
 export const logoutAdminSession = async (req, res) => {

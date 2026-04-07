@@ -20,7 +20,7 @@ export const logoutAdmin = asyncHandler(async (req, res) => {
 });
 
 export const getAdminSession = asyncHandler(async (_req, res) => {
-  const result = await adminAuthService.getSessionAdmin();
+  const result = await adminAuthService.getSessionAdminWithExpiry(_req);
   successResponse(res, result, 200, 'Admin session fetched successfully');
 });
 

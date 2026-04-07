@@ -12,6 +12,7 @@ import { ApiError } from '../utils/apiError.js';
 import {
   clearAuthCookies,
   generateCsrfToken,
+  getAccessTokenExpiryFromRequest,
   getCookieNamesForRole,
   getRefreshTokenFromRequest,
   hashToken,
@@ -70,25 +71,25 @@ export const issueUserCsrfToken = (res) => {
 
 export const registerAndCreateSession = async (req, res) => {
   const result = await registerUser(req.body);
-  const { refreshToken, csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', buildUserClaims(result.user));
   await persistUserRefreshToken(result.user.id, refreshToken);
-  return { user: result.user, csrfToken };
+  return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
 export const loginAndCreateSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginUser(email, password);
-  const { refreshToken, csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', buildUserClaims(result.user));
   await persistUserRefreshToken(result.user.id, refreshToken);
-  return { user: result.user, csrfToken };
+  return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
 export const googleLoginAndCreateSession = async (req, res) => {
   const { idToken } = req.body;
   const result = await googleLogin(idToken);
-  const { refreshToken, csrfToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', buildUserClaims(result.user));
   await persistUserRefreshToken(result.user.id, refreshToken);
-  return { user: result.user, csrfToken };
+  return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
 export const refreshUserSession = async (req, res) => {
@@ -111,7 +112,7 @@ export const refreshUserSession = async (req, res) => {
     throw new ApiError(401, 'Refresh token is invalid');
   }
 
-  const { refreshToken: nextRefreshToken, csrfToken } = setAuthCookies(res, 'user', {
+  const { refreshToken: nextRefreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', {
     userId: decoded.userId,
     email: decoded.email,
     role: decoded.role,
@@ -120,7 +121,7 @@ export const refreshUserSession = async (req, res) => {
   await persistUserRefreshToken(decoded.userId, nextRefreshToken);
 
   const result = await getSessionUser(decoded.userId);
-  return { user: result.user, csrfToken };
+  return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
 export const logoutUserSession = async (req, res) => {
@@ -270,6 +271,14 @@ export const getSessionUser = async (userId) => {
   }
 
   return { user: toPublicUser(user) };
+};
+
+export const getUserSessionWithExpiry = async (req, userId) => {
+  const result = await getSessionUser(userId);
+  return {
+    ...result,
+    accessTokenExpiresAt: getAccessTokenExpiryFromRequest(req, 'user'),
+  };
 };
 
 // Request password reset
