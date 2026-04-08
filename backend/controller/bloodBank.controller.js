@@ -9,9 +9,29 @@ export const register = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    201,
-    'Blood bank registration request submitted successfully. Please wait for admin approval.'
+    200,
+    'OTP sent to your email. Please verify to complete registration.'
   );
+});
+
+export const initiateRegistration = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
+  const result = await bloodBankService.initiateBloodBankRegistrationWithOtp(req);
+  successResponse(res, result, 200, 'OTP sent to your email. Please verify to continue.');
+});
+
+export const verifyRegistrationOtp = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
+  const { verificationId, otp } = req.body;
+  const result = await bloodBankService.verifyBloodBankRegistrationOtp(verificationId, otp);
+  successResponse(res, result, 201, 'Email verified and registration submitted for admin approval.');
+});
+
+export const resendRegistrationOtp = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
+  const { verificationId } = req.body;
+  const result = await bloodBankService.resendBloodBankRegistrationOtp(verificationId);
+  successResponse(res, result, 200, 'A new OTP has been sent to your email.');
 });
 
 export const login = asyncHandler(async (req, res) => {

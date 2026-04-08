@@ -70,6 +70,27 @@ export const bloodBankApi = apiSlice.injectEndpoints({
         body: data,
       }),
     }),
+    initiateBloodBankRegistration: builder.mutation({
+      query: (data) => ({
+        url: BLOODBANK_API_URLS.INITIATE_BLOOD_BANK_REGISTRATION,
+        method: 'POST',
+        body: data,
+      }),
+    }),
+    verifyBloodBankRegistrationOtp: builder.mutation({
+      query: (data) => ({
+        url: BLOODBANK_API_URLS.VERIFY_BLOOD_BANK_REGISTRATION_OTP,
+        method: 'POST',
+        body: data,
+      }),
+    }),
+    resendBloodBankRegistrationOtp: builder.mutation({
+      query: (data) => ({
+        url: BLOODBANK_API_URLS.RESEND_BLOOD_BANK_REGISTRATION_OTP,
+        method: 'POST',
+        body: data,
+      }),
+    }),
     getBloodBankDashboard: builder.query({
       query: () => BLOODBANK_API_URLS.GET_DASHBOARD,
       providesTags: tagList(TAGS.DASHBOARD),
@@ -160,6 +181,9 @@ export const {
   useLazyGetBloodBankSessionQuery,
   useLazyGetBloodBankCsrfTokenQuery,
   useRegisterBloodBankMutation,
+  useInitiateBloodBankRegistrationMutation,
+  useVerifyBloodBankRegistrationOtpMutation,
+  useResendBloodBankRegistrationOtpMutation,
   useGetBloodBankDashboardQuery,
   useGetBloodBankProfileQuery,
   useUpdateBloodBankProfileMutation,

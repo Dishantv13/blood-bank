@@ -1,11 +1,13 @@
 import BloodBank from '../models/BloodBank.model.js';
+import BloodBankRegistrationOtp from '../models/BloodBankRegistrationOtp.model.js';
 import Inventory from '../models/Inventory.model.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import {
   sendPasswordResetEmail,
   sendBloodBankApprovalEmail,
-  sendBloodBankRejectionEmail
+  sendBloodBankRejectionEmail,
+  sendBloodBankRegistrationOtpEmail
 } from '../utils/emailService.js';
 import * as fileUploadService from './fileUploadService.js';
 import * as validationService from './validationService.js';
@@ -35,6 +37,87 @@ const buildBloodBankClaims = (bloodBank) => ({
 
 const PUBLIC_BANKS_CACHE_TTL_MS = 30 * 1000;
 const publicBloodBanksCache = new Map();
+
+const BLOODBANK_OTP_EXPIRY_MINUTES = Math.max(1, Number(process.env.BLOODBANK_OTP_EXPIRY_MINUTES) || 10);
+const BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS = Math.max(1, Number(process.env.BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS) || 5);
+const BLOODBANK_OTP_MAX_RESEND_ATTEMPTS = Math.max(1, Number(process.env.BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) || 5);
+const BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS = Math.max(10, Number(process.env.BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS) || 60);
+const BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES = Math.max(5, Number(process.env.BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES) || 60);
+const BLOODBANK_OTP_HASH_SECRET = process.env.BLOODBANK_OTP_HASH_SECRET || process.env.BLOODBANK_ACCESS_TOKEN_SECRET || 'bloodbank-otp-secret';
+
+const maskEmail = (email = '') => {
+  const [localPart, domain = ''] = String(email).split('@');
+  if (!localPart || !domain) return email;
+  if (localPart.length <= 2) return `${localPart[0]}***@${domain}`;
+  return `${localPart.slice(0, 2)}***${localPart.slice(-1)}@${domain}`;
+};
+
+const normalizeRegistrationPayload = (rawData = {}) => {
+  const normalized = { ...rawData };
+  ['operatingHours', 'location', 'services', 'contactPerson', 'inventory', 'address'].forEach((field) => {
+    if (typeof normalized[field] === 'string') {
+      try {
+        normalized[field] = JSON.parse(normalized[field]);
+      } catch (_e) {
+        // Keep as-is when not a JSON string.
+      }
+    }
+  });
+
+  if (typeof normalized.email === 'string') {
+    normalized.email = normalized.email.trim().toLowerCase();
+  }
+
+  return normalized;
+};
+
+const validateRegistrationData = (data) => {
+  const {
+    name,
+    email,
+    password,
+    phone,
+    licenseNumber,
+  } = data;
+
+  if (!name || !email || !password || !phone || !licenseNumber) {
+    throw new ApiError(400, 'Please provide all required fields: name, email, password, phone, and license number');
+  }
+
+  validationService.validateEmail(email);
+  validationService.validatePassword(password);
+  validationService.validatePhone(phone);
+};
+
+const hashOtp = (otp) =>
+  crypto.createHash('sha256').update(`${String(otp)}:${BLOODBANK_OTP_HASH_SECRET}`).digest('hex');
+
+const generateOtp = () => String(crypto.randomInt(100000, 1000000));
+
+const buildOtpMeta = (record) => {
+  const now = Date.now();
+  const resendAvailableInSeconds = Math.max(
+    0,
+    Math.ceil(
+      (new Date(record.lastOtpSentAt).getTime() + BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 - now) / 1000
+    )
+  );
+  const otpExpiresInSeconds = Math.max(
+    0,
+    Math.ceil((new Date(record.otpExpiresAt).getTime() - now) / 1000)
+  );
+
+  return {
+    verificationId: record.verificationId,
+    maskedEmail: maskEmail(record.email),
+    attemptsRemaining: Math.max(0, BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS - (record.verifyAttemptsUsed || 0)),
+    resendAttemptsRemaining: Math.max(0, BLOODBANK_OTP_MAX_RESEND_ATTEMPTS - (record.resendCount || 0)),
+    resendAvailableInSeconds,
+    otpExpiresInSeconds,
+    maxVerifyAttempts: BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS,
+    maxResendAttempts: BLOODBANK_OTP_MAX_RESEND_ATTEMPTS,
+  };
+};
 
 const getCachedPublicBanks = (key) => {
   const cached = publicBloodBanksCache.get(key);
@@ -92,25 +175,318 @@ export const issueBloodBankCsrfToken = (res) => {
   return { csrfToken };
 };
 
-export const registerBloodBankFromRequest = async (req) => {
-  ['address', 'operatingHours', 'location', 'services', 'contactPerson', 'inventory'].forEach((field) => {
-    if (typeof req.body[field] === 'string') {
-      try {
-        req.body[field] = JSON.parse(req.body[field]);
-      } catch (_e) {
-        // Keep as string if parsing fails
-      }
-    }
+const buildInitialInventory = () => ([
+  { bloodGroup: 'A+', units: 0 },
+  { bloodGroup: 'A-', units: 0 },
+  { bloodGroup: 'B+', units: 0 },
+  { bloodGroup: 'B-', units: 0 },
+  { bloodGroup: 'AB+', units: 0 },
+  { bloodGroup: 'AB-', units: 0 },
+  { bloodGroup: 'O+', units: 0 },
+  { bloodGroup: 'O-', units: 0 }
+]);
+
+const assertBloodBankNotExists = async (email, licenseNumber) => {
+  const existingBloodBank = await BloodBank.findOne({
+    $or: [{ email }, { licenseNumber }]
+  }).lean();
+
+  if (existingBloodBank) {
+    throw new ApiError(400, 'Blood bank with this email or license number already exists');
+  }
+};
+
+const createBloodBankAndInventory = async (data) => {
+  const {
+    name,
+    email,
+    password,
+    phone,
+    licenseNumber,
+    registrationNumber,
+    establishedYear,
+    address,
+    city,
+    state,
+    pincode,
+    operatingHours,
+    services,
+    contactPersonName,
+    contactPersonPhone,
+    contactPersonEmail,
+    location,
+    logo
+  } = data;
+
+  const initialInventory = buildInitialInventory();
+
+  const bloodBank = new BloodBank({
+    name,
+    email,
+    password,
+    phone,
+    licenseNumber,
+    registrationNumber,
+    establishedYear,
+    address: {
+      street: address,
+      city,
+      state,
+      pincode
+    },
+    operatingHours: operatingHours || { open: '09:00', close: '18:00', days: [] },
+    services: services || [],
+    contactPerson: {
+      name: contactPersonName,
+      phone: contactPersonPhone,
+      email: contactPersonEmail
+    },
+    inventory: initialInventory,
+    location: location || undefined,
+    logo: logo || '',
+    imageUrl: logo || '',
+    profileImage: logo || '',
+    profileImagePublicId: data.profileImagePublicId || '',
+    isActive: false,
+    isVerified: true,
+    approvalStatus: 'pending',
+    rejectionReason: ''
   });
+
+  await bloodBank.save();
+
+  const inventory = new Inventory({
+    bloodBank: bloodBank._id,
+    bloodBankName: bloodBank.name,
+    items: initialInventory.map((item) => ({ ...item, lastUpdated: new Date() }))
+  });
+  await inventory.save();
+
+  return {
+    bloodBank: sanitizeBloodBank(bloodBank),
+    requiresApproval: true,
+    emailVerified: true,
+  };
+};
+
+const buildRegistrationDataFromRequest = async (req) => {
+  const body = normalizeRegistrationPayload(req.body || {});
 
   if (req.file) {
     const uploadResult = await fileUploadService.handleSingleUpload(req.file.path, 'blood-bank/profiles');
-    req.body.logo = uploadResult.url;
-    req.body.profileImagePublicId = uploadResult.publicId;
+    body.logo = uploadResult.url;
+    body.profileImagePublicId = uploadResult.publicId;
   }
 
-  return registerBloodBank(req.body);
+  validateRegistrationData(body);
+
+  return body;
 };
+
+export const initiateBloodBankRegistrationWithOtp = async (req) => {
+  const registrationData = await buildRegistrationDataFromRequest(req);
+  await assertBloodBankNotExists(registrationData.email, registrationData.licenseNumber);
+
+  const now = new Date();
+  const otp = generateOtp();
+  const otpHash = hashOtp(otp);
+  const verificationId = crypto.randomBytes(24).toString('hex');
+  const otpExpiresAt = new Date(now.getTime() + BLOODBANK_OTP_EXPIRY_MINUTES * 60 * 1000);
+  const recordExpiresAt = new Date(now.getTime() + BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES * 60 * 1000);
+  const hashedPassword = await bcrypt.hash(registrationData.password, 12);
+
+  const existingPending = await BloodBankRegistrationOtp.findOne({
+    email: registrationData.email,
+    status: 'pending',
+    expiresAt: { $gt: now },
+  }).select('+otpHash');
+
+  if (existingPending && existingPending.lastOtpSentAt) {
+    const remainingSeconds = Math.ceil(
+      (existingPending.lastOtpSentAt.getTime() + BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000
+    );
+    if (remainingSeconds > 0) {
+      const error = new ApiError(429, `Please wait ${remainingSeconds} seconds before requesting another OTP`);
+      error.data = buildOtpMeta(existingPending.toObject());
+      throw error;
+    }
+  }
+
+  const pendingData = {
+    verificationId,
+    email: registrationData.email,
+    otpHash,
+    otpExpiresAt,
+    status: 'pending',
+    verifyAttemptsUsed: 0,
+    resendCount: 0,
+    lastOtpSentAt: now,
+    registrationData: {
+      ...registrationData,
+      password: hashedPassword,
+      passwordIsHashed: true,
+    },
+    clientMeta: {
+      ip: String(req.ip || ''),
+      userAgent: String(req.get('user-agent') || ''),
+    },
+    expiresAt: recordExpiresAt,
+    verifiedAt: null,
+  };
+
+  if (existingPending) {
+    Object.assign(existingPending, pendingData);
+    await existingPending.save();
+  } else {
+    await BloodBankRegistrationOtp.create(pendingData);
+  }
+
+  try {
+    await sendBloodBankRegistrationOtpEmail(registrationData.email, otp, {
+      expiresInMinutes: BLOODBANK_OTP_EXPIRY_MINUTES,
+    });
+  } catch (_error) {
+    await BloodBankRegistrationOtp.deleteOne({ verificationId });
+    throw new ApiError(500, 'Unable to send OTP email. Please try again later.');
+  }
+
+  const record = await BloodBankRegistrationOtp.findOne({ verificationId }).lean();
+  return {
+    ...buildOtpMeta(record),
+    nextStep: 'verify_otp',
+  };
+};
+
+export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
+  if (!verificationId || !otp) {
+    throw new ApiError(400, 'verificationId and otp are required');
+  }
+
+  const now = new Date();
+  const pendingRegistration = await BloodBankRegistrationOtp.findOne({
+    verificationId: String(verificationId),
+  }).select('+otpHash');
+
+  if (!pendingRegistration) {
+    throw new ApiError(400, 'Invalid or expired verification session');
+  }
+
+  if (pendingRegistration.status === 'locked') {
+    const error = new ApiError(429, 'Maximum OTP attempts reached. Please restart registration.');
+    error.data = buildOtpMeta(pendingRegistration.toObject());
+    throw error;
+  }
+
+  if (pendingRegistration.status !== 'pending' || pendingRegistration.expiresAt <= now || pendingRegistration.otpExpiresAt <= now) {
+    pendingRegistration.status = 'expired';
+    await pendingRegistration.save();
+    const error = new ApiError(400, 'OTP is invalid or expired. Please restart registration.');
+    error.data = buildOtpMeta(pendingRegistration.toObject());
+    throw error;
+  }
+
+  if (pendingRegistration.verifyAttemptsUsed >= BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS) {
+    pendingRegistration.status = 'locked';
+    await pendingRegistration.save();
+    const error = new ApiError(429, 'Maximum OTP attempts reached. Please restart registration.');
+    error.data = buildOtpMeta(pendingRegistration.toObject());
+    throw error;
+  }
+
+  const isOtpValid = pendingRegistration.otpHash === hashOtp(String(otp).trim());
+  if (!isOtpValid) {
+    pendingRegistration.verifyAttemptsUsed += 1;
+    if (pendingRegistration.verifyAttemptsUsed >= BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS) {
+      pendingRegistration.status = 'locked';
+    }
+    await pendingRegistration.save();
+
+    const meta = buildOtpMeta(pendingRegistration.toObject());
+    const error = new ApiError(
+      pendingRegistration.status === 'locked' ? 429 : 400,
+      pendingRegistration.status === 'locked'
+        ? 'Maximum OTP attempts reached. Please restart registration.'
+        : `Invalid OTP. ${meta.attemptsRemaining} attempts remaining.`
+    );
+    error.data = meta;
+    throw error;
+  }
+
+  const registrationData = normalizeRegistrationPayload(pendingRegistration.registrationData || {});
+  if (registrationData.passwordIsHashed !== true) {
+    throw new ApiError(400, 'Registration payload is invalid. Please restart registration.');
+  }
+
+  await assertBloodBankNotExists(registrationData.email, registrationData.licenseNumber);
+
+  const result = await createBloodBankAndInventory({
+    ...registrationData,
+    password: registrationData.password,
+  });
+
+  await BloodBankRegistrationOtp.deleteOne({ _id: pendingRegistration._id });
+
+  return {
+    ...result,
+    nextStep: 'await_admin_approval',
+  };
+};
+
+export const resendBloodBankRegistrationOtp = async (verificationId) => {
+  if (!verificationId) {
+    throw new ApiError(400, 'verificationId is required');
+  }
+
+  const now = new Date();
+  const pendingRegistration = await BloodBankRegistrationOtp.findOne({
+    verificationId: String(verificationId),
+    status: 'pending',
+  }).select('+otpHash');
+
+  if (!pendingRegistration || pendingRegistration.expiresAt <= now) {
+    throw new ApiError(400, 'Invalid or expired verification session');
+  }
+
+  if (pendingRegistration.resendCount >= BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) {
+    pendingRegistration.status = 'locked';
+    await pendingRegistration.save();
+    const error = new ApiError(429, 'Maximum OTP resend attempts reached. Please restart registration.');
+    error.data = buildOtpMeta(pendingRegistration.toObject());
+    throw error;
+  }
+
+  const remainingSeconds = Math.ceil(
+    (pendingRegistration.lastOtpSentAt.getTime() + BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000
+  );
+  if (remainingSeconds > 0) {
+    const error = new ApiError(429, `Please wait ${remainingSeconds} seconds before resending OTP`);
+    error.data = buildOtpMeta(pendingRegistration.toObject());
+    throw error;
+  }
+
+  const otp = generateOtp();
+  pendingRegistration.otpHash = hashOtp(otp);
+  pendingRegistration.otpExpiresAt = new Date(Date.now() + BLOODBANK_OTP_EXPIRY_MINUTES * 60 * 1000);
+  pendingRegistration.resendCount += 1;
+  pendingRegistration.lastOtpSentAt = new Date();
+
+  await pendingRegistration.save();
+
+  try {
+    await sendBloodBankRegistrationOtpEmail(pendingRegistration.email, otp, {
+      expiresInMinutes: BLOODBANK_OTP_EXPIRY_MINUTES,
+    });
+  } catch (_error) {
+    throw new ApiError(500, 'Unable to send OTP email. Please try again later.');
+  }
+
+  return {
+    ...buildOtpMeta(pendingRegistration.toObject()),
+    nextStep: 'verify_otp',
+  };
+};
+
+export const registerBloodBankFromRequest = async (req) => initiateBloodBankRegistrationWithOtp(req);
 
 export const loginBloodBankWithSession = async (req, res) => {
   const { email, password } = req.body;
@@ -165,107 +541,11 @@ export const logoutBloodBankSession = async (req, res) => {
   return { success: true };
 };
 
-// Register a new blood bank
 export const registerBloodBank = async (data) => {
-  const {
-    name,
-    email,
-    password,
-    phone,
-    licenseNumber,
-    registrationNumber,
-    establishedYear,
-    address,
-    city,
-    state,
-    pincode,
-    operatingHours,
-    services,
-    contactPersonName,
-    contactPersonPhone,
-    contactPersonEmail,
-    location,
-    logo
-  } = data;
-
-  // Validation
-  if (!name || !email || !password || !phone || !licenseNumber) {
-    throw new ApiError(400, 'Please provide all required fields: name, email, password, phone, and license number');
-  }
-
-  validationService.validateEmail(email);
-  validationService.validatePassword(password);
-  validationService.validatePhone(phone);
-
-  // Check if blood bank already exists
-  const existingBloodBank = await BloodBank.findOne({
-    $or: [{ email }, { licenseNumber }]
-  }).lean();
-
-  if (existingBloodBank) {
-    throw new ApiError(400, 'Blood bank with this email or license number already exists');
-  }
-
-  // Initialize inventory with all blood types
-  const initialInventory = [
-    { bloodGroup: 'A+', units: 0 },
-    { bloodGroup: 'A-', units: 0 },
-    { bloodGroup: 'B+', units: 0 },
-    { bloodGroup: 'B-', units: 0 },
-    { bloodGroup: 'AB+', units: 0 },
-    { bloodGroup: 'AB-', units: 0 },
-    { bloodGroup: 'O+', units: 0 },
-    { bloodGroup: 'O-', units: 0 }
-  ];
-
-  // Create blood bank
-  const bloodBank = new BloodBank({
-    name,
-    email,
-    password, // Let the model's pre-save hook handle hashing
-    phone,
-    licenseNumber,
-    registrationNumber,
-    establishedYear,
-    address: {
-      street: address,
-      city,
-      state,
-      pincode
-    },
-    operatingHours: operatingHours || { open: '09:00', close: '18:00', days: [] },
-    services: services || [],
-    contactPerson: {
-      name: contactPersonName,
-      phone: contactPersonPhone,
-      email: contactPersonEmail
-    },
-    inventory: initialInventory,
-    location: location || undefined,
-    logo: logo || '',
-    imageUrl: logo || '',
-    profileImage: logo || '', // Use the uploaded photo as profile image too
-    profileImagePublicId: data.profileImagePublicId || '',
-    isActive: false,
-    isVerified: false,
-    approvalStatus: 'pending',
-    rejectionReason: ''
-  });
-
-  await bloodBank.save();
-
-  // Create entry in Inventory collection
-  const inventory = new Inventory({
-    bloodBank: bloodBank._id,
-    bloodBankName: bloodBank.name,
-    items: initialInventory.map(item => ({ ...item, lastUpdated: new Date() }))
-  });
-  await inventory.save();
-
-  return {
-    bloodBank: sanitizeBloodBank(bloodBank),
-    requiresApproval: true
-  };
+  const registrationData = normalizeRegistrationPayload(data);
+  validateRegistrationData(registrationData);
+  await assertBloodBankNotExists(registrationData.email, registrationData.licenseNumber);
+  return createBloodBankAndInventory(registrationData);
 };
 
 // Login blood bank

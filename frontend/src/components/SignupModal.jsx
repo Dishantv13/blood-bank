@@ -60,14 +60,7 @@ const SignupModal = ({ isOpen, onClose }) => {
   const handleGoogleSignup = async () => {
     setIsGoogleLoading(true);
     try {
-      const result = await loginWithGoogle();
-
-      if (result.success) {
-        onClose();
-        navigate(ROUTE_PATH.DASHBOARD);
-      } else if (result.message && !result.message.includes('popup was closed')) {
-        alert(result.message);
-      }
+      await loginWithGoogle({ mode: 'signup' });
     } catch (error) {
       console.error("Google Signup Error:", error);
     } finally {

@@ -21,6 +21,10 @@ const globalErrorHandler = (err, req, res, next) => {
     message,
   };
 
+  if (err?.data && typeof err.data === 'object') {
+    response.data = err.data;
+  }
+
   // Only include stack trace in development
   if (process.env.NODE_ENV === 'development') {
     response.stack = err.stack;

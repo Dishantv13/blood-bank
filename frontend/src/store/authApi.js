@@ -24,13 +24,6 @@ export const authApi = apiSlice.injectEndpoints({
         body: userData,
       }),
     }),
-    googleLogin: builder.mutation({
-      query: (googleData) => ({
-        url: AUTH_API_URLS.GOOGLE_LOGIN,
-        method: 'POST',
-        body: googleData,
-      }),
-    }),
     logout: builder.mutation({
       query: () => ({
         url: AUTH_API_URLS.LOGOUT,
@@ -98,7 +91,6 @@ export const {
   useAdminLoginMutation,
   useLoginMutation,
   useRegisterMutation,
-  useGoogleLoginMutation,
   useLogoutMutation,
   useRefreshSessionMutation,
   useAdminLogoutMutation,

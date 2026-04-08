@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { useRegisterBloodBankMutation } from '../store/bloodBankApi';
+import {
+  useInitiateBloodBankRegistrationMutation,
+  useResendBloodBankRegistrationOtpMutation,
+  useVerifyBloodBankRegistrationOtpMutation,
+} from '../store/bloodBankApi';
 import { useToast } from '../components/ToastContainer';
 import ThemeToggle from "../components/ThemeToggle";
 import { ROUTE_PATH } from '../enum/routePath';
@@ -31,8 +35,13 @@ const BloodBankRegister = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(true);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [verificationState, setVerificationState] = useState(null);
+  const [otpError, setOtpError] = useState('');
 
-  const [registerBloodBank] = useRegisterBloodBankMutation();
+  const [initiateRegistration, { isLoading: isInitiatingRegistration }] = useInitiateBloodBankRegistrationMutation();
+  const [verifyRegistrationOtp, { isLoading: isVerifyingOtp }] = useVerifyBloodBankRegistrationOtpMutation();
+  const [resendRegistrationOtp, { isLoading: isResendingOtp }] = useResendBloodBankRegistrationOtpMutation();
 
   const {
     register,
@@ -84,6 +93,22 @@ const BloodBankRegister = () => {
   const watchedWorkingDays = watch('workingDays') || [];
   const watchedServices = watch('services') || [];
   const watchedPassword = watch('password');
+  const isOtpFlowActive = Boolean(verificationState?.verificationId);
+
+  useEffect(() => {
+    if (!isOtpFlowActive) return undefined;
+    const timer = setInterval(() => {
+      setVerificationState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          resendAvailableInSeconds: Math.max(0, (prev.resendAvailableInSeconds || 0) - 1),
+          otpExpiresInSeconds: Math.max(0, (prev.otpExpiresInSeconds || 0) - 1),
+        };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isOtpFlowActive]);
 
   useEffect(() => {
     register('workingDays', {
@@ -266,56 +291,123 @@ const BloodBankRegister = () => {
     );
   };
 
-    const onSubmit = async (data) => {
-      const isValid = await validateStep();
-      if (!isValid) return;
+  const getVerificationPayload = (response) => ({
+    verificationId: response?.verificationId || response?.data?.verificationId || '',
+    maskedEmail: response?.maskedEmail || response?.data?.maskedEmail || '',
+    attemptsRemaining: response?.attemptsRemaining ?? response?.data?.attemptsRemaining ?? 0,
+    resendAttemptsRemaining: response?.resendAttemptsRemaining ?? response?.data?.resendAttemptsRemaining ?? 0,
+    resendAvailableInSeconds: response?.resendAvailableInSeconds ?? response?.data?.resendAvailableInSeconds ?? 0,
+    otpExpiresInSeconds: response?.otpExpiresInSeconds ?? response?.data?.otpExpiresInSeconds ?? 0,
+    maxVerifyAttempts: response?.maxVerifyAttempts ?? response?.data?.maxVerifyAttempts ?? 5,
+  });
 
-      if (!locationShared) {
-        const message = 'Please share your location';
-        setFormError(message);
-        toast.warning(message);
-        return;
+  const onSubmit = async (data) => {
+    const isValid = await validateStep();
+    if (!isValid) return;
+
+    if (!locationShared) {
+      const message = 'Please share your location';
+      setFormError(message);
+      toast.warning(message);
+      return;
+    }
+
+    setFormError('');
+    setOtpError('');
+
+    try {
+      const formData = new FormData();
+
+      Object.keys(data).forEach((key) => {
+        if (!['openTime', 'closeTime', 'workingDays', 'services', 'logo'].includes(key)) {
+          formData.append(key, data[key]);
+        }
+      });
+
+      formData.append('operatingHours', JSON.stringify({
+        open: data.openTime,
+        close: data.closeTime,
+        days: data.workingDays
+      }));
+
+      formData.append('services', JSON.stringify(data.services));
+
+      if (location) {
+        formData.append('location', JSON.stringify(location));
       }
 
-      setFormError('');
+      if (logoFile) {
+        formData.append('logo', logoFile);
+      }
 
-      try {
-        const formData = new FormData();
-        
-        // Add basic fields
-        Object.keys(data).forEach(key => {
-          if (!['openTime', 'closeTime', 'workingDays', 'services', 'logo'].includes(key)) {
-            formData.append(key, data[key]);
-          }
-        });
+      const response = await initiateRegistration(formData).unwrap();
+      const nextVerificationState = getVerificationPayload(response);
+      if (!nextVerificationState.verificationId) {
+        throw new Error('Registration verification session was not created');
+      }
 
-        // Add complex objects as stringified JSON
-        formData.append('operatingHours', JSON.stringify({
-          open: data.openTime,
-          close: data.closeTime,
-          days: data.workingDays
-        }));
-        
-        formData.append('services', JSON.stringify(data.services));
-        
-        if (location) {
-          formData.append('location', JSON.stringify(location));
-        }
-
-        // Add the logo file if selected
-        if (logoFile) {
-          formData.append('logo', logoFile);
-        }
-        
-        await registerBloodBank(formData).unwrap();
-        toast.success('Registration submitted successfully. Please wait for admin approval by email.');
-        navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
+      setVerificationState(nextVerificationState);
+      setOtpCode('');
+      toast.success(`OTP sent to ${nextVerificationState.maskedEmail || 'your email'}`);
     } catch (err) {
-      console.error('Registration error:', err.data || err.message);
-      const errorMessage = err.data?.message || err.data?.error || 'Registration failed. Please try again.';
+      console.error('Registration initiation error:', err.data || err.message);
+      const errorMessage = err?.data?.message || err?.error || 'Unable to start registration. Please try again.';
       setFormError(errorMessage);
       toast.error(errorMessage);
     }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!verificationState?.verificationId) return;
+    const sanitizedOtp = String(otpCode || '').replace(/\D/g, '').slice(0, 6);
+    if (sanitizedOtp.length !== 6) {
+      setOtpError('Please enter a valid 6-digit OTP');
+      return;
+    }
+
+    setOtpError('');
+    try {
+      await verifyRegistrationOtp({
+        verificationId: verificationState.verificationId,
+        otp: sanitizedOtp,
+      }).unwrap();
+      toast.success('Email verified. Registration submitted and pending admin approval.');
+      navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
+    } catch (err) {
+      const message = err?.data?.message || 'Invalid OTP. Please try again.';
+      setOtpError(message);
+      const refreshed = getVerificationPayload(err?.data || {});
+      setVerificationState((prev) => ({ ...prev, ...refreshed }));
+      toast.error(message);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!verificationState?.verificationId) return;
+    setOtpError('');
+
+    try {
+      const response = await resendRegistrationOtp({
+        verificationId: verificationState.verificationId,
+      }).unwrap();
+      setVerificationState((prev) => ({
+        ...prev,
+        ...getVerificationPayload(response),
+      }));
+      setOtpCode('');
+      toast.success('A new OTP has been sent to your email');
+    } catch (err) {
+      const message = err?.data?.message || 'Unable to resend OTP right now.';
+      setOtpError(message);
+      toast.error(message);
+    }
+  };
+
+  const resetOtpFlow = () => {
+    setVerificationState(null);
+    setOtpCode('');
+    setOtpError('');
+    toast.info('OTP flow reset. You can edit registration details and submit again.');
   };
 
   const renderStepIndicator = () => (
@@ -410,10 +502,10 @@ const BloodBankRegister = () => {
           <input
             type={showPassword ? 'password' : 'text'}
             id="password"
-            placeholder="Min 6 characters"
+            placeholder="Min 12 characters"
             {...register('password', {
               required: 'Password is required',
-              minLength: { value: 6, message: 'Password must be at least 6 characters' },
+              minLength: { value: 12, message: 'Password must be at least 12 characters' },
             })}
           />
           <button
@@ -822,6 +914,83 @@ const BloodBankRegister = () => {
     </>
   );
 
+  const renderOtpVerification = () => {
+    const attemptsRemaining = verificationState?.attemptsRemaining ?? 0;
+    const resendAttemptsRemaining = verificationState?.resendAttemptsRemaining ?? 0;
+    const resendAvailableInSeconds = verificationState?.resendAvailableInSeconds ?? 0;
+    const otpExpiresInSeconds = verificationState?.otpExpiresInSeconds ?? 0;
+    const isLocked = attemptsRemaining <= 0;
+    const canResend = resendAttemptsRemaining > 0 && resendAvailableInSeconds === 0 && !isLocked;
+
+    return (
+      <div className="otp-container">
+        <div className="otp-title">Email Verification</div>
+        <p className="otp-description">
+          Enter the 6-digit OTP sent to <strong>{verificationState?.maskedEmail || 'your email'}</strong>.
+        </p>
+
+        <div className="otp-meta">
+          <span>Attempts left: {attemptsRemaining}</span>
+          <span>Resend left: {resendAttemptsRemaining}</span>
+          <span>OTP expires in: {otpExpiresInSeconds}s</span>
+        </div>
+
+        <div className="form-group">
+          <label htmlFor="otpCode">OTP Code</label>
+          <input
+            id="otpCode"
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="Enter 6-digit OTP"
+            value={otpCode}
+            onChange={(e) => {
+              setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+              setOtpError('');
+            }}
+            disabled={isLocked || otpExpiresInSeconds <= 0}
+          />
+          {otpError && <p className="field-error">{otpError}</p>}
+        </div>
+
+        <div className="form-navigation otp-nav">
+          <button
+            type="button"
+            className="auth-btn"
+            onClick={handleVerifyOtp}
+            disabled={isLocked || otpExpiresInSeconds <= 0 || isVerifyingOtp}
+          >
+            {isVerifyingOtp ? <span className="loading-spinner"></span> : 'Verify OTP'}
+          </button>
+        </div>
+
+        <div className="otp-actions">
+          <button
+            type="button"
+            className="auth-btn auth-btn-secondary"
+            onClick={handleResendOtp}
+            disabled={!canResend || isResendingOtp || otpExpiresInSeconds <= 0}
+          >
+            {isResendingOtp ? 'Sending...' : (resendAvailableInSeconds > 0 ? `Resend in ${resendAvailableInSeconds}s` : 'Resend OTP')}
+          </button>
+          <button
+            type="button"
+            className="auth-btn auth-btn-secondary"
+            onClick={resetOtpFlow}
+          >
+            Restart Registration
+          </button>
+        </div>
+
+        {(isLocked || otpExpiresInSeconds <= 0) && (
+          <div className="auth-alert auth-alert-error">
+            OTP session is locked or expired. Please restart registration.
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="login-page-wrapper">
       <div className="guest-theme-toggle">
@@ -872,9 +1041,9 @@ const BloodBankRegister = () => {
             <p>Create your blood bank account</p>
           </div>
 
-          {renderStepIndicator()}
+          {!isOtpFlowActive && renderStepIndicator()}
 
-          {getStepError() && (
+          {!isOtpFlowActive && getStepError() && (
             <div className="auth-alert auth-alert-error">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
@@ -885,46 +1054,50 @@ const BloodBankRegister = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
-            {step === 1 && renderStep1()}
-            {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
+          {!isOtpFlowActive ? (
+            <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
+              {step === 1 && renderStep1()}
+              {step === 2 && renderStep2()}
+              {step === 3 && renderStep3()}
 
-            <div className="form-navigation">
-              {step > 1 && (
-                <button type="button" onClick={prevStep} className="auth-btn auth-btn-secondary">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="19" y1="12" x2="5" y2="12"/>
-                    <polyline points="12 19 5 12 12 5"/>
-                  </svg>
-                  Back
-                </button>
-              )}
-              
-              {step < 3 ? (
-                <button type="button" onClick={nextStep} className="auth-btn">
-                  Next
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                    <polyline points="12 5 19 12 12 19"/>
-                  </svg>
-                </button>
-              ) : (
-                <button type="submit" className="auth-btn" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <span className="loading-spinner"></span>
-                  ) : (
-                    <>
-                      Register
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="20 6 9 17 4 12"/>
-                      </svg>
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </form>
+              <div className="form-navigation">
+                {step > 1 && (
+                  <button type="button" onClick={prevStep} className="auth-btn auth-btn-secondary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="19" y1="12" x2="5" y2="12"/>
+                      <polyline points="12 19 5 12 12 5"/>
+                    </svg>
+                    Back
+                  </button>
+                )}
+                
+                {step < 3 ? (
+                  <button type="button" onClick={nextStep} className="auth-btn">
+                    Next
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="5" y1="12" x2="19" y2="12"/>
+                      <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                  </button>
+                ) : (
+                  <button type="submit" className="auth-btn" disabled={isSubmitting || isInitiatingRegistration}>
+                    {isSubmitting || isInitiatingRegistration ? (
+                      <span className="loading-spinner"></span>
+                    ) : (
+                      <>
+                        Register
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </form>
+          ) : (
+            renderOtpVerification()
+          )}
 
           <div className="auth-footer">
             <p>
@@ -1046,6 +1219,49 @@ const BloodBankRegister = () => {
         .password-toggle svg {
           width: 18px;
           height: 18px;
+        }
+
+        .otp-container {
+          display: flex;
+          flex-direction: column;
+          gap: 0.9rem;
+        }
+
+        .otp-title {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: #991b1b;
+        }
+
+        .otp-description {
+          margin: 0;
+          color: #444;
+          font-size: 0.95rem;
+        }
+
+        .otp-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.6rem;
+          font-size: 0.85rem;
+          color: #666;
+        }
+
+        .otp-meta span {
+          background: #f7f7f7;
+          padding: 0.35rem 0.55rem;
+          border-radius: 6px;
+        }
+
+        .otp-actions {
+          display: flex;
+          gap: 0.7rem;
+          flex-wrap: wrap;
+        }
+
+        .otp-actions .auth-btn {
+          flex: 1;
+          min-width: 160px;
         }
       `}</style>
       </div>

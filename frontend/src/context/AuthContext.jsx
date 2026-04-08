@@ -3,7 +3,6 @@ import {
   useAdminLoginMutation,
   useLoginMutation,
   useRegisterMutation,
-  useGoogleLoginMutation,
   useLogoutMutation,
   useRefreshSessionMutation,
   useAdminLogoutMutation,
@@ -18,8 +17,7 @@ import {
 } from '../store/bloodBankApi';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
-import { inMemoryPersistence, setPersistence, signInWithPopup, signOut } from 'firebase/auth';
-import { auth, googleProvider, isFirebaseConfigured } from '../config/firebase';
+import { AUTH_API_URLS } from '../enum/apiUrl';
 
 const AuthContext = createContext();
 const REFRESH_BUFFER_MS = 2 * 60 * 1000;
@@ -55,7 +53,6 @@ export const AuthProvider = ({ children }) => {
   const [adminLoginMutation] = useAdminLoginMutation();
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
-  const [googleLoginMutation] = useGoogleLoginMutation();
   const [logoutMutation] = useLogoutMutation();
   const [refreshSessionMutation] = useRefreshSessionMutation();
   const [adminLogoutMutation] = useAdminLogoutMutation();
@@ -420,62 +417,13 @@ export const AuthProvider = ({ children }) => {
     }
   }, [clearRoleSession, dispatch, logoutBloodBankMutation]);
 
-  const loginWithGoogle = useCallback(async () => {
-    if (!isFirebaseConfigured || !auth || !googleProvider) {
-      return {
-        success: false,
-        message: 'Google login is not properly configured. Please check server logs and configuration.',
-      };
-    }
-
-    try {
-      // Keep Firebase auth ephemeral because the backend owns the real app session.
-      await setPersistence(auth, inMemoryPersistence);
-      const result = await signInWithPopup(auth, googleProvider);
-      if (!result.user) {
-        throw new Error('No user data received from Google');
-      }
-
-      const googleUser = result.user;
-      const idToken = await googleUser.getIdToken(true);
-      const response = await googleLoginMutation({
-        idToken,
-      }).unwrap();
-
-      applyUserSession(response);
-      return { success: true };
-    } catch (error) {
-      if (error.code === 'auth/popup-closed-by-user') {
-        return {
-          success: false,
-          message: 'Login popup was closed before completion. Please try again.',
-        };
-      }
-
-      if (error.code === 'auth/cancelled-by-user') {
-        return {
-          success: false,
-          message: 'Login was cancelled. Please try again.',
-        };
-      }
-
-      return {
-        success: false,
-        message: error.code === 'auth/configuration-not-found'
-          ? 'Google Login is not configured correctly. Please check server environment variables.'
-          : (error.data?.message || 'Google login failed. Please try again later.'),
-      };
-    } finally {
-      // Avoid keeping a parallel Firebase client session after exchanging the ID token.
-      if (auth.currentUser) {
-        try {
-          await signOut(auth);
-        } catch (_signOutError) {
-          // The backend cookie session is already established, so ignore Firebase cleanup failures.
-        }
-      }
-    }
-  }, [applyUserSession, googleLoginMutation]);
+  const loginWithGoogle = useCallback(async ({ mode = 'login' } = {}) => {
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const normalizedMode = mode === 'signup' ? 'signup' : 'login';
+    const startUrl = `${apiBaseUrl}${AUTH_API_URLS.GOOGLE_OAUTH_START}?mode=${encodeURIComponent(normalizedMode)}`;
+    window.location.assign(startUrl);
+    return { success: true };
+  }, []);
 
   const value = useMemo(() => ({
     user,

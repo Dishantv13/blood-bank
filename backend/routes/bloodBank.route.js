@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { auth, bloodBankAuth } from '../middleware/auth.js';
 import { cacheResponse } from '../middleware/cache.js';
-import { authLimiter } from '../middleware/rateLimiter.js';
+import {
+  authLimiter,
+  bloodBankOtpInitiateLimiter,
+  bloodBankOtpVerifyLimiter,
+  bloodBankOtpResendLimiter
+} from '../middleware/rateLimiter.js';
 import * as bloodBankController  from '../controller/bloodBank.controller.js';
 import { upload } from '../middleware/multer.js';
 
@@ -9,7 +14,10 @@ const router = Router();
 
 router.route('/csrf-token').get(bloodBankController.getCsrfToken);
 
-router.route('/register').post(authLimiter, upload.single('logo'), bloodBankController.register);
+router.route('/register').post(authLimiter, bloodBankOtpInitiateLimiter, upload.single('logo'), bloodBankController.register);
+router.route('/register/initiate').post(authLimiter, bloodBankOtpInitiateLimiter, upload.single('logo'), bloodBankController.initiateRegistration);
+router.route('/register/verify-otp').post(authLimiter, bloodBankOtpVerifyLimiter, bloodBankController.verifyRegistrationOtp);
+router.route('/register/resend-otp').post(authLimiter, bloodBankOtpResendLimiter, bloodBankController.resendRegistrationOtp);
 router.route('/login').post(authLimiter, bloodBankController.login);
 router.route('/refresh').post(bloodBankController.refreshSession);
 router.route('/logout').post(bloodBankController.logout);

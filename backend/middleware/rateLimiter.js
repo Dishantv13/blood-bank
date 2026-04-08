@@ -23,7 +23,7 @@ export const globalApiLimiter = rateLimit({
 // Authentication rate limiter - very restrictive for login attempts
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50, // Reduced from 10 - max 5 attempts per 15 minutes per IP
+  max: 50,
   message: 'Too many authentication attempts. Please try again after 15 minutes.',
   standardHeaders: true,
   skipSuccessfulRequests: false, // Count successful requests too
@@ -31,6 +31,42 @@ export const authLimiter = rateLimit({
     // Rate limit by email + IP to prevent user enumeration
     const email = req.body?.email || req.body?.username || '';
     return `${req.ip}:${email}`;
+  },
+});
+
+export const bloodBankOtpInitiateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many OTP generation attempts. Please try again later.',
+  standardHeaders: true,
+  skipSuccessfulRequests: false,
+  keyGenerator: (req) => {
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    return `bb-otp-init:${req.ip}:${email}`;
+  },
+});
+
+export const bloodBankOtpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: 'Too many OTP verification attempts. Please try again later.',
+  standardHeaders: true,
+  skipSuccessfulRequests: false,
+  keyGenerator: (req) => {
+    const verificationId = String(req.body?.verificationId || '').trim();
+    return `bb-otp-verify:${req.ip}:${verificationId}`;
+  },
+});
+
+export const bloodBankOtpResendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many OTP resend attempts. Please try again later.',
+  standardHeaders: true,
+  skipSuccessfulRequests: false,
+  keyGenerator: (req) => {
+    const verificationId = String(req.body?.verificationId || '').trim();
+    return `bb-otp-resend:${req.ip}:${verificationId}`;
   },
 });
 

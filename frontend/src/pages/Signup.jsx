@@ -105,15 +105,7 @@ const Signup = () => {
     setLoading(true);
 
     try {
-      const result = await loginWithGoogle();
-      
-      if (result.success) {
-        toast.success('Successfully signed up with Google!');
-        setTimeout(() => navigate(ROUTE_PATH.DASHBOARD), 1000);
-      } else {
-        setError(result.message || 'Google signup failed.');
-        toast.error(result.message || 'Google signup failed.');
-      }
+      await loginWithGoogle({ mode: 'signup' });
     } catch (err) {
       setError('An error occurred during Google signup.');
       toast.error('An error occurred during Google signup.');

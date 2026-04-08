@@ -104,7 +104,6 @@ const isLoginOrAuthMutationPath = (url = '') => {
   return (
     cleanUrl === AUTH_API_URLS.LOGIN.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.REGISTER.toLowerCase() ||
-    cleanUrl === AUTH_API_URLS.GOOGLE_LOGIN.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.ADMIN_LOGIN.toLowerCase() ||
     cleanUrl === BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase()
   );

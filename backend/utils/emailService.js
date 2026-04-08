@@ -184,6 +184,61 @@ const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason
   }
 };
 
+const sendBloodBankRegistrationOtpEmail = async (email, otp, options = {}) => {
+  const expiresInMinutes = Number(options.expiresInMinutes) || 10;
+  try {
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'noreply@raktsarthi.com',
+      to: email,
+      subject: 'Verify your blood bank registration email - RaktSarthi',
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; background-color: #f4f4f4; }
+              .container { max-width: 600px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
+              .content { padding: 20px; color: #333; }
+              .otp-box { margin: 16px 0; text-align: center; }
+              .otp-code { display: inline-block; font-size: 28px; letter-spacing: 6px; font-weight: bold; background: #fef2f2; color: #991b1b; padding: 10px 18px; border-radius: 8px; }
+              .warning { color: #b91c1c; font-size: 12px; margin-top: 10px; }
+              .footer { color: #888; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h2>Email Verification Required</h2>
+              </div>
+              <div class="content">
+                <p>Hello,</p>
+                <p>Use the following OTP to complete your blood bank registration:</p>
+                <div class="otp-box">
+                  <span class="otp-code">${otp}</span>
+                </div>
+                <p class="warning">This OTP expires in ${expiresInMinutes} minutes and can be used only once.</p>
+                <p>If you did not request this, please ignore this email.</p>
+                <p>Best regards,<br><strong>RaktSarthi Team</strong></p>
+              </div>
+              <div class="footer">
+                <p>© 2026 RaktSarthi - Blood Donation Management System</p>
+                <p>This is an automated email. Please do not reply to this email.</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    return true;
+  } catch (error) {
+    console.error('Error sending blood bank registration OTP email:', error);
+    throw new Error('Failed to send OTP email');
+  }
+};
+
 // Verify transporter connection
 const verifyEmailSetup = async () => {
   try {
@@ -200,5 +255,6 @@ export {
   sendPasswordResetEmail,
   sendBloodBankApprovalEmail,
   sendBloodBankRejectionEmail,
+  sendBloodBankRegistrationOtpEmail,
   verifyEmailSetup
 };
