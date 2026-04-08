@@ -9,11 +9,6 @@ import { ApiError } from '../utils/apiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 import { sanitizeUser, USER_DONOR_FIELDS, USER_PROFILE_FIELDS } from '../utils/serializers.js';
 
-/**
- * User Service
- * All business logic for user operations
- */
-
 const DASHBOARD_STATS_TTL_MS = 30 * 1000;
 const dashboardStatsCache = new Map();
 

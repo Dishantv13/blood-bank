@@ -1,9 +1,3 @@
-/**
- * Inventory Service
- * All blood inventory management logic
- * Handles: fetch, update, adjust units with atomic operations
- */
-
 import BloodBank from '../models/BloodBank.model.js';
 import Inventory from '../models/Inventory.model.js';
 import { validateInventoryUpdate, validateBloodGroup } from './validationService.js';

@@ -1,9 +1,3 @@
-/**
- * Blood Request Service
- * All blood request management logic
- * Handles: create, update, list, filter requests
- */
-
 import BloodRequest from '../models/BloodRequest.model.js';
 import mongoose from 'mongoose';
 import { validateBloodRequest, validateBloodGroup } from './validationService.js';

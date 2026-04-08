@@ -1,8 +1,3 @@
-/**
- * Pagination Helper
- * Converts query params to skip/limit and returns pagination metadata
- */
-
 export const getPaginationParams = (req) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));

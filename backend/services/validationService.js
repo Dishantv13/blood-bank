@@ -1,8 +1,3 @@
-/**
- * Centralized Validation Service
- * All validation logic in one place for consistency
- */
-
 import { ApiError } from '../utils/apiError.js';
 
 // Blood group validation
@@ -45,8 +40,8 @@ export const validateUnits = (units) => {
 
 // Password validation - enforce strong password policy
 export const validatePassword = (password) => {
-  if (password.length < 12) {
-    throw new ApiError(400, 'Password must be at least 12 characters');
+  if (password.length < 8) {
+    throw new ApiError(400, 'Password must be at least 8 characters');
   }
   
   // Check for uppercase letter

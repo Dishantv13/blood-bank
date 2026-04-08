@@ -4,10 +4,6 @@ import * as fileUploadService from '../services/fileUploadService.js';
 import { ApiError } from '../utils/apiError.js';
 import { cleanupTempFile, validateFileContent } from '../middleware/multer.js';
 
-/**
- * Handle Single File Upload
- * WF: Multer (Local) -> Validation (Magic Bytes) -> Service (Cloudinary) -> Cleanup (Service-linked)
- */
 export const uploadFile = asyncHandler(async (req, res) => {
   const localFilePath = req.file?.path;
 
@@ -28,10 +24,6 @@ export const uploadFile = asyncHandler(async (req, res) => {
   }
 });
 
-/**
- * Handle Multiple Files Upload
- * Validates all files using magic bytes before processing
- */
 export const uploadMultipleFiles = asyncHandler(async (req, res) => {
   if (!req.files || req.files.length === 0) {
     throw new ApiError(400, 'Please select files to upload');
