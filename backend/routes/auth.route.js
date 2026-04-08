@@ -24,9 +24,8 @@ router.route('/login').post([
   body('password').notEmpty().withMessage('Password is required')
 ], authLimiter, authController.login);
 
-router.route('/google').post([
-  body('idToken').notEmpty().withMessage('Google ID token is required')
-], authLimiter, authController.googleLogin);
+router.route('/google/start').get(authLimiter, authController.googleOAuthStart);
+router.route('/google/callback').get(authLimiter, authController.googleOAuthCallback);
 
 router.route('/refresh').post(authController.refreshSession);
 router.route('/logout').post(authController.logout);

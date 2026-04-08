@@ -15,10 +15,14 @@ export const login = asyncHandler(async (req, res) => {
   successResponse(res, result, 200, 'Login successful');
 });
 
-export const googleLogin = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
-  const result = await authService.googleLoginAndCreateSession(req, res);
-  successResponse(res, result, 200, 'Google login successful');
+export const googleOAuthStart = asyncHandler(async (req, res) => {
+  const result = await authService.getGoogleOAuthStartUrl(req, res);
+  res.redirect(302, result.redirectUrl);
+});
+
+export const googleOAuthCallback = asyncHandler(async (req, res) => {
+  const result = await authService.completeGoogleOAuthAndCreateSession(req, res);
+  res.redirect(302, result.redirectUrl);
 });
 
 export const refreshSession = asyncHandler(async (req, res) => {

@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import axios from 'axios';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.model.js';
 import { sendPasswordResetEmail } from '../utils/emailService.js';
 import { validateUserRegistration, validateEmail, validatePassword } from './validationService.js';
@@ -17,7 +19,6 @@ import {
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
-import { verifyFirebaseIdToken } from '../utils/firebaseAdmin.js';
 import { sanitizeUser, USER_SAFE_FIELDS } from '../utils/serializers.js';
 
 const toPublicUser = (user) => sanitizeUser(user);
@@ -28,6 +29,101 @@ const buildUserClaims = (user) => ({
   role: user.role,
   type: 'user',
 });
+
+const GOOGLE_OAUTH_STATE_COOKIE = 'bb_google_oauth_state';
+const GOOGLE_OAUTH_NONCE_COOKIE = 'bb_google_oauth_nonce';
+const GOOGLE_OAUTH_VERIFIER_COOKIE = 'bb_google_oauth_verifier';
+const GOOGLE_OAUTH_MODE_COOKIE = 'bb_google_oauth_mode';
+const GOOGLE_OAUTH_COOKIE_TTL_MS = 10 * 60 * 1000;
+const GOOGLE_OAUTH_SCOPES = 'openid email profile';
+const GOOGLE_OAUTH_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_OAUTH_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
+
+const toBase64Url = (buffer) =>
+  Buffer.from(buffer)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+
+const createPkcePair = () => {
+  const verifier = toBase64Url(crypto.randomBytes(32));
+  const challenge = toBase64Url(crypto.createHash('sha256').update(verifier).digest());
+  return { verifier, challenge };
+};
+
+const timingSafeEqual = (left, right) => {
+  if (!left || !right) return false;
+  const leftBuffer = Buffer.from(String(left));
+  const rightBuffer = Buffer.from(String(right));
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+};
+
+const getGoogleOAuthConfig = () => {
+  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+
+  if (!clientId || !clientSecret) {
+    throw new ApiError(500, 'Google OAuth is not configured on the server');
+  }
+
+  return { clientId, clientSecret };
+};
+
+const getFrontendOrigin = () => {
+  const configured = process.env.FRONTEND_URL?.trim();
+  if (!configured) return 'http://localhost:3000';
+  try {
+    const url = new URL(configured);
+    return `${url.protocol}//${url.host}`;
+  } catch (_error) {
+    return 'http://localhost:3000';
+  }
+};
+
+const getGoogleRedirectUri = (req) => {
+  const configured = process.env.GOOGLE_OAUTH_REDIRECT_URI?.trim();
+  if (configured) return configured;
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwardedProto || req.protocol || 'http';
+  const host = req.get('host');
+  return `${protocol}://${host}/api/auth/google/callback`;
+};
+
+const getPrivateCookieOptions = () => ({
+  ...getPublicCookieOptions(),
+  httpOnly: true,
+  maxAge: GOOGLE_OAUTH_COOKIE_TTL_MS,
+});
+
+const clearGoogleOauthCookies = (res) => {
+  const clearOptions = {
+    ...getPrivateCookieOptions(),
+    maxAge: 0,
+  };
+
+  res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, clearOptions);
+  res.clearCookie(GOOGLE_OAUTH_NONCE_COOKIE, clearOptions);
+  res.clearCookie(GOOGLE_OAUTH_VERIFIER_COOKIE, clearOptions);
+  res.clearCookie(GOOGLE_OAUTH_MODE_COOKIE, clearOptions);
+};
+
+const resolveGoogleMode = (rawMode) => {
+  const mode = String(rawMode || '').toLowerCase();
+  return mode === 'signup' ? 'signup' : 'login';
+};
+
+const buildFrontendRedirect = (mode, status, reason = '') => {
+  const origin = getFrontendOrigin();
+  if (status === 'success') {
+    return `${origin}/dashboard`;
+  }
+
+  const targetPath = mode === 'signup' ? '/signup' : '/login';
+  const query = reason ? `?authError=${encodeURIComponent(reason)}` : '';
+  return `${origin}${targetPath}${query}`;
+};
 
 const persistUserRefreshToken = async (userId, refreshToken) => {
   await User.updateOne(
@@ -79,12 +175,120 @@ export const loginAndCreateSession = async (req, res) => {
   return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
-export const googleLoginAndCreateSession = async (req, res) => {
-  const { idToken } = req.body;
-  const result = await googleLogin(idToken);
-  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', buildUserClaims(result.user));
-  await persistUserRefreshToken(result.user.id, refreshToken);
-  return { user: result.user, csrfToken, accessTokenExpiresAt };
+export const getGoogleOAuthStartUrl = async (req, res) => {
+  const { clientId } = getGoogleOAuthConfig();
+  const redirectUri = getGoogleRedirectUri(req);
+  const mode = resolveGoogleMode(req.query?.mode);
+
+  const stateRaw = toBase64Url(crypto.randomBytes(32));
+  const nonceRaw = toBase64Url(crypto.randomBytes(32));
+  const { verifier, challenge } = createPkcePair();
+
+  res.cookie(GOOGLE_OAUTH_STATE_COOKIE, hashToken(stateRaw), getPrivateCookieOptions());
+  res.cookie(GOOGLE_OAUTH_NONCE_COOKIE, hashToken(nonceRaw), getPrivateCookieOptions());
+  res.cookie(GOOGLE_OAUTH_VERIFIER_COOKIE, verifier, getPrivateCookieOptions());
+  res.cookie(GOOGLE_OAUTH_MODE_COOKIE, mode, getPrivateCookieOptions());
+
+  const authUrl = new URL(GOOGLE_OAUTH_AUTH_ENDPOINT);
+  authUrl.searchParams.set('client_id', clientId);
+  authUrl.searchParams.set('redirect_uri', redirectUri);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('scope', GOOGLE_OAUTH_SCOPES);
+  authUrl.searchParams.set('state', stateRaw);
+  authUrl.searchParams.set('nonce', nonceRaw);
+  authUrl.searchParams.set('code_challenge', challenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
+  authUrl.searchParams.set('prompt', 'select_account');
+  authUrl.searchParams.set('access_type', 'online');
+  authUrl.searchParams.set('include_granted_scopes', 'true');
+
+  return { redirectUrl: authUrl.toString() };
+};
+
+export const completeGoogleOAuthAndCreateSession = async (req, res) => {
+  const mode = resolveGoogleMode(req.cookies?.[GOOGLE_OAUTH_MODE_COOKIE]);
+  const fail = (reason) => ({ redirectUrl: buildFrontendRedirect(mode, 'error', reason) });
+
+  const code = String(req.query?.code || '');
+  const state = String(req.query?.state || '');
+  const oauthError = String(req.query?.error || '');
+
+  if (oauthError) {
+    clearGoogleOauthCookies(res);
+    return fail('google_oauth_denied');
+  }
+
+  const expectedStateHash = req.cookies?.[GOOGLE_OAUTH_STATE_COOKIE];
+  const expectedNonceHash = req.cookies?.[GOOGLE_OAUTH_NONCE_COOKIE];
+  const codeVerifier = req.cookies?.[GOOGLE_OAUTH_VERIFIER_COOKIE];
+
+  if (!code || !state || !expectedStateHash || !expectedNonceHash || !codeVerifier) {
+    clearGoogleOauthCookies(res);
+    return fail('google_oauth_invalid_state');
+  }
+
+  const incomingStateHash = hashToken(state);
+  if (!timingSafeEqual(incomingStateHash, expectedStateHash)) {
+    clearGoogleOauthCookies(res);
+    return fail('google_oauth_state_mismatch');
+  }
+
+  const { clientId, clientSecret } = getGoogleOAuthConfig();
+  const redirectUri = getGoogleRedirectUri(req);
+
+  try {
+    const tokenResponse = await axios.post(
+      GOOGLE_OAUTH_TOKEN_ENDPOINT,
+      new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+        code_verifier: codeVerifier,
+      }).toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: 10000,
+      }
+    );
+
+    const idToken = tokenResponse?.data?.id_token;
+    if (!idToken) {
+      throw new ApiError(401, 'Google OAuth token response did not include id_token');
+    }
+
+    const googleClient = new OAuth2Client(clientId);
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: clientId,
+    });
+    const payload = ticket.getPayload();
+
+    const nonce = payload?.nonce || '';
+    if (!nonce || !timingSafeEqual(hashToken(nonce), expectedNonceHash)) {
+      throw new ApiError(401, 'Google OAuth nonce validation failed');
+    }
+
+    const result = await googleLoginWithClaims({
+      email: payload?.email,
+      name: payload?.name,
+      googleId: payload?.sub,
+      photoURL: payload?.picture,
+      emailVerified: payload?.email_verified === true,
+    });
+
+    const { refreshToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
+    await persistUserRefreshToken(result.user.id, refreshToken);
+
+    clearGoogleOauthCookies(res);
+    return { redirectUrl: buildFrontendRedirect(mode, 'success') };
+  } catch (error) {
+    clearGoogleOauthCookies(res);
+    return fail('google_oauth_failed');
+  }
 };
 
 export const refreshUserSession = async (req, res) => {
@@ -210,29 +414,28 @@ export const loginUser = async (email, password) => {
 };
 
 // Google OAuth login/register
-export const googleLogin = async (idToken) => {
-  const decodedToken = await verifyFirebaseIdToken(idToken);
-  const email = decodedToken.email?.trim().toLowerCase();
-  const name = decodedToken.name?.trim() || email?.split('@')[0] || 'Google User';
-  const googleId = decodedToken.uid;
-  const photoURL = decodedToken.picture || '';
+export const googleLoginWithClaims = async ({ email, name, googleId, photoURL, emailVerified }) => {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const displayName = String(name || '').trim() || normalizedEmail.split('@')[0] || 'Google User';
+  const normalizedGoogleId = String(googleId || '').trim();
+  const normalizedPhotoUrl = String(photoURL || '').trim();
 
-  if (!decodedToken.email_verified) {
+  if (!emailVerified) {
     throw new ApiError(403, 'Google account email must be verified');
   }
 
-  if (!email || !googleId) {
+  if (!normalizedEmail || !normalizedGoogleId) {
     throw new ApiError(400, 'Missing required Google user data');
   }
 
-  let user = await User.findOne({ email });
+  let user = await User.findOne({ email: normalizedEmail });
 
   if (!user) {
     const newUser = new User({
-      name,
-      email,
-      googleId,
-      photoURL,
+      name: displayName,
+      email: normalizedEmail,
+      googleId: normalizedGoogleId,
+      photoURL: normalizedPhotoUrl,
       password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
       phone: '',
       isDonor: false,
@@ -246,8 +449,8 @@ export const googleLogin = async (idToken) => {
     if (user.bloodGroup === '') {
       user.bloodGroup = undefined;
     }
-    user.googleId = googleId;
-    user.photoURL = photoURL;
+    user.googleId = normalizedGoogleId;
+    user.photoURL = normalizedPhotoUrl;
     await user.save();
   }
 

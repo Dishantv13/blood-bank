@@ -76,18 +76,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const result = await loginWithGoogle();
-
-      if (result.success) {
-        setSuccess("Login successful! Redirecting...");
-        toast.success("Login successful with Google!");
-        setTimeout(() => {
-          navigate(ROUTE_PATH.DASHBOARD);
-        }, 1500);
-      } else {
-        setError(result.message || "Google login failed.");
-        toast.error(result.message || "Google login failed.");
-      }
+      await loginWithGoogle({ mode: "login" });
     } catch (err) {
       setError("An error occurred during Google login.");
       toast.error("An error occurred during Google login.");
