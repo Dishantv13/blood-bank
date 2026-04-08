@@ -3,66 +3,54 @@ import { successResponse } from '../utils/response.js';
 import * as donorHealthService from '../services/donorHealthService.js';
 
 // Submit a donor health form
-const submitHealthForm = asyncHandler(async (req, res) => {
+export const submitHealthForm = asyncHandler(async (req, res) => {
     const userId = req.user.userId || req.user._id || req.user.id;
     const result = await donorHealthService.submitHealthForm(userId, req.body);
     successResponse(res, result, 201, 'Health form submitted successfully');
 });
 
 // Get donor's health forms
-const getMyForms = asyncHandler(async (req, res) => {
+export const getMyForms = asyncHandler(async (req, res) => {
     const userId = req.user.userId || req.user._id || req.user.id;
     const result = await donorHealthService.getMyForms(userId);
     successResponse(res, result, 200, 'Forms fetched successfully');
 });
 
 // Get donor's latest health form
-const getLatestForm = asyncHandler(async (req, res) => {
+export const getLatestForm = asyncHandler(async (req, res) => {
     const userId = req.user.userId || req.user._id || req.user.id;
     const result = await donorHealthService.getLatestForm(userId);
     successResponse(res, result, 200, 'Latest form fetched successfully');
 });
 
 // Check donor eligibility
-const checkEligibility = asyncHandler(async (req, res) => {
+export const checkEligibility = asyncHandler(async (req, res) => {
     const userId = req.user.userId || req.user._id || req.user.id;
     const result = await donorHealthService.checkEligibility(userId);
     successResponse(res, result, 200, 'Eligibility checked successfully');
 });
 
 // Get all health forms (for blood bank review)
-const getAllForms = asyncHandler(async (req, res) => {
+export const getAllForms = asyncHandler(async (req, res) => {
     const result = await donorHealthService.getAllForms(req.query);
     successResponse(res, result, 200, 'All forms fetched successfully');
 });
 
 // Get health form by ID
-const getFormById = asyncHandler(async (req, res) => {
+export const getFormById = asyncHandler(async (req, res) => {
   const result = await donorHealthService.getFormById(req.params.id);
   successResponse(res, result, 200, 'Form fetched successfully');
 });
 
 // Review a health form
-const reviewForm = asyncHandler(async (req, res) => {
+export const reviewForm = asyncHandler(async (req, res) => {
   const result = await donorHealthService.reviewForm(req.params.id, req.bloodBank._id, req.body);
   successResponse(res, result, 200, 'Health form reviewed successfully');
 });
 
 // Update a health form (by donor)
-const updateForm = asyncHandler(async (req, res) => {
+export const updateForm = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await donorHealthService.updateForm(req.params.id, userId, req.body);
   successResponse(res, result, 200, 'Health form updated successfully');
 });
-
-
-export {
-  submitHealthForm,
-  getMyForms,
-  getLatestForm,
-  checkEligibility,
-  getAllForms,
-  getFormById,
-  reviewForm,
-  updateForm
-}

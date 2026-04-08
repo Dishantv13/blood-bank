@@ -2,53 +2,22 @@ import { Router } from "express";
 import { auth } from "../middleware/auth.js";
 import { bloodBankAuth } from "../middleware/auth.js";
 import { donationCreationLimiter } from '../middleware/rateLimiter.js';
-import {
-  createDonationRequest,
-  getMyDonations,
-  getBloodBankDonations,
-  recordDonation,
-  updateDonationStatus,
-  createDonationByBank,
-} from "../controller/donation.controller.js";
+import * as donationControllers from "../controller/donation.controller.js";
 
 const router = Router();
 
-// ========================
 // Donor Routes
-// ========================
+router.route("/request").post(auth, donationCreationLimiter, donationControllers.createDonationRequest);
 
-// @route   POST /api/donations/request
-// @desc    Submit a request to donate blood at a specific bank
-// @access  Private (Donor)
-router.route("/request").post(auth, donationCreationLimiter, createDonationRequest);
+router.route("/my").get(auth, donationControllers.getMyDonations);
 
-// @route   GET /api/donations/my
-// @desc    Get logged in user's donations
-// @access  Private
-router.route("/my").get(auth, getMyDonations);
-
-// ========================
 // Blood Bank Routes
-// ========================
+router.route("/bank").get(bloodBankAuth, donationControllers.getBloodBankDonations);
 
-// @route   GET /api/donations/bank
-// @desc    Get all donation requests for the logged-in Blood Bank
-// @access  Private (Blood Bank)
-router.route("/bank").get(bloodBankAuth, getBloodBankDonations);
+router.route("/bank/:donationId/record").put(bloodBankAuth, donationControllers.recordDonation);
 
-// @route   PUT /api/donations/bank/:donationId/record
-// @desc    Record a completed donation (add volume & update date)
-// @access  Private (Blood Bank)
-router.route("/bank/:donationId/record").put(bloodBankAuth, recordDonation);
+router.route("/bank/:donationId/status").put(bloodBankAuth, donationControllers.updateDonationStatus);
 
-// @route   PUT /api/donations/bank/:donationId/status
-// @desc    Update status (e.g., 'rejected', 'approved')
-// @access  Private (Blood Bank)
-router.route("/bank/:donationId/status").put(bloodBankAuth, updateDonationStatus);
-
-// @route   POST /api/donations/bank/create
-// @desc    Blood bank manually creates a donation record
-// @access  Private (Blood Bank)
-router.route("/bank/create").post(bloodBankAuth, createDonationByBank);
+router.route("/bank/create").post(bloodBankAuth, donationControllers.createDonationByBank);
 
 export default router;

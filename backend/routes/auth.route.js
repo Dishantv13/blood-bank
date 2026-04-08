@@ -2,70 +2,58 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { auth } from '../middleware/auth.js';
 import { authLimiter, passwordResetLimiter } from '../middleware/rateLimiter.js';
-import {
-  register,
-  login,
-  googleLogin,
-  refreshSession,
-  logout,
-  getSession,
-  getCsrfToken,
-  forgotPassword,
-  resetPassword,
-  verifyResetToken,
-  changePassword
-} from '../controller/auth.controller.js';
+import * as authController from '../controller/auth.controller.js';
 
 const router = Router();
 
-router.route('/csrf-token').get(getCsrfToken);
+router.route('/csrf-token').get(authController.getCsrfToken);
 
 router.route('/register').post([
   body('name').trim().notEmpty().withMessage('Name is required'),
   body('email').isEmail().withMessage('Please enter a valid email'),
   body('password')
-    .isLength({ min: 12 }).withMessage('Password must be at least 12 characters')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .withMessage('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)'),
   body('phone').trim().notEmpty().withMessage('Phone number is required'),
   body('bloodGroup').isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).withMessage('Invalid blood group')
-], authLimiter, register);
+], authLimiter, authController.register);
 
 router.route('/login').post([
   body('email').isEmail().withMessage('Please enter a valid email'),
   body('password').notEmpty().withMessage('Password is required')
-], authLimiter, login);
+], authLimiter, authController.login);
 
 router.route('/google').post([
   body('idToken').notEmpty().withMessage('Google ID token is required')
-], authLimiter, googleLogin);
+], authLimiter, authController.googleLogin);
 
-router.route('/refresh').post(refreshSession);
-router.route('/logout').post(logout);
-router.route('/session').get(auth, getSession);
+router.route('/refresh').post(authController.refreshSession);
+router.route('/logout').post(authController.logout);
+router.route('/session').get(auth, authController.getSession);
 
 router.route('/forgot-password').post([
   body('email').isEmail().withMessage('Please enter a valid email')
-], passwordResetLimiter, forgotPassword);
+], passwordResetLimiter, authController.forgotPassword);
 
 router.route('/reset-password').post([
   body('token').notEmpty().withMessage('Reset token is required'),
   body('password')
-    .isLength({ min: 12 }).withMessage('Password must be at least 12 characters')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .withMessage('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)')
-], passwordResetLimiter, resetPassword);
+], passwordResetLimiter, authController.resetPassword);
 
 router.route('/verify-reset-token').post([
   body('token').notEmpty().withMessage('Reset token is required')
-], verifyResetToken);
+], authController.verifyResetToken);
 
 router.route('/change-password').post(auth, [
   body('currentPassword').notEmpty().withMessage('Current password is required'),
   body('newPassword')
-    .isLength({ min: 12 }).withMessage('New password must be at least 12 characters')
+    .isLength({ min: 8 }).withMessage('New password must be at least 8 characters')
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
     .withMessage('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)')
-], changePassword);
+], authController.changePassword);
 
 export default router;

@@ -1,8 +1,3 @@
-/**
- * Auth Service
- * All authentication business logic moved from controllers
- */
-
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import User from '../models/User.model.js';

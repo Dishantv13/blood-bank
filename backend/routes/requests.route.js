@@ -1,40 +1,19 @@
 import { Router } from 'express';
 import { auth, authOrBloodBank } from '../middleware/auth.js';
 import { cacheResponse } from '../middleware/cache.js';
-import {
-  getAllRequests,
-  getMyRequests,
-  createRequest,
-  updateRequest,
-  updateRequestStatus
-} from '../controller/request.controller.js';
+import * as requestControllers from '../controller/request.controller.js';
 import { requestCreationLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// @route   GET /api/requests
-// @desc    Get all blood requests
-// @access  Public
-router.route('/').get(cacheResponse(60), getAllRequests);
+router.route('/').get(cacheResponse(60), requestControllers.getAllRequests);
 
-// @route   GET /api/requests/my-requests
-// @desc    Get user's blood requests
-// @access  Private
-router.route('/my-requests').get(auth, getMyRequests);
+router.route('/my-requests').get(auth, requestControllers.getMyRequests);
 
-// @route   POST /api/requests
-// @desc    Create a new blood request
-// @access  Private
-router.route('/').post(auth, requestCreationLimiter, createRequest);
+router.route('/').post(auth, requestCreationLimiter, requestControllers.createRequest);
 
-// @route   PUT /api/requests/:id
-// @desc    Update blood request status
-// @access  Private
-router.route('/:id').put(auth, updateRequest);
+router.route('/:id').put(auth, requestControllers.updateRequest);
 
-// @route   PATCH /api/requests/:id/status
-// @desc    Update blood request status (for users to cancel OR blood banks to approve/decline)
-// @access  Private (User or Blood Bank)
-router.route('/:id/status').patch(authOrBloodBank, updateRequestStatus);
+router.route('/:id/status').patch(authOrBloodBank, requestControllers.updateRequestStatus);
 
 export default router;

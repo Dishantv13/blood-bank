@@ -3,45 +3,45 @@ import { successResponse } from '../utils/response.js';
 import * as authService from '../services/authService.js';
 import { ensureValid } from '../middleware/validateRequest.js';
 
-const register = asyncHandler(async (req, res) => {
+export const register = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const result = await authService.registerAndCreateSession(req, res);
   successResponse(res, result, 201, 'User registered successfully');
 });
 
-const login = asyncHandler(async (req, res) => {
+export const login = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const result = await authService.loginAndCreateSession(req, res);
   successResponse(res, result, 200, 'Login successful');
 });
 
-const googleLogin = asyncHandler(async (req, res) => {
+export const googleLogin = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const result = await authService.googleLoginAndCreateSession(req, res);
   successResponse(res, result, 200, 'Google login successful');
 });
 
-const refreshSession = asyncHandler(async (req, res) => {
+export const refreshSession = asyncHandler(async (req, res) => {
   const result = await authService.refreshUserSession(req, res);
   successResponse(res, result, 200, 'Session refreshed');
 });
 
-const logout = asyncHandler(async (req, res) => {
+export const logout = asyncHandler(async (req, res) => {
   const result = await authService.logoutUserSession(req, res);
   successResponse(res, result, 200, 'Logged out successfully');
 });
 
-const getSession = asyncHandler(async (req, res) => {
+export const getSession = asyncHandler(async (req, res) => {
   const result = await authService.getUserSessionWithExpiry(req, req.user.userId || req.user.id);
   successResponse(res, result, 200, 'Session fetched successfully');
 });
 
-const getCsrfToken = asyncHandler(async (_req, res) => {
+export const getCsrfToken = asyncHandler(async (_req, res) => {
   const result = authService.issueUserCsrfToken(res);
   successResponse(res, result, 200, 'CSRF token generated');
 });
 
-const forgotPassword = asyncHandler(async (req, res) => {
+export const forgotPassword = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const { email } = req.body;
   await authService.requestPasswordReset(email);
@@ -53,21 +53,21 @@ const forgotPassword = asyncHandler(async (req, res) => {
   );
 });
 
-const resetPassword = asyncHandler(async (req, res) => {
+export const resetPassword = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const { token, password } = req.body;
   await authService.resetPassword(token, password);
   successResponse(res, { success: true }, 200, 'Password reset successful. You can now login with your new password');
 });
 
-const verifyResetToken = asyncHandler(async (req, res) => {
+export const verifyResetToken = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const { token } = req.body;
   const result = await authService.verifyResetToken(token);
   successResponse(res, result, 200, 'Token is valid');
 });
 
-const changePassword = asyncHandler(async (req, res) => {
+export const changePassword = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.userId || req.user.id;
@@ -75,17 +75,4 @@ const changePassword = asyncHandler(async (req, res) => {
   successResponse(res, { success: true }, 200, 'Password changed successfully');
 });
 
-export {
-  register,
-  login,
-  googleLogin,
-  refreshSession,
-  logout,
-  getSession,
-  getCsrfToken,
-  forgotPassword,
-  resetPassword,
-  verifyResetToken,
-  changePassword,
-};
 

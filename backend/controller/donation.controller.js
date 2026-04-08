@@ -3,13 +3,6 @@ import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import * as donationService from '../services/donationService.js';
 
-/**
- * ============================================
- * CLEAN CONTROLLERS - Only handling req/res
- * All business logic moved to services
- * ============================================
- */
-
 // Create donation request
 export const createDonationRequest = asyncHandler(async (req, res) => {
   const errors = validationResult(req);

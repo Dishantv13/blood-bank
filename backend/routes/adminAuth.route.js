@@ -2,17 +2,11 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { authLimiter } from '../middleware/rateLimiter.js';
 import { adminAuth } from '../middleware/auth.js';
-import {
-  loginAdmin,
-  refreshAdminSession,
-  logoutAdmin,
-  getAdminSession,
-  getAdminCsrfToken,
-} from '../controller/adminAuth.controller.js';
+import * as adminAuthController from '../controller/adminAuth.controller.js';
 
 const router = Router();
 
-router.route('/csrf-token').get(getAdminCsrfToken);
+router.route('/csrf-token').get(adminAuthController.getAdminCsrfToken);
 
 router.route('/login').post(
   [
@@ -20,11 +14,11 @@ router.route('/login').post(
     body('password').notEmpty().withMessage('Password is required')
   ],
   authLimiter,
-  loginAdmin
+  adminAuthController.loginAdmin
 );
 
-router.route('/refresh').post(refreshAdminSession);
-router.route('/logout').post(logoutAdmin);
-router.route('/session').get(adminAuth, getAdminSession);
+router.route('/refresh').post(adminAuthController.refreshAdminSession);
+router.route('/logout').post(adminAuthController.logoutAdmin);
+router.route('/session').get(adminAuth, adminAuthController.getAdminSession);
 
 export default router;

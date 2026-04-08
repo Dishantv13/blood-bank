@@ -4,22 +4,15 @@ import { successResponse } from '../utils/response.js';
 import * as userService from '../services/userService.js';
 import { ApiError } from '../utils/apiError.js';
 
-/**
- * ============================================
- * CLEAN CONTROLLERS - Only handling req/res
- * All business logic moved to services
- * ============================================
- */
-
 // Get user profile
-const getProfile = asyncHandler(async (req, res) => {
+export const getProfile = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.getUserProfile(userId);
   successResponse(res, result, 200, 'User profile fetched successfully');
 });
 
 // Update user profile photo
-const updateProfilePhoto = asyncHandler(async (req, res) => {
+export const updateProfilePhoto = asyncHandler(async (req, res) => {
   if (!req.file) {
     throw new ApiError(400, 'Please select a photo to upload');
   }
@@ -30,7 +23,7 @@ const updateProfilePhoto = asyncHandler(async (req, res) => {
 });
 
 // Update user profile
-const updateProfile = asyncHandler(async (req, res) => {
+export const updateProfile = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -42,7 +35,7 @@ const updateProfile = asyncHandler(async (req, res) => {
 });
 
 // Update donor information
-const updateDonorInfo = asyncHandler(async (req, res) => {
+export const updateDonorInfo = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -54,13 +47,13 @@ const updateDonorInfo = asyncHandler(async (req, res) => {
 });
 
 // Get available donors by blood group
-const getDonors = asyncHandler(async (req, res) => {
+export const getDonors = asyncHandler(async (req, res) => {
   const result = await userService.getAvailableDonors(req.query);
   successResponse(res, result, 200, 'Donors fetched successfully');
 });
 
 // Toggle between donor and patient mode
-const toggleMode = asyncHandler(async (req, res) => {
+export const toggleMode = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -73,18 +66,8 @@ const toggleMode = asyncHandler(async (req, res) => {
 });
 
 // Get dashboard statistics
-const getDashboardStats = asyncHandler(async (req, res) => {
+export const getDashboardStats = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.getDashboardStats(userId);
   successResponse(res, result, 200, 'Dashboard statistics fetched successfully');
 });
-
-export {
-  getProfile,
-  updateProfile,
-  updateProfilePhoto,
-  updateDonorInfo,
-  getDonors,
-  toggleMode,
-  getDashboardStats
-}

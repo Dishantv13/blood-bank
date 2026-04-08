@@ -1,9 +1,3 @@
-/**
- * Donation Service
- * All donation management business logic
- * Handles: create requests, record donations, update status, check eligibility
- */
-
 import Donation from '../models/Donation.model.js';
 import User from '../models/User.model.js';
 import mongoose from 'mongoose';

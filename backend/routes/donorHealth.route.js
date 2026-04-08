@@ -1,56 +1,23 @@
 import { Router } from 'express';
 import { auth, protectBloodBank } from '../middleware/auth.js';
-import {
-  submitHealthForm,
-  getMyForms,
-  getLatestForm,
-  checkEligibility,
-  getAllForms,
-  getFormById,
-  reviewForm,
-  updateForm
-} from '../controller/donorHealth.controller.js';
+import * as donorHealthControllers from '../controller/donorHealth.controller.js';
 
 const router = Router();
 
-// @route   POST /api/donor-health
-// @desc    Submit a donor health form
-// @access  Private (User)
-router.route('/').post(auth, submitHealthForm);
+router.route('/').post(auth, donorHealthControllers.submitHealthForm);
 
-// @route   GET /api/donor-health/my-forms
-// @desc    Get donor's health forms
-// @access  Private (User)
-router.route('/my-forms').get(auth, getMyForms);
+router.route('/my-forms').get(auth, donorHealthControllers.getMyForms);
 
-// @route   GET /api/donor-health/latest
-// @desc    Get donor's latest health form
-// @access  Private (User)
-router.route('/latest').get(auth, getLatestForm);
+router.route('/latest').get(auth, donorHealthControllers.getLatestForm);
 
-// @route   GET /api/donor-health/eligibility
-// @desc    Check donor eligibility
-// @access  Private (User)
-router.route('/eligibility').get(auth, checkEligibility);
+router.route('/eligibility').get(auth, donorHealthControllers.checkEligibility);
 
-// @route   GET /api/donor-health
-// @desc    Get all health forms (for blood bank review)
-// @access  Private (Blood Bank)
-router.route('/').get(protectBloodBank, getAllForms);
+router.route('/').get(protectBloodBank, donorHealthControllers.getAllForms);
 
-// @route   GET /api/donor-health/:id
-// @desc    Get health form by ID
-// @access  Private (Blood Bank)
-router.route('/:id').get(protectBloodBank, getFormById);
+router.route('/:id').get(protectBloodBank, donorHealthControllers.getFormById);
 
-// @route   PUT /api/donor-health/:id/review
-// @desc    Review a health form
-// @access  Private (Blood Bank)
-router.route('/:id/review').put(protectBloodBank, reviewForm);
+router.route('/:id/review').put(protectBloodBank, donorHealthControllers.reviewForm);
 
-// @route   PUT /api/donor-health/:id
-// @desc    Update a health form (by donor)
-// @access  Private (User)
-router.route('/:id').put(auth, updateForm);
+router.route('/:id').put(auth, donorHealthControllers.updateForm);
 
 export default router;

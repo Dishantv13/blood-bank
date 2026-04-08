@@ -26,11 +26,6 @@ import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
 import { sanitizeBloodBank, BLOOD_BANK_LIST_FIELDS, BLOOD_BANK_SAFE_FIELDS } from '../utils/serializers.js';
 import { ensureValidObjectId } from '../utils/dbGuards.js';
 
-/**
- * Blood Bank Service
- * All business logic for blood bank operations
- */
-
 const buildBloodBankClaims = (bloodBank) => ({
   bloodBankId: String(bloodBank.id),
   type: 'bloodbank',
