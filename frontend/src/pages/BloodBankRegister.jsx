@@ -932,7 +932,9 @@ const BloodBankRegister = () => {
         <div className="otp-meta">
           <span>Attempts left: {attemptsRemaining}</span>
           <span>Resend left: {resendAttemptsRemaining}</span>
-          <span>OTP expires in: {otpExpiresInSeconds}s</span>
+          <span className={`otp-meta-pill-highlight ${otpExpiresInSeconds <= 60 ? 'otp-meta-pill-danger' : ''}`}>
+            OTP expires in: {formatCountdown(otpExpiresInSeconds)}
+          </span>
         </div>
 
         <div className="form-group">
@@ -971,7 +973,7 @@ const BloodBankRegister = () => {
             onClick={handleResendOtp}
             disabled={!canResend || isResendingOtp || otpExpiresInSeconds <= 0}
           >
-            {isResendingOtp ? 'Sending...' : (resendAvailableInSeconds > 0 ? `Resend in ${resendAvailableInSeconds}s` : 'Resend OTP')}
+            {isResendingOtp ? 'Sending...' : (resendAvailableInSeconds > 0 ? `Resend in ${formatCountdown(resendAvailableInSeconds)}` : 'Resend OTP')}
           </button>
           <button
             type="button"
@@ -989,6 +991,13 @@ const BloodBankRegister = () => {
         )}
       </div>
     );
+  };
+
+  const formatCountdown = (totalSeconds) => {
+    const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+    const minutes = Math.floor(safeSeconds / 60);
+    const seconds = safeSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
   return (
@@ -1173,12 +1182,13 @@ const BloodBankRegister = () => {
         }
         
         .auth-btn-secondary {
-          background: #f0f0f0 !important;
-          color: #333 !important;
+          background: var(--input-bg) !important;
+          color: var(--text-main) !important;
+          border: 1px solid var(--input-border);
         }
         
         .auth-btn-secondary:hover {
-          background: #e0e0e0 !important;
+          background: var(--border-color) !important;
           box-shadow: none !important;
         }
 
@@ -1230,12 +1240,12 @@ const BloodBankRegister = () => {
         .otp-title {
           font-size: 1.2rem;
           font-weight: 700;
-          color: #991b1b;
+          color: var(--text-main);
         }
 
         .otp-description {
           margin: 0;
-          color: #444;
+          color: var(--text-muted);
           font-size: 0.95rem;
         }
 
@@ -1244,13 +1254,28 @@ const BloodBankRegister = () => {
           flex-wrap: wrap;
           gap: 0.6rem;
           font-size: 0.85rem;
-          color: #666;
+          color: var(--text-muted);
         }
 
         .otp-meta span {
-          background: #f7f7f7;
+          background: var(--input-bg);
+          border: 1px solid var(--input-border);
+          color: var(--text-muted);
           padding: 0.35rem 0.55rem;
-          border-radius: 6px;
+          border-radius: 8px;
+          font-variant-numeric: tabular-nums;
+        }
+
+        .otp-meta span.otp-meta-pill-highlight {
+          color: var(--text-main);
+          border-color: rgba(230, 57, 70, 0.35);
+          background: rgba(230, 57, 70, 0.12);
+        }
+
+        .otp-meta span.otp-meta-pill-danger {
+          color: #fecaca;
+          border-color: rgba(239, 68, 68, 0.65);
+          background: rgba(127, 29, 29, 0.45);
         }
 
         .otp-actions {

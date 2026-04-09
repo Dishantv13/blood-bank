@@ -9,6 +9,7 @@ export const bloodCampApi = apiSlice.injectEndpoints({
       query: (params) => ({
         url: BLOOD_CAMP_API_URLS.GET_ALL_CAMPS,
         params,
+        cache: 'no-store',
       }),
       keepUnusedDataFor: 60,
       refetchOnMountOrArgChange: 30,

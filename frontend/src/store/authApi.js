@@ -1,6 +1,16 @@
 import { apiSlice } from './apiSlice';
 import { AUTH_API_URLS } from '../enum/apiUrl';
 
+const isBloodBankPortalPath = (path = '') => {
+  const currentPath = String(path || '').toLowerCase();
+  return (
+    currentPath === '/blood-bank/dashboard' ||
+    currentPath === '/bloodbank/dashboard' ||
+    currentPath === '/blood-bank/change-password' ||
+    currentPath === '/bloodbank/change-password'
+  );
+};
+
 export const authApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     adminLogin: builder.mutation({
@@ -55,8 +65,7 @@ export const authApi = apiSlice.injectEndpoints({
           : '';
         const isNonUserRoute =
           currentPath.startsWith('/admin') ||
-          currentPath.startsWith('/blood-bank') ||
-          currentPath.startsWith('/bloodbank');
+          isBloodBankPortalPath(currentPath);
 
         if (isNonUserRoute) {
           return { data: null };

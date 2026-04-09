@@ -105,8 +105,8 @@
 }
 
 .sidebar-logo {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   background: linear-gradient(135deg, #e63946, #d62828);
   border-radius: 16px;
   display: flex;
@@ -116,8 +116,8 @@
 }
 
 .sidebar-logo svg {
-  width: 35px;
-  height: 35px;
+  width: 30px;
+  height: 30px;
   color: white;
 }
 

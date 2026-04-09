@@ -101,7 +101,6 @@ const AdminUsers = () => {
         columns={columns}
         data={usersData?.data || []}
         isLoading={isLoading}
-        onStatusChange={handleStatusChange}
         pagination={usersData?.pagination}
         onPageChange={setPage}
       />

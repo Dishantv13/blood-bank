@@ -22,7 +22,7 @@ export const uploadOnCloudinary = async (localFilePath, folder = 'blood-bank/pro
     });
 
     // File has been uploaded successfully
-    console.log('File uploaded to Cloudinary:', response.url);
+    // console.log('File uploaded to Cloudinary:', response.url);
 
     // Remove the file from the local server
     if (fs.existsSync(localFilePath)) {
