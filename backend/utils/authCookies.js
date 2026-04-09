@@ -1,6 +1,13 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
+const AUTH_ISSUER = process.env.AUTH_TOKEN_ISSUER || 'raktsarthi-api';
+const ROLE_AUDIENCES = {
+  user: 'raktsarthi-user',
+  admin: 'raktsarthi-admin',
+  bloodbank: 'raktsarthi-bloodbank',
+};
+
 const ms = (value, fallbackMs) => {
   if (!value) return fallbackMs;
   if (/^\d+$/.test(String(value))) return Number(value);
@@ -46,6 +53,14 @@ const getSecret = (primaryEnvVar) => {
   }
   validateSecret(secret, primaryEnvVar);
   return secret;
+};
+
+const getRequiredSecurityValue = (name) => {
+  const value = process.env[name];
+  if (!value || !String(value).trim()) {
+    throw new Error(`[SECURITY] Required environment variable ${name} is not set`);
+  }
+  return String(value).trim();
 };
 
 const ROLE_CONFIG = {
@@ -197,7 +212,7 @@ export const hashToken = (token) => {
     throw new Error('Invalid token provided');
   }
   return crypto
-    .createHmac('sha256', process.env.CSRF_HASH_SECRET || process.env.JWT_SECRET)
+    .createHmac('sha256', getRequiredSecurityValue('CSRF_HASH_SECRET'))
     .update(token)
     .digest('hex');
 };
@@ -239,30 +254,57 @@ export const getCookieNamesForRole = (role) => {
 
 export const signAccessToken = (role, payload) => {
   const config = getRoleConfig(role);
+  const tokenId = crypto.randomUUID();
   return jwt.sign(
     { ...payload, authRole: role, tokenType: 'access' },
     config.accessSecret,
-    { expiresIn: config.accessExpiresIn }
+    {
+      expiresIn: config.accessExpiresIn,
+      issuer: AUTH_ISSUER,
+      audience: ROLE_AUDIENCES[role],
+      jwtid: tokenId,
+    }
   );
 };
 
 export const signRefreshToken = (role, payload) => {
   const config = getRoleConfig(role);
+  const tokenId = crypto.randomUUID();
   return jwt.sign(
     { ...payload, authRole: role, tokenType: 'refresh' },
     config.refreshSecret,
-    { expiresIn: config.refreshExpiresIn }
+    {
+      expiresIn: config.refreshExpiresIn,
+      issuer: AUTH_ISSUER,
+      audience: ROLE_AUDIENCES[role],
+      jwtid: tokenId,
+    }
   );
+};
+
+const assertVerifiedTokenShape = (decoded, role) => {
+  if (!decoded || decoded.authRole !== role || !decoded.jti) {
+    throw new Error('Token payload is invalid');
+  }
+  return decoded;
 };
 
 export const verifyAccessToken = (role, token) => {
   const config = getRoleConfig(role);
-  return jwt.verify(token, config.accessSecret);
+  const decoded = jwt.verify(token, config.accessSecret, {
+    issuer: AUTH_ISSUER,
+    audience: ROLE_AUDIENCES[role],
+  });
+  return assertVerifiedTokenShape(decoded, role);
 };
 
 export const verifyRefreshToken = (role, token) => {
   const config = getRoleConfig(role);
-  return jwt.verify(token, config.refreshSecret);
+  const decoded = jwt.verify(token, config.refreshSecret, {
+    issuer: AUTH_ISSUER,
+    audience: ROLE_AUDIENCES[role],
+  });
+  return assertVerifiedTokenShape(decoded, role);
 };
 
 const getTokenExpiryFromToken = (token) => {
@@ -321,6 +363,10 @@ export const getAccessTokenFromRequest = (req, role) => {
   const { accessCookie } = getCookieNamesForRole(role);
   const cookieToken = req.cookies?.[accessCookie];
   if (cookieToken) return cookieToken;
+
+  if (process.env.ALLOW_AUTHORIZATION_HEADER_TOKENS !== 'true') {
+    return null;
+  }
 
   const headerToken = req.header('Authorization')?.replace('Bearer ', '');
   return headerToken || null;

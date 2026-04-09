@@ -27,12 +27,22 @@ import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
 import { sanitizeBloodBank, BLOOD_BANK_LIST_FIELDS, BLOOD_BANK_SAFE_FIELDS } from '../utils/serializers.js';
 import { ensureValidObjectId } from '../utils/dbGuards.js';
+import {
+  createAuthSession,
+  getAuthSessionForRefresh,
+  logRefreshReuseDetected,
+  revokeAllPrincipalSessions,
+  revokeAuthSession,
+  rotateAuthSession,
+} from './sessionService.js';
 
 const buildBloodBankClaims = (bloodBank) => ({
   bloodBankId: String(bloodBank.id),
   type: 'bloodbank',
   role: 'bloodbank',
   email: bloodBank.email,
+  sid: bloodBank.sessionId,
+  tokenVersion: Number(bloodBank.tokenVersion || 0),
 });
 
 const PUBLIC_BANKS_CACHE_TTL_MS = 30 * 1000;
@@ -43,7 +53,7 @@ const BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS = Math.max(1, Number(process.env.BLOODBA
 const BLOODBANK_OTP_MAX_RESEND_ATTEMPTS = Math.max(1, Number(process.env.BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) || 5);
 const BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS = Math.max(10, Number(process.env.BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS) || 60);
 const BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES = Math.max(5, Number(process.env.BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES) || 60);
-const BLOODBANK_OTP_HASH_SECRET = process.env.BLOODBANK_OTP_HASH_SECRET || process.env.BLOODBANK_ACCESS_TOKEN_SECRET || 'bloodbank-otp-secret';
+const BLOODBANK_OTP_HASH_SECRET = process.env.BLOODBANK_OTP_HASH_SECRET;
 
 const maskEmail = (email = '') => {
   const [localPart, domain = ''] = String(email).split('@');
@@ -140,30 +150,47 @@ export const invalidatePublicBloodBanksCache = () => {
   publicBloodBanksCache.clear();
 };
 
-const persistBloodBankRefreshToken = async (bloodBankId, refreshToken) => {
-  await BloodBank.updateOne(
-    { _id: bloodBankId },
-    {
-      $set: {
-        'authSession.refreshTokenHash': hashToken(refreshToken),
-        'authSession.refreshTokenIssuedAt': new Date(),
-      },
-    }
+const createBloodBankSession = async (req, res, bloodBank) => {
+  const tokenVersion =
+    typeof bloodBank?.tokenVersion === 'number'
+      ? Number(bloodBank.tokenVersion)
+      : Number((await BloodBank.findById(bloodBank.id).select('+tokenVersion').lean())?.tokenVersion || 0);
+  const sessionId = crypto.randomUUID();
+  const { refreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
+    res,
+    'bloodbank',
+    buildBloodBankClaims({ ...bloodBank, sessionId, tokenVersion })
   );
+
+  await createAuthSession({
+    sessionId,
+    role: 'bloodbank',
+    bloodBankId: bloodBank.id,
+    refreshTokenHash: hashToken(refreshToken),
+    refreshTokenExpiresAt,
+    tokenVersion,
+    req,
+  });
+
+  return { csrfToken, accessTokenExpiresAt };
 };
 
-const clearBloodBankRefreshToken = async (bloodBankId) => {
-  if (!bloodBankId) return;
-
-  await BloodBank.updateOne(
-    { _id: bloodBankId },
+const incrementBloodBankTokenVersion = async (bloodBankId, reason = 'security_event') => {
+  const updatedBank = await BloodBank.findByIdAndUpdate(
+    bloodBankId,
     {
-      $set: {
-        'authSession.refreshTokenHash': null,
-        'authSession.refreshTokenIssuedAt': null,
-      },
-    }
-  );
+      $inc: { tokenVersion: 1 },
+      $set: { passwordChangedAt: new Date() },
+    },
+    { new: true }
+  ).select('_id email +tokenVersion').lean();
+
+  if (!updatedBank) {
+    throw new ApiError(401, 'Blood bank session is invalid');
+  }
+
+  await revokeAllPrincipalSessions({ role: 'bloodbank', bloodBankId, reason });
+  return updatedBank;
 };
 
 export const issueBloodBankCsrfToken = (res) => {
@@ -491,8 +518,7 @@ export const registerBloodBankFromRequest = async (req) => initiateBloodBankRegi
 export const loginBloodBankWithSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginBloodBank(email, password);
-  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
-  await persistBloodBankRefreshToken(result.bloodBank.id, refreshToken);
+  const { csrfToken, accessTokenExpiresAt } = await createBloodBankSession(req, res, result.bloodBank);
   return { bloodBank: result.bloodBank, csrfToken, accessTokenExpiresAt };
 };
 
@@ -507,18 +533,56 @@ export const refreshBloodBankSession = async (req, res) => {
   }
 
   const decoded = verifyRefreshToken('bloodbank', refreshToken);
-  const bloodBankSession = await BloodBank.findById(decoded.bloodBankId)
-    .select('_id +authSession.refreshTokenHash')
-    .lean();
+  const [bloodBankSession, sessionRecord] = await Promise.all([
+    BloodBank.findById(decoded.bloodBankId)
+      .select('_id email +tokenVersion')
+      .lean(),
+    getAuthSessionForRefresh({ role: 'bloodbank', sessionId: decoded.sid }),
+  ]);
 
-  if (!bloodBankSession?.authSession?.refreshTokenHash || bloodBankSession.authSession.refreshTokenHash !== hashToken(refreshToken)) {
+  const incomingRefreshHash = hashToken(refreshToken);
+  const requiresGlobalRevoke =
+    !bloodBankSession ||
+    !sessionRecord ||
+    sessionRecord.revokedAt ||
+    new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
+    Number(decoded.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
+    Number(sessionRecord.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
+    sessionRecord.refreshTokenHash !== incomingRefreshHash;
+
+  if (requiresGlobalRevoke) {
+    if (bloodBankSession?._id) {
+      await incrementBloodBankTokenVersion(bloodBankSession._id, 'refresh_reuse_detected');
+    }
+    logRefreshReuseDetected({
+      role: 'bloodbank',
+      sessionId: decoded.sid,
+      principal: decoded.bloodBankId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    });
     clearAuthCookies(res, 'bloodbank');
-    throw new ApiError(401, 'Refresh token is invalid');
+    throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }
 
   const result = await getSessionBloodBank(decoded.bloodBankId);
-  const { refreshToken: nextRefreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'bloodbank', buildBloodBankClaims(result.bloodBank));
-  await persistBloodBankRefreshToken(decoded.bloodBankId, nextRefreshToken);
+  const { refreshToken: nextRefreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
+    res,
+    'bloodbank',
+    buildBloodBankClaims({
+      ...result.bloodBank,
+      sessionId: decoded.sid,
+      tokenVersion: Number(bloodBankSession.tokenVersion || 0),
+    })
+  );
+  await rotateAuthSession({
+    role: 'bloodbank',
+    sessionId: decoded.sid,
+    refreshTokenHash: hashToken(nextRefreshToken),
+    refreshTokenExpiresAt,
+    tokenVersion: Number(bloodBankSession.tokenVersion || 0),
+    req,
+  });
   return { bloodBank: result.bloodBank, csrfToken, accessTokenExpiresAt };
 };
 
@@ -531,7 +595,7 @@ export const logoutBloodBankSession = async (req, res) => {
   if (refreshToken) {
     try {
       const decoded = verifyRefreshToken('bloodbank', refreshToken);
-      await clearBloodBankRefreshToken(decoded.bloodBankId);
+      await revokeAuthSession({ role: 'bloodbank', sessionId: decoded.sid, reason: 'logout' });
     } catch (_error) {
       // Still clear client cookies even if refresh token is already invalid.
     }
@@ -555,7 +619,7 @@ export const loginBloodBank = async (email, password) => {
   }
 
   // Find blood bank (include lockout fields alongside password)
-  const bloodBank = await BloodBank.findOne({ email }).select('+password +loginAttempts +lockUntil');
+  const bloodBank = await BloodBank.findOne({ email }).select('+password +loginAttempts +lockUntil +tokenVersion');
   if (!bloodBank) {
     throw new ApiError(401, 'Invalid credentials');
   }
@@ -902,12 +966,11 @@ export const resetPassword = async (token, password) => {
   // Update password and clear reset token
   bloodBank.password = hashedPassword;
   bloodBank.passwordReset = undefined;
-  bloodBank.authSession = {
-    refreshTokenHash: null,
-    refreshTokenIssuedAt: null,
-  };
+  bloodBank.tokenVersion = Number(bloodBank.tokenVersion || 0) + 1;
+  bloodBank.passwordChangedAt = new Date();
 
   await bloodBank.save();
+  await revokeAllPrincipalSessions({ role: 'bloodbank', bloodBankId: bloodBank._id, reason: 'password_reset' });
 
   return { success: true };
 };

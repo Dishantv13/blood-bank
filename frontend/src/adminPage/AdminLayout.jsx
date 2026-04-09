@@ -11,9 +11,9 @@ import {
 import '../adminPage.css/AdminPremium.css';
 
 const AdminLayout = () => {
-  const isInitialMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
-  const isInitialCompact = typeof window !== 'undefined' && window.innerWidth > 768 && window.innerWidth <= 1200;
-  const [isDesktopSidebarExpanded, setDesktopSidebarExpanded] = useState(true);
+  const isInitialMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
+  const isInitialCompact = typeof window !== 'undefined' && window.innerWidth > 640 && window.innerWidth <= 1200;
+  const [isDesktopSidebarExpanded, setDesktopSidebarExpanded] = useState(!isInitialCompact);
   const [isMobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(isInitialMobile);
   const [isCompactView, setIsCompactView] = useState(isInitialCompact);
@@ -23,18 +23,26 @@ const AdminLayout = () => {
   const location = useLocation();
 
   const isLargeView = !isMobileView && !isCompactView;
-  const isSidebarOpen = isMobileView ? isMobileSidebarOpen : isLargeView ? isDesktopSidebarExpanded : false;
-  const showSidebarLabels = isMobileView ? isMobileSidebarOpen : isLargeView ? isDesktopSidebarExpanded : false;
+  const isSidebarOpen = isMobileView ? isMobileSidebarOpen : isDesktopSidebarExpanded;
+  const showSidebarLabels = isMobileView ? isMobileSidebarOpen : isDesktopSidebarExpanded;
 
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      const mobile = width <= 768;
-      const compact = width > 768 && width <= 1200;
+      const mobile = width <= 640;
+      const compact = width > 640 && width <= 1200;
       setIsMobileView(mobile);
       setIsCompactView(compact);
       if (!mobile) {
         setMobileSidebarOpen(false);
+      }
+
+      if (compact) {
+        setDesktopSidebarExpanded(false);
+      }
+
+      if (!mobile && !compact) {
+        setDesktopSidebarExpanded(true);
       }
     };
 
@@ -51,9 +59,6 @@ const AdminLayout = () => {
   const handleSidebarToggle = () => {
     if (isMobileView) {
       setMobileSidebarOpen((prev) => !prev);
-      return;
-    }
-    if (isCompactView) {
       return;
     }
     setDesktopSidebarExpanded((prev) => !prev);
@@ -132,9 +137,9 @@ const AdminLayout = () => {
       <main className="admin-main-content">
         <header className="admin-top-bar fade-in-up">
           <div className="top-bar-left">
-            {(isMobileView || isLargeView) && (
+            {(isMobileView || isCompactView || isLargeView) && (
               <button className="sidebar-toggle" onClick={handleSidebarToggle}>
-                {isMobileView && isMobileSidebarOpen ? <FiX /> : <FiMenu />}
+                {isSidebarOpen ? <FiX /> : <FiMenu />}
               </button>
             )}
             {location.pathname !== currentItem?.path && (

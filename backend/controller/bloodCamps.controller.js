@@ -1,6 +1,7 @@
 import { validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
+import { clearCacheByPrefix } from '../middleware/cache.js';
 import * as bloodCampService from '../services/bloodCampService.js';
 
 // Get all blood camps
@@ -23,18 +24,21 @@ export const createCamp = asyncHandler(async (req, res) => {
     }
 
     const result = await bloodCampService.createCamp(req.bloodBank, req.body);
+    clearCacheByPrefix('/api/blood-camps');
     successResponse(res, result, 201, 'Blood camp created successfully');
 });
 
 // Update a blood camp
 export const updateCamp = asyncHandler(async (req, res) => {
   const result = await bloodCampService.updateCamp(req.params.id, req.bloodBank._id, req.body);
+  clearCacheByPrefix('/api/blood-camps');
   successResponse(res, result, 200, 'Blood camp updated successfully');
 });
 
 // Delete a blood camp
 export const deleteCamp = asyncHandler(async (req, res) => {
   await bloodCampService.deleteCamp(req.params.id, req.bloodBank._id);
+  clearCacheByPrefix('/api/blood-camps');
   successResponse(res, null, 200, 'Blood camp deleted successfully');
 });
 
@@ -42,6 +46,7 @@ export const deleteCamp = asyncHandler(async (req, res) => {
 export const registerCamp = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await bloodCampService.registerCamp(req.params.id, userId);
+  clearCacheByPrefix('/api/blood-camps');
   successResponse(res, result, 200, 'Successfully registered for blood camp');
 });
 
@@ -62,6 +67,7 @@ export const getMyCamps = asyncHandler(async (req, res) => {
 // Update collected units for a camp
 export const updateCollectedUnits = asyncHandler(async (req, res) => {
   const result = await bloodCampService.updateCollectedUnits(req.params.id, req.bloodBank._id, req.body.collectedUnits);
+  clearCacheByPrefix('/api/blood-camps');
   successResponse(res, result, 200, 'Collected units updated');
 });
 

@@ -24,6 +24,38 @@ const REFRESH_BUFFER_MS = 2 * 60 * 1000;
 const MIN_REFRESH_DELAY_MS = 5 * 1000;
 const EXPIRY_CHECK_ON_FOCUS_MS = 3 * 60 * 1000;
 
+const isBloodBankPortalRoute = (path = '') => {
+  const currentPath = String(path || '').toLowerCase();
+  return (
+    currentPath === '/blood-bank/login' ||
+    currentPath === '/bloodbank/login' ||
+    currentPath === '/blood-bank/register' ||
+    currentPath === '/bloodbank/register' ||
+    currentPath === '/blood-bank/forgot-password' ||
+    currentPath === '/bloodbank/forgot-password' ||
+    currentPath.startsWith('/blood-bank/reset-password') ||
+    currentPath.startsWith('/bloodbank/reset-password') ||
+    currentPath === '/blood-bank/dashboard' ||
+    currentPath === '/bloodbank/dashboard' ||
+    currentPath === '/blood-bank/change-password' ||
+    currentPath === '/bloodbank/change-password'
+  );
+};
+
+const isBloodBankPublicAuthRoute = (path = '') => {
+  const currentPath = String(path || '').toLowerCase();
+  return (
+    currentPath === '/blood-bank/login' ||
+    currentPath === '/bloodbank/login' ||
+    currentPath === '/blood-bank/register' ||
+    currentPath === '/bloodbank/register' ||
+    currentPath === '/blood-bank/forgot-password' ||
+    currentPath === '/bloodbank/forgot-password' ||
+    currentPath.startsWith('/blood-bank/reset-password') ||
+    currentPath.startsWith('/bloodbank/reset-password')
+  );
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -182,22 +214,12 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const bootstrapSessions = async () => {
       const currentPath = window.location.pathname.toLowerCase();
-      const isBloodBankRoute =
-        currentPath.startsWith('/blood-bank') ||
-        currentPath.startsWith('/bloodbank');
+      const isBloodBankRoute = isBloodBankPortalRoute(currentPath);
       const isAdminPublicAuthPath =
         currentPath === '/admin/login' ||
         currentPath === '/admin/forgot-password' ||
         currentPath.startsWith('/admin/reset-password');
-      const isBloodBankPublicAuthPath =
-        currentPath === '/blood-bank/login' ||
-        currentPath === '/bloodbank/login' ||
-        currentPath === '/blood-bank/register' ||
-        currentPath === '/bloodbank/register' ||
-        currentPath === '/blood-bank/forgot-password' ||
-        currentPath === '/bloodbank/forgot-password' ||
-        currentPath.startsWith('/blood-bank/reset-password') ||
-        currentPath.startsWith('/bloodbank/reset-password');
+      const isBloodBankPublicAuthPath = isBloodBankPublicAuthRoute(currentPath);
       const isPublicAuthPath = (
         currentPath === '/login' ||
         currentPath === '/signup' ||

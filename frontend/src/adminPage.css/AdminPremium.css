@@ -1116,7 +1116,7 @@
 }
 
 /* Mobile Fixes */
-@media (max-width: 1024px) {
+@media (max-width: 640px) {
   .admin-premium-root {
     overflow: auto;
   }
@@ -1188,10 +1188,10 @@
   }
 }
 
-@media (min-width: 769px) and (max-width: 1200px) {
+@media (min-width: 641px) and (max-width: 1200px) {
   .admin-premium-root .admin-sidebar {
-    width: 96px;
-    padding: 1rem 0.8rem;
+    width: 240px;
+    padding: 1rem 1rem;
     margin: 0.75rem;
     border-radius: 24px;
     position: relative;
@@ -1202,7 +1202,11 @@
     height: auto;
   }
 
-  .admin-premium-root .admin-sidebar.open,
+  .admin-premium-root .admin-sidebar.open {
+    width: 240px;
+    padding: 1rem 1rem;
+  }
+
   .admin-premium-root .admin-sidebar.closed {
     width: 96px;
     padding: 1rem 0.8rem;
@@ -1212,20 +1216,20 @@
     margin-bottom: 1rem;
   }
 
-  .admin-premium-root .logo-container {
+  .admin-premium-root .admin-sidebar.closed .logo-container {
     justify-content: center;
   }
 
-  .admin-premium-root .logo-text,
-  .admin-premium-root .nav-title,
+  .admin-premium-root .admin-sidebar.closed .logo-text,
+  .admin-premium-root .admin-sidebar.closed .nav-title,
   .admin-premium-root .admin-name,
   .admin-premium-root .admin-role,
-  .admin-premium-root .logout-button span {
+  .admin-premium-root .admin-sidebar.closed .logout-button span {
     display: none !important;
   }
 
-  .admin-premium-root .nav-item,
-  .admin-premium-root .logout-button {
+  .admin-premium-root .admin-sidebar.closed .nav-item,
+  .admin-premium-root .admin-sidebar.closed .logout-button {
     justify-content: center !important;
     padding: 1rem 0 !important;
     gap: 0;
@@ -1245,7 +1249,7 @@
   }
 
   .admin-premium-root .sidebar-toggle {
-    display: none;
+    display: flex;
   }
 }
 

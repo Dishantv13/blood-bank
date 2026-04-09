@@ -8,16 +8,27 @@ const required = (name) => {
 
 export const validateSecurityConfig = () => {
   required('MONGODB_URI');
-  required('JWT_SECRET');
+  required('USER_ACCESS_TOKEN_SECRET');
+  required('USER_REFRESH_TOKEN_SECRET');
+  required('ADMIN_ACCESS_TOKEN_SECRET');
+  required('ADMIN_REFRESH_TOKEN_SECRET');
+  required('BLOODBANK_ACCESS_TOKEN_SECRET');
+  required('BLOODBANK_REFRESH_TOKEN_SECRET');
+  required('CSRF_HASH_SECRET');
+  required('BLOODBANK_OTP_HASH_SECRET');
   required('ADMIN_EMAIL');
   required('ADMIN_PASSWORD_HASH');
-  required('ADMIN_JWT_SECRET');
 
-  const jwtSecret = process.env.JWT_SECRET;
-  const adminJwtSecret = process.env.ADMIN_JWT_SECRET;
+  const distinctSecrets = [
+    process.env.USER_ACCESS_TOKEN_SECRET,
+    process.env.USER_REFRESH_TOKEN_SECRET,
+    process.env.ADMIN_ACCESS_TOKEN_SECRET,
+    process.env.ADMIN_REFRESH_TOKEN_SECRET,
+    process.env.BLOODBANK_ACCESS_TOKEN_SECRET,
+    process.env.BLOODBANK_REFRESH_TOKEN_SECRET,
+  ];
 
-  if (jwtSecret === adminJwtSecret) {
-    throw new Error('ADMIN_JWT_SECRET must be different from JWT_SECRET');
+  if (new Set(distinctSecrets).size !== distinctSecrets.length) {
+    throw new Error('Access and refresh token secrets must all be different across roles');
   }
 };
-

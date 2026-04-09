@@ -9,6 +9,7 @@ export const eventApi = apiSlice.injectEndpoints({
       query: (params) => ({
         url: EVENT_API_URLS.GET_ALL_EVENTS,
         params,
+        cache: 'no-store',
       }),
       keepUnusedDataFor: 60,
       refetchOnMountOrArgChange: 30,

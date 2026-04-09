@@ -9,6 +9,7 @@ import { addInventoryUnits, subtractInventoryUnits } from './inventoryService.js
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 import { BLOOD_BANK_SAFE_FIELDS, sanitizeBloodBank } from '../utils/serializers.js';
 import * as validationService from './validationService.js';
+import { revokeAllPrincipalSessions } from './sessionService.js';
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return '';
@@ -559,18 +560,17 @@ export const changePassword = async (bloodBankId, currentPassword, newPassword) 
   if (currentPassword === newPassword) throw new ApiError(400, 'New password must be different from current password');
   validationService.validatePassword(newPassword);
 
-  const bloodBank = await BloodBank.findById(bloodBankId).select('+password');
+  const bloodBank = await BloodBank.findById(bloodBankId).select('+password +tokenVersion');
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
   const isMatch = await bloodBank.comparePassword(currentPassword);
   if (!isMatch) throw new ApiError(401, 'Current password is incorrect');
 
   bloodBank.password = newPassword;
-  bloodBank.authSession = {
-    refreshTokenHash: null,
-    refreshTokenIssuedAt: null,
-  };
+  bloodBank.tokenVersion = Number(bloodBank.tokenVersion || 0) + 1;
+  bloodBank.passwordChangedAt = new Date();
   await bloodBank.save();
+  await revokeAllPrincipalSessions({ role: 'bloodbank', bloodBankId: bloodBank._id, reason: 'password_change' });
   return { success: true };
 };
 

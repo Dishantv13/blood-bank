@@ -185,7 +185,8 @@ const isLogoutPath = (url = '') => {
     cleanUrl === AUTH_API_URLS.LOGOUT.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.ADMIN_LOGOUT.toLowerCase() ||
     cleanUrl === BLOODBANK_API_URLS.LOGOUT_BLOOD_BANK.toLowerCase()
-  );
+
+);
 };
 
 const buildSkippedDuringLogoutError = () => ({
@@ -197,6 +198,50 @@ const buildSkippedDuringLogoutError = () => ({
     },
   },
 });
+
+const refreshRequestsByRole = new Map();
+
+const runRefreshForRole = async (role, api, extraOptions) => {
+  const existingRefreshRequest = refreshRequestsByRole.get(role);
+  if (existingRefreshRequest) {
+    return existingRefreshRequest;
+  }
+
+  const refreshRequest = (async () => {
+    const csrfCookie = parseCookie(getCsrfCookieName(role));
+    if (!csrfCookie) {
+      await baseQuery({ url: getCsrfEndpoint(role), method: 'GET' }, api, extraOptions);
+    }
+
+    let refreshResult = await baseQuery(
+      { url: getRefreshEndpoint(role), method: 'POST' },
+      api,
+      extraOptions
+    );
+
+    // Refresh can itself fail on stale CSRF cookie; renew token and retry once.
+    if (isCsrfError(refreshResult)) {
+      await baseQuery({ url: getCsrfEndpoint(role), method: 'GET' }, api, extraOptions);
+      refreshResult = await baseQuery(
+        { url: getRefreshEndpoint(role), method: 'POST' },
+        api,
+        extraOptions
+      );
+    }
+
+    return refreshResult;
+  })();
+
+  refreshRequestsByRole.set(role, refreshRequest);
+
+  try {
+    return await refreshRequest;
+  } finally {
+    if (refreshRequestsByRole.get(role) === refreshRequest) {
+      refreshRequestsByRole.delete(role);
+    }
+  }
+};
 
 const isCsrfError = (result) => {
   const status = result?.error?.status;
@@ -233,26 +278,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     const skipReauthForThisCall = isLoginOrAuthMutationPath(requestUrl);
 
     if (!isRefreshCall && !skipReauthForThisCall) {
-      const csrfCookie = parseCookie(getCsrfCookieName(requestRole));
-      if (!csrfCookie) {
-        await baseQuery({ url: getCsrfEndpoint(requestRole), method: 'GET' }, api, extraOptions);
-      }
-
-      let refreshResult = await baseQuery(
-        { url: getRefreshEndpoint(requestRole), method: 'POST' },
-        api,
-        extraOptions
-      );
-
-      // Refresh can itself fail on stale CSRF cookie; renew token and retry once.
-      if (isCsrfError(refreshResult)) {
-        await baseQuery({ url: getCsrfEndpoint(requestRole), method: 'GET' }, api, extraOptions);
-        refreshResult = await baseQuery(
-          { url: getRefreshEndpoint(requestRole), method: 'POST' },
-          api,
-          extraOptions
-        );
-      }
+      const refreshResult = await runRefreshForRole(requestRole, api, extraOptions);
 
       if (refreshResult.data) {
         result = await baseQuery(args, api, extraOptions);

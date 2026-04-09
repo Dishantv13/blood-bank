@@ -20,14 +20,24 @@ import {
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
 import { sanitizeUser, USER_SAFE_FIELDS } from '../utils/serializers.js';
+import {
+  createAuthSession,
+  getAuthSessionForRefresh,
+  logRefreshReuseDetected,
+  revokeAllPrincipalSessions,
+  revokeAuthSession,
+  rotateAuthSession,
+} from './sessionService.js';
 
 const toPublicUser = (user) => sanitizeUser(user);
 
-const buildUserClaims = (user) => ({
+const buildUserClaims = (user, sessionId) => ({
   userId: String(user.id),
   email: user.email,
   role: user.role,
   type: 'user',
+  sid: sessionId,
+  tokenVersion: Number(user.tokenVersion || 0),
 });
 
 const GOOGLE_OAUTH_STATE_COOKIE = 'bb_google_oauth_state';
@@ -125,30 +135,47 @@ const buildFrontendRedirect = (mode, status, reason = '') => {
   return `${origin}${targetPath}${query}`;
 };
 
-const persistUserRefreshToken = async (userId, refreshToken) => {
-  await User.updateOne(
-    { _id: userId },
-    {
-      $set: {
-        'authSession.refreshTokenHash': hashToken(refreshToken),
-        'authSession.refreshTokenIssuedAt': new Date(),
-      },
-    }
+const createUserSession = async (req, res, user) => {
+  const tokenVersion =
+    typeof user?.tokenVersion === 'number'
+      ? Number(user.tokenVersion)
+      : Number((await User.findById(user.id).select('+tokenVersion').lean())?.tokenVersion || 0);
+  const sessionId = crypto.randomUUID();
+  const { refreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
+    res,
+    'user',
+    buildUserClaims({ ...user, tokenVersion }, sessionId)
   );
+
+  await createAuthSession({
+    sessionId,
+    role: 'user',
+    userId: user.id,
+    refreshTokenHash: hashToken(refreshToken),
+    refreshTokenExpiresAt,
+    tokenVersion,
+    req,
+  });
+
+  return { csrfToken, accessTokenExpiresAt };
 };
 
-const clearUserRefreshToken = async (userId) => {
-  if (!userId) return;
-
-  await User.updateOne(
-    { _id: userId },
+const incrementUserTokenVersion = async (userId, reason = 'security_event') => {
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
     {
-      $set: {
-        'authSession.refreshTokenHash': null,
-        'authSession.refreshTokenIssuedAt': null,
-      },
-    }
-  );
+      $inc: { tokenVersion: 1 },
+      $set: { passwordChangedAt: new Date() },
+    },
+    { new: true }
+  ).select('_id email role +tokenVersion').lean();
+
+  if (!updatedUser) {
+    throw new ApiError(401, 'User session is invalid');
+  }
+
+  await revokeAllPrincipalSessions({ role: 'user', userId, reason });
+  return updatedUser;
 };
 
 export const issueUserCsrfToken = (res) => {
@@ -162,16 +189,14 @@ export const issueUserCsrfToken = (res) => {
 
 export const registerAndCreateSession = async (req, res) => {
   const result = await registerUser(req.body);
-  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', buildUserClaims(result.user));
-  await persistUserRefreshToken(result.user.id, refreshToken);
+  const { csrfToken, accessTokenExpiresAt } = await createUserSession(req, res, result.user);
   return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
 export const loginAndCreateSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginUser(email, password);
-  const { refreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', buildUserClaims(result.user));
-  await persistUserRefreshToken(result.user.id, refreshToken);
+  const { csrfToken, accessTokenExpiresAt } = await createUserSession(req, res, result.user);
   return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
@@ -280,8 +305,7 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
       emailVerified: payload?.email_verified === true,
     });
 
-    const { refreshToken } = setAuthCookies(res, 'user', buildUserClaims(result.user));
-    await persistUserRefreshToken(result.user.id, refreshToken);
+    await createUserSession(req, res, result.user);
 
     clearGoogleOauthCookies(res);
     return { redirectUrl: buildFrontendRedirect(mode, 'success') };
@@ -302,22 +326,58 @@ export const refreshUserSession = async (req, res) => {
   }
 
   const decoded = verifyRefreshToken('user', refreshToken);
-  const sessionUser = await User.findById(decoded.userId)
-    .select('_id +authSession.refreshTokenHash')
-    .lean();
+  const [sessionUser, sessionRecord] = await Promise.all([
+    User.findById(decoded.userId)
+      .select('_id email role +tokenVersion')
+      .lean(),
+    getAuthSessionForRefresh({ role: 'user', sessionId: decoded.sid }),
+  ]);
 
-  if (!sessionUser?.authSession?.refreshTokenHash || sessionUser.authSession.refreshTokenHash !== hashToken(refreshToken)) {
+  const incomingRefreshHash = hashToken(refreshToken);
+  const requiresGlobalRevoke =
+    !sessionUser ||
+    !sessionRecord ||
+    sessionRecord.revokedAt ||
+    new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
+    Number(decoded.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
+    Number(sessionRecord.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
+    sessionRecord.refreshTokenHash !== incomingRefreshHash;
+
+  if (requiresGlobalRevoke) {
+    if (sessionUser?._id) {
+      await incrementUserTokenVersion(sessionUser._id, 'refresh_reuse_detected');
+    }
+    logRefreshReuseDetected({
+      role: 'user',
+      sessionId: decoded.sid,
+      principal: decoded.userId,
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    });
     clearAuthCookies(res, 'user');
-    throw new ApiError(401, 'Refresh token is invalid');
+    throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }
 
-  const { refreshToken: nextRefreshToken, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'user', {
-    userId: decoded.userId,
-    email: decoded.email,
-    role: decoded.role,
-    type: 'user',
+  const { refreshToken: nextRefreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
+    res,
+    'user',
+    {
+      userId: decoded.userId,
+      email: decoded.email,
+      role: decoded.role,
+      type: 'user',
+      sid: decoded.sid,
+      tokenVersion: Number(sessionUser.tokenVersion || 0),
+    }
+  );
+  await rotateAuthSession({
+    role: 'user',
+    sessionId: decoded.sid,
+    refreshTokenHash: hashToken(nextRefreshToken),
+    refreshTokenExpiresAt,
+    tokenVersion: Number(sessionUser.tokenVersion || 0),
+    req,
   });
-  await persistUserRefreshToken(decoded.userId, nextRefreshToken);
 
   const result = await getSessionUser(decoded.userId);
   return { user: result.user, csrfToken, accessTokenExpiresAt };
@@ -332,7 +392,7 @@ export const logoutUserSession = async (req, res) => {
   if (refreshToken) {
     try {
       const decoded = verifyRefreshToken('user', refreshToken);
-      await clearUserRefreshToken(decoded.userId);
+      await revokeAuthSession({ role: 'user', sessionId: decoded.sid, reason: 'logout' });
     } catch (_error) {
       // Still clear client cookies even if refresh token is already invalid.
     }
@@ -379,7 +439,7 @@ export const loginUser = async (email, password) => {
   validatePassword(password);
 
   const user = await User.findOne({ email })
-    .select('_id name email +password bloodGroup phone role isDonor photoURL activeMode donorInfo address +loginAttempts +lockUntil');
+    .select('_id name email +password bloodGroup phone role isDonor photoURL activeMode donorInfo address +loginAttempts +lockUntil +tokenVersion');
 
   if (!user) {
     throw new ApiError(401, 'Invalid email or password');
@@ -535,12 +595,11 @@ export const resetPassword = async (token, newPassword) => {
 
   user.password = hashedPassword;
   user.passwordReset = undefined;
-  user.authSession = {
-    refreshTokenHash: null,
-    refreshTokenIssuedAt: null,
-  };
+  user.tokenVersion = Number(user.tokenVersion || 0) + 1;
+  user.passwordChangedAt = new Date();
 
   await user.save();
+  await revokeAllPrincipalSessions({ role: 'user', userId: user._id, reason: 'password_reset' });
 
   return { success: true };
 };
@@ -592,11 +651,10 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
   const hashedPassword = await bcrypt.hash(newPassword, salt);
 
   user.password = hashedPassword;
-  user.authSession = {
-    refreshTokenHash: null,
-    refreshTokenIssuedAt: null,
-  };
+  user.tokenVersion = Number(user.tokenVersion || 0) + 1;
+  user.passwordChangedAt = new Date();
   await user.save();
+  await revokeAllPrincipalSessions({ role: 'user', userId: user._id, reason: 'password_change' });
 
   return { success: true };
 };
