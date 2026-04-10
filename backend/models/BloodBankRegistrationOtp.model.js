@@ -57,7 +57,6 @@ const BloodBankRegistrationOtpSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: true,
     },
     verifiedAt: {
       type: Date,
