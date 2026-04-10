@@ -457,11 +457,19 @@ export const updateUserStatus = async (userId, status) => {
 
 // ===================== BLOOD BANKS MANAGEMENT =====================
 
+const ALLOWED_APPROVAL_STATUSES = ['pending', 'approved', 'rejected'];
+const ALLOWED_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const ALLOWED_CAMP_STATUSES = ['active', 'completed', 'cancelled'];
+const ALLOWED_EVENT_STATUSES = ['scheduled', 'ongoing', 'completed', 'cancelled'];
+const ALLOWED_REQUEST_STATUSES = ['pending', 'approved', 'rejected', 'fulfilled', 'cancelled'];
+const ALLOWED_URGENCY = ['high', 'medium', 'low', 'critical', 'urgent', 'normal'];
+const ALLOWED_DONATION_STATUSES = ['pending', 'approved', 'rejected', 'completed'];
+
 export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.status) {
+  if (filters.status && ALLOWED_APPROVAL_STATUSES.includes(filters.status)) {
     query.approvalStatus = filters.status;
   }
   const searchFilter = buildSafeSearchFilter(filters.search, ['name', 'email', 'address.city']);
@@ -583,8 +591,8 @@ export const getAllCamps = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.status) query.status = filters.status;
-  if (filters.bloodBankId) query.organizer = filters.bloodBankId;
+  if (filters.status && ALLOWED_CAMP_STATUSES.includes(filters.status)) query.status = filters.status;
+  if (filters.bloodBankId && mongoose.Types.ObjectId.isValid(filters.bloodBankId)) query.organizer = new mongoose.Types.ObjectId(filters.bloodBankId);
   const searchFilter = buildSafeSearchFilter(filters.search, ['name', 'venue', 'city', 'address', 'organizerName']);
   if (searchFilter) Object.assign(query, searchFilter);
 
@@ -624,7 +632,7 @@ export const getCampsByBloodBank = async (bankId, page = 1, limit = 10, filters 
   const skip = (page - 1) * limit;
   const query = { organizer: bankId };
 
-  if (filters.status) query.status = filters.status;
+  if (filters.status && ALLOWED_CAMP_STATUSES.includes(filters.status)) query.status = filters.status;
   const searchFilter = buildSafeSearchFilter(filters.search, ['name', 'venue', 'city', 'address']);
   if (searchFilter) Object.assign(query, searchFilter);
 
@@ -695,12 +703,12 @@ export const getAllEvents = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.bloodBankId) {
+  if (filters.bloodBankId && mongoose.Types.ObjectId.isValid(filters.bloodBankId)) {
     query.organizerModel = 'BloodBank';
-    query.organizedBy = filters.bloodBankId;
+    query.organizedBy = new mongoose.Types.ObjectId(filters.bloodBankId);
   }
 
-  if (filters.status) {
+  if (filters.status && ALLOWED_EVENT_STATUSES.includes(filters.status)) {
     const now = new Date();
     if (filters.status === 'cancelled') query.isActive = false;
     if (filters.status === 'scheduled') {
@@ -719,8 +727,8 @@ export const getAllEvents = async (page = 1, limit = 10, filters = {}) => {
       query.date = { $lt: new Date(now.getFullYear(), now.getMonth(), now.getDate()) };
     }
   }
-  const searchFilter1 = buildSafeSearchFilter(filters.search, ['title', 'description', 'location.name', 'location.address']);
-  if (searchFilter1) Object.assign(query, searchFilter1);
+  const eventsSearchFilter = buildSafeSearchFilter(filters.search, ['title', 'description', 'location.name', 'location.address']);
+  if (eventsSearchFilter) Object.assign(query, eventsSearchFilter);
 
   const [events, total] = await Promise.all([
     Event.find(query)
@@ -801,8 +809,8 @@ export const getEventsByBloodBank = async (bankId, page = 1, limit = 10, filters
       query.date = { $lt: new Date(now.getFullYear(), now.getMonth(), now.getDate()) };
     }
   }
-  const searchFilter2 = buildSafeSearchFilter(filters.search, ['title', 'description', 'location.name', 'location.address']);
-  if (searchFilter2) Object.assign(query, searchFilter2);
+  const bloodBankEventsSearchFilter = buildSafeSearchFilter(filters.search, ['title', 'description', 'location.name', 'location.address']);
+  if (bloodBankEventsSearchFilter) Object.assign(query, bloodBankEventsSearchFilter);
 
   const [events, total] = await Promise.all([
     Event.find(query)
@@ -889,15 +897,15 @@ export const getAllRequests = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.status) query.status = filters.status;
-  if (filters.bloodType) query.bloodGroup = filters.bloodType;
-  if (filters.userId) query.requestedBy = filters.userId;
-  if (filters.urgency) {
+  if (filters.status && ALLOWED_REQUEST_STATUSES.includes(filters.status)) query.status = filters.status;
+  if (filters.bloodType && ALLOWED_BLOOD_GROUPS.includes(filters.bloodType)) query.bloodGroup = filters.bloodType;
+  if (filters.userId && mongoose.Types.ObjectId.isValid(filters.userId)) query.requestedBy = new mongoose.Types.ObjectId(filters.userId);
+  if (filters.urgency && ALLOWED_URGENCY.includes(filters.urgency)) {
     const urgencyMap = { high: 'critical', medium: 'urgent', low: 'normal' };
     query.urgency = urgencyMap[filters.urgency] || filters.urgency;
   }
-  const searchFilter3 = buildSafeSearchFilter(filters.search, ['patientName', 'hospital.name', 'hospital.address']);
-  if (searchFilter3) Object.assign(query, searchFilter3);
+  const requestsSearchFilter = buildSafeSearchFilter(filters.search, ['patientName', 'hospital.name', 'hospital.address']);
+  if (requestsSearchFilter) Object.assign(query, requestsSearchFilter);
 
   const [requests, total] = await Promise.all([
     BloodRequest.find(query)
@@ -971,8 +979,8 @@ export const getAllDonations = async (page = 1, limit = 10, filters = {}) => {
   const skip = (safePage - 1) * safeLimit;
 
   const matchStage = {};
-  if (filters.status) matchStage.status = filters.status;
-  if (filters.bloodType) matchStage.bloodGroup = filters.bloodType;
+  if (filters.status && ALLOWED_DONATION_STATUSES.includes(filters.status)) matchStage.status = filters.status;
+  if (filters.bloodType && ALLOWED_BLOOD_GROUPS.includes(filters.bloodType)) matchStage.bloodGroup = filters.bloodType;
   if (filters.userId && mongoose.Types.ObjectId.isValid(filters.userId)) {
     matchStage.donor = new mongoose.Types.ObjectId(filters.userId);
   }
