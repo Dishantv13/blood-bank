@@ -50,7 +50,6 @@ const AuthSessionSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     required: true,
-    index: true,
   },
   lastUsedAt: {
     type: Date,
@@ -87,5 +86,7 @@ const AuthSessionSchema = new mongoose.Schema({
 AuthSessionSchema.index({ role: 1, userId: 1, revokedAt: 1 });
 AuthSessionSchema.index({ role: 1, bloodBankId: 1, revokedAt: 1 });
 AuthSessionSchema.index({ role: 1, adminEmail: 1, revokedAt: 1 });
+// Automatically remove expired sessions from the collection
+AuthSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.model('AuthSession', AuthSessionSchema);
