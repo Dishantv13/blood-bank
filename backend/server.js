@@ -2,12 +2,13 @@ import "./config/env.js";
 import app from "./app.js";
 import mongoose from "mongoose";
 import { validateSecurityConfig } from "./config/security.js";
+import { closeRedisClient } from "./config/redis.js";
 
 // ==================== DATABASE CONNECTION ====================
 try {
   validateSecurityConfig();
 } catch (error) {
-  console.error(" ⛔CRITICAL SECURITY CONFIG ERROR: ${error.message}");
+  console.error(` ⛔CRITICAL SECURITY CONFIG ERROR: ${error.message}`);
   process.exit(1);
 }
 
@@ -43,18 +44,23 @@ mongoose.connection.on("disconnected", () => {
 // ==================== GRACEFUL SHUTDOWN ====================
 process.on("SIGINT", async () => {
   await mongoose.connection.close();
+  await closeRedisClient();
   console.log("MongoDB connection closed due to app termination");
   process.exit(0);
 });
 
 // ==================== START SERVER ====================
 const PORT = process.env.PORT || 5000;
-// Export for serverless
+// Export app for serverless runtimes (Vercel, AWS Lambda, etc.)
 export default app;
 
-app.listen(PORT, () => {
-  console.log(`🏥 RaktSarthi Server Status:`);
-  console.log(`📍 Port: ${PORT}`);
-  console.log(`🏗️  Mode: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`✅ Build Success: Ready to accept requests`);
-});
+// Only start the HTTP server when running as a standalone Node.js process.
+// Set SERVERLESS=true in your serverless platform environment to skip this.
+if (process.env.SERVERLESS !== 'true') {
+  app.listen(PORT, () => {
+    console.log(`🏥 RaktSarthi Server Status:`);
+    console.log(`📍 Port: ${PORT}`);
+    console.log(`🏗️  Mode: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`✅ Build Success: Ready to accept requests`);
+  });
+}

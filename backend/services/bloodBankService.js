@@ -53,7 +53,14 @@ const BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS = Math.max(1, Number(process.env.BLOODBA
 const BLOODBANK_OTP_MAX_RESEND_ATTEMPTS = Math.max(1, Number(process.env.BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) || 5);
 const BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS = Math.max(10, Number(process.env.BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS) || 60);
 const BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES = Math.max(5, Number(process.env.BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES) || 60);
-const BLOODBANK_OTP_HASH_SECRET = process.env.BLOODBANK_OTP_HASH_SECRET;
+
+// Lazy getter: validated at startup by validateSecurityConfig(), but accessed
+// per-call so that tests without the env var get an explicit error.
+const getOtpHashSecret = () => {
+  const secret = process.env.BLOODBANK_OTP_HASH_SECRET;
+  if (!secret) throw new ApiError(500, 'BLOODBANK_OTP_HASH_SECRET is not configured');
+  return secret;
+};
 
 const maskEmail = (email = '') => {
   const [localPart, domain = ''] = String(email).split('@');
@@ -100,7 +107,7 @@ const validateRegistrationData = (data) => {
 };
 
 const hashOtp = (otp) =>
-  crypto.createHash('sha256').update(`${String(otp)}:${BLOODBANK_OTP_HASH_SECRET}`).digest('hex');
+  crypto.createHash('sha256').update(`${String(otp)}:${getOtpHashSecret()}`).digest('hex');
 
 const generateOtp = () => String(crypto.randomInt(100000, 1000000));
 
@@ -275,7 +282,7 @@ const createBloodBankAndInventory = async (data) => {
     profileImage: logo || '',
     profileImagePublicId: data.profileImagePublicId || '',
     isActive: false,
-    isVerified: true,
+    isVerified: false,
     approvalStatus: 'pending',
     rejectionReason: ''
   });
