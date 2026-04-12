@@ -2,7 +2,7 @@ export const ROUTE_PATH = {
   // Common & Auth
   HOME: "/",
   LOGIN: "/login",
-  SIGNUP: "/signup",
+
   FORGOT_PASSWORD: "/forgot-password",
   RESET_PASSWORD: "/reset-password",
   CHANGE_PASSWORD: "/change-password",
@@ -12,11 +12,12 @@ export const ROUTE_PATH = {
 
   // User Section
   BLOOD_BANKS: "/blood-banks",
+  BLOOD_BANK_PUBLIC_DETAILS: "/blood-banks/:bankId",
   DONORS: "/donors",
   EVENTS: "/events",
   EVENT_DETAILS: "/events/:eventId",
   CREATE_REQUEST: "/create-request",
-  REQUEST_DETAILS: "/requests/:requestId", // Added for consistency
+  REQUEST_DETAILS: "/requests/:requestId",
 
   // Blood Bank specific
   BLOOD_BANK_BASE: "/blood-bank",

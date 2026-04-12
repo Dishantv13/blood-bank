@@ -1,0 +1,70 @@
+.empty-state-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  width: 100%;
+}
+
+.empty-state-content {
+  max-width: 400px;
+  text-align: center;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.empty-state-icon {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 24px;
+  background: var(--bg-secondary, #f0f2f5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+}
+
+.empty-state-icon svg {
+  width: 60px;
+  height: 60px;
+  opacity: 0.5;
+}
+
+.empty-state-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-color);
+}
+
+.empty-state-message {
+  font-size: 15px;
+  color: #777;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.empty-state-btn {
+  padding: 10px 24px;
+  background: var(--primary-color, #ff4d4f);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.empty-state-btn:hover {
+  background: var(--primary-hover, #ff7875);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.2);
+}
+
+[data-theme='dark'] .empty-state-icon {
+  background: #2a2a2a;
+}
+
+[data-theme='dark'] .empty-state-message {
+  color: #999;
+}

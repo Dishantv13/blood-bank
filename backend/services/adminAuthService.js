@@ -220,17 +220,40 @@ export const refreshAdminSession = async (req, res) => {
   ]);
 
   const incomingRefreshHash = hashToken(refreshToken);
-  const requiresGlobalRevoke =
+  const isCurrentMatch = sessionRecord?.refreshTokenHash === incomingRefreshHash;
+  const isGraceMatch = sessionRecord?.rotatedAt && 
+                       (Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 10000) &&
+                       sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
+
+  const isTokenValid = isCurrentMatch || isGraceMatch;
+
+  const requiresSessionRevoke =
     !sessionRecord ||
     sessionRecord.revokedAt ||
     new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
     String(decoded.adminEmail || '').toLowerCase() !== String(state.email || '').toLowerCase() ||
     Number(decoded.tokenVersion) !== Number(state.tokenVersion || 0) ||
     Number(sessionRecord.tokenVersion) !== Number(state.tokenVersion || 0) ||
-    sessionRecord.refreshTokenHash !== incomingRefreshHash;
+    !isTokenValid;
 
-  if (requiresGlobalRevoke) {
-    await incrementAdminTokenVersion('refresh_reuse_detected');
+  if (requiresSessionRevoke) {
+    if (sessionRecord?.sessionId) {
+      await revokeAuthSession({ 
+        role: 'admin', 
+        sessionId: sessionRecord.sessionId, 
+        reason: 'refresh_token_mismatch' 
+      });
+    }
+
+    const suspectSeriousBreach = state && (
+      Number(decoded.tokenVersion) !== Number(state.tokenVersion || 0) ||
+      Number(sessionRecord?.tokenVersion) !== Number(state.tokenVersion || 0)
+    );
+
+    if (suspectSeriousBreach) {
+      await incrementAdminTokenVersion('security_breach_detected');
+    }
+
     logRefreshReuseDetected({
       role: 'admin',
       sessionId: decoded.sid,
@@ -238,6 +261,7 @@ export const refreshAdminSession = async (req, res) => {
       ip: req.ip,
       userAgent: req.get('user-agent'),
     });
+    
     clearAuthCookies(res, 'admin');
     throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }

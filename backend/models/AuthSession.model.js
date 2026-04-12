@@ -37,6 +37,11 @@ const AuthSessionSchema = new mongoose.Schema({
     required: true,
     select: false,
   },
+  previousRefreshTokenHash: {
+    type: String,
+    default: null,
+    select: false,
+  },
   tokenVersion: {
     type: Number,
     required: true,

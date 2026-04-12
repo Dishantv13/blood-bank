@@ -66,10 +66,6 @@ const AdminRequestsByUser = () => {
         <p className="page-subtitle">View and manage blood requests for: {userName}</p>
       </div>
 
-      <button className="btn-premium" style={{ marginBottom: '1.5rem' }} onClick={() => navigate(ROUTE_PATH.ADMIN_REQUESTS)}>
-        Back to Requests
-      </button>
-
       <div className="filters-panel">
         <input
           type="text"

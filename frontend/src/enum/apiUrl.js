@@ -11,6 +11,8 @@ export const AUTH_API_URLS = {
     ADMIN_LOGOUT: '/admin-auth/logout',
     ADMIN_SESSION: '/admin-auth/session',
     ADMIN_CSRF_TOKEN: '/admin-auth/csrf-token',
+    VERIFY_OTP: '/auth/verify-otp',
+    RESEND_OTP: '/auth/resend-otp',
 }
 
 export const BLOODBANK_API_URLS = {
@@ -105,14 +107,16 @@ export const REQUEST_API_URLS = {
     GET_ALL_REQUESTS: '/requests',
     GET_MY_REQUESTS: '/requests/my-requests',
     CREATE_REQUEST: '/requests',
+    GET_REQUEST_BY_ID: (id) => `/requests/${id}`,
     UPDATE_REQUEST: (id) => `/requests/${id}`,
-    UPDATE_REQUEST_STATUS_USER: (id) => `/requests/${id}/status`,
+    UPDATE_REQUEST_STATUS: (id) => `/requests/${id}/status`,
 
     // Blood Bank Portal
-    GET_BLOOD_BANK_REQUESTS: '/bloodbank/requests',
+    GET_BLOOD_BANK_REQUESTS: '/requests/blood-bank-requests',
+    FULFILL_REQUEST: (id) => `/requests/${id}/fulfill`,
+    
+    // Legacy/BB Portal Specific
     GET_BLOOD_BANK_APPROVED_REQUESTS: '/bloodbank/requests/approved',
-    GET_BLOOD_BANK_REQUEST_BY_ID: (id) => `/bloodbank/requests/${id}`,
-
     CREATE_INTER_BANK_REQUEST: '/bloodbank/requests/inter-bank',
     APPROVE_REQUEST: (id) => `/bloodbank/requests/${id}/approve`,
     REJECT_REQUEST: (id) => `/bloodbank/requests/${id}/reject`,

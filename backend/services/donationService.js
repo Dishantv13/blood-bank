@@ -4,6 +4,8 @@ import mongoose from 'mongoose';
 import { validateDonation, validateBloodGroup } from './validationService.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import { ApiError } from '../utils/apiError.js';
+import { sendDonationUpdateEmail } from '../utils/emailService.js';
+import { createNotification } from './notificationService.js';
 
 const DONATION_ELIGIBILITY_PERIOD = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months in ms
 
@@ -120,7 +122,26 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
       }
     },
     { new: true, runValidators: true }
-  ).lean();
+  ).populate('donor', 'name email').populate('bloodBank', 'name');
+
+  // Send donation completion email (async)
+  if (updatedDonation && updatedDonation.donor) {
+    sendDonationUpdateEmail(
+      updatedDonation.donor, 
+      updatedDonation, 
+      `Your donation of ${volumeDonated} units was successfully completed and recorded.`
+    ).catch(err => console.error('Donation record email failed:', err));
+
+    // Create in-app notification
+    createNotification({
+      recipient: updatedDonation.donor._id,
+      recipientModel: 'User',
+      title: 'Donation Completed ✨',
+      message: `Your blood donation of ${volumeDonated} units has been successfully recorded. Thank you for your contribution!`,
+      type: 'donation',
+      actionUrl: '/dashboard'
+    }).catch(err => console.error('In-app notification failed:', err));
+  }
 
   // Update donor info — awaited via Promise.allSettled to prevent silent data loss
   const [donorUpdateResult] = await Promise.allSettled([
@@ -167,7 +188,27 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
     donationId,
     { $set: { status, updatedAt: new Date() } },
     { new: true, runValidators: true }
-  ).lean();
+  ).populate('donor', 'name email').populate('bloodBank', 'name');
+
+  // Send status update email (async)
+  if (updatedDonation && updatedDonation.donor && updatedDonation.status !== 'completed') {
+    const message = status === 'rejected' 
+      ? 'Unfortunately, your donation request was not approved at this time. Please contact the blood bank for details.'
+      : `Your donation request has been marked as ${status}.`;
+      
+    sendDonationUpdateEmail(updatedDonation.donor, updatedDonation, message)
+      .catch(err => console.error('Donation status email failed:', err));
+
+    // Create in-app notification
+    createNotification({
+      recipient: updatedDonation.donor._id,
+      recipientModel: 'User',
+      title: 'Donation Request Update',
+      message: `Your donation request status has been updated to ${status}.`,
+      type: 'donation',
+      actionUrl: '/dashboard'
+    }).catch(err => console.error('In-app notification failed:', err));
+  }
 
   return updatedDonation;
 };

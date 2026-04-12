@@ -103,15 +103,10 @@ const DonateBloodModal = ({ onClose, onSuccess }) => {
               </button>
               <button 
                 type="submit" 
-                className="btn-submit" 
+                className={`btn-submit ${isRequesting ? 'btn-loading' : ''}`}
                 disabled={isRequesting || !selectedBank}
               >
-                {isRequesting ? (
-                  <>
-                    <span className="spinner-small" style={{ borderTopColor: 'white', marginRight: '8px' }}></span>
-                    Submitting...
-                  </>
-                ) : 'Confirm Request'}
+                Confirm Request
               </button>
             </div>
           </form>

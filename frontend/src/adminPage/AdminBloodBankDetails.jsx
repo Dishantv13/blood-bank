@@ -79,9 +79,6 @@ const AdminBloodBankDetails = () => {
   return (
     <div className="admin-bank-details-page">
       <div className="admin-bank-header">
-        <button className="admin-bank-back-btn" onClick={() => navigate(ROUTE_PATH.ADMIN_BLOOD_BANKS)}>
-          Back to Blood Banks
-        </button>
         <div>
           <h1>{bank?.name || 'Blood Bank Verification'}</h1>
           <p>Review the complete registration details before approving or rejecting this request.</p>

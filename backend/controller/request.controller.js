@@ -41,19 +41,41 @@ export const updateRequest = asyncHandler(async (req, res) => {
   successResponse(res, result, 200, 'Request updated successfully');
 });
 
-// Update blood request status (for users to cancel OR blood banks to approve/decline)
-export const updateRequestStatus = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-
+// Get request details
+export const getRequestById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
+  const result = await requestService.getRequestById(id);
+  successResponse(res, result, 200, 'Blood request details fetched successfully');
+});
+
+// Update blood request status (for users to cancel OR blood banks to handle)
+export const updateRequestStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status, note } = req.body;
+  
   const actor = req.bloodBank
     ? { type: 'bloodbank', id: req.bloodBank.bloodBankId || req.bloodBank._id || req.bloodBank.id }
     : { type: 'user', id: req.user.userId || req.user._id || req.user.id };
-  const result = await requestService.updateRequestStatus(id, status, actor);
-  successResponse(res, result, 200, `Request ${status} successfully`);
+    
+  const result = await requestService.updateRequestStatus(id, status, actor, note);
+  successResponse(res, result, 200, `Request status updated to ${status}`);
+});
+
+// Fulfill a blood request
+export const fulfillRequest = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id || req.bloodBank.id;
+    const result = await requestService.fulfillRequest(id, bloodBankId, req.body);
+    successResponse(res, result, 200, 'Blood request fulfilled successfully');
+});
+
+// Get requests for blood bank
+export const getBloodBankRequests = asyncHandler(async (req, res) => {
+    if (!req.bloodBank) {
+        return res.status(403).json({ success: false, message: 'Not authorized as a blood bank' });
+    }
+    const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id || req.bloodBank.id;
+    const result = await requestService.getBloodBankRequests(bloodBankId, req.query);
+    successResponse(res, result, 200, 'Requests fetched for blood bank successfully');
 });
 

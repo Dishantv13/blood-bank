@@ -1,0 +1,102 @@
+import User from '../models/User.model.js';
+import { createNotification } from './notificationService.js';
+
+/**
+ * Blood group compatibility map (Receiver Group -> Compatible Donor Groups)
+ */
+const COMPATIBILITY_MAP = {
+  'A+': ['A+', 'A-', 'O+', 'O-'],
+  'A-': ['A-', 'O-'],
+  'B+': ['B+', 'B-', 'O+', 'O-'],
+  'B-': ['B-', 'O-'],
+  'AB+': ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+  'AB-': ['AB-', 'A-', 'B-', 'O-'],
+  'O+': ['O+', 'O-'],
+  'O-': ['O-']
+};
+
+/**
+ * Finds matching donors for a blood request
+ * @param {Object} request - BloodRequest document
+ * @param {Object} options - Filtering options (maxDistance, limit)
+ */
+export const findMatchingDonors = async (request, options = {}) => {
+  const { bloodGroup, hospital } = request;
+  const maxDistance = options.maxDistance || 10000; // Default 10km
+  const limit = options.limit || 50;
+
+  const compatibleGroups = COMPATIBILITY_MAP[bloodGroup] || [bloodGroup];
+
+  const query = {
+    isDonor: true,
+    isAvailable: true,
+    bloodGroup: { $in: compatibleGroups },
+    activeMode: 'donor',
+    _id: { $ne: request.requestedBy } // Don't match the requester
+  };
+
+  // Filter by eligibility (last donation date > 56 days / 3 months)
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  query.$or = [
+    { 'donorInfo.lastDonationDate': { $exists: false } },
+    { 'donorInfo.lastDonationDate': null },
+    { 'donorInfo.lastDonationDate': { $lte: threeMonthsAgo } }
+  ];
+
+  let donors = [];
+
+  if (hospital?.location?.coordinates?.length === 2) {
+    donors = await User.find({
+      ...query,
+      location: {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: hospital.location.coordinates
+          },
+          $maxDistance: maxDistance
+        }
+      }
+    })
+    .select('name email phone bloodGroup location donorInfo')
+    .limit(limit)
+    .lean();
+  } else {
+    // Fallback to non-geospatial if location is missing
+    donors = await User.find(query)
+      .select('name email phone bloodGroup location donorInfo')
+      .limit(limit)
+      .lean();
+  }
+
+  return donors;
+};
+
+/**
+ * Automatically notifies matching donors for a new request
+ * @param {Object} request - BloodRequest document
+ */
+export const notifyMatchingDonors = async (request) => {
+  if (request.status !== 'pending') return;
+
+  const donors = await findMatchingDonors(request, { limit: 20 });
+  
+  if (donors.length === 0) return;
+
+  const notificationPromises = donors.map(donor => 
+    createNotification({
+      recipient: donor._id,
+      recipientModel: 'User',
+      title: 'Urgent Blood Match Found!',
+      message: `A request for ${request.bloodGroup} blood is needed at ${request.hospital.name}. You are a match!`,
+      type: 'request',
+      actionUrl: `/requests/${request._id}`
+    })
+  );
+
+  await Promise.all(notificationPromises);
+  
+  console.log(`Notified ${donors.length} donors for request ${request._id}`);
+  return donors.length;
+};

@@ -8,6 +8,7 @@ export const TAGS = {
   USER: "User",
   DASHBOARD: "Dashboard",
   INVENTORY_ITEM: "InventoryItem",
+  NOTIFICATION: "Notification",
 
   ADMIN_STATS: "AdminStats",
   ADMIN_USER: "AdminUser",

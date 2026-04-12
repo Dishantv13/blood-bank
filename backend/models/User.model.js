@@ -69,6 +69,14 @@ const UserSchema = new mongoose.Schema({
     state: String,
     pincode: String
   },
+  emailPreferences: {
+    requests: { type: Boolean, default: true },
+    donations: { type: Boolean, default: true },
+    camps: { type: Boolean, default: true },
+    events: { type: Boolean, default: true },
+    reminders: { type: Boolean, default: true },
+    promotional: { type: Boolean, default: false }
+  },
   location: {
     type: {
       type: String,

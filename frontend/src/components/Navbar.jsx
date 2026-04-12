@@ -5,15 +5,21 @@ import { useGetAllBloodBanksQuery } from '../store/bloodBankApi';
 import { useGetDonorsQuery } from '../store/userApi';
 import ThemeToggle from './ThemeToggle';
 import { ROUTE_PATH } from '../enum/routePath';
+import NotificationCenter from './NotificationCenter';
+import { useGetUnreadCountQuery } from '../store/notificationApi';
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false);
+
+  const { data: unreadData } = useGetUnreadCountQuery(undefined, {
+    skip: !isAuthenticated,
+    pollingInterval: 30000 
+  });
+  const unreadCount = unreadData?.unreadCount || 0;
 
   const handleLogout = async () => {
     await logout();
@@ -25,22 +31,6 @@ const Navbar = () => {
   const skip = !isAuthenticated;
   const { data: bbRes } = useGetAllBloodBanksQuery(undefined, { pollingInterval: 600000, skip });
   const { data: donorsRes } = useGetDonorsQuery({}, { pollingInterval: 600000, skip });
-
-  // Update notifications when data changes
-  useEffect(() => {
-    if (!isAuthenticated || !bbRes?.data || !donorsRes?.data) return;
-    // ... rest of notification logic ...
-  }, [bbRes?.data, donorsRes?.data, isAuthenticated]);
-
-  const markAsRead = (notificationId) => {
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
 
   const getNavLinkClass = ({ isActive }) => (isActive ? 'active' : '');
 
@@ -127,10 +117,10 @@ const Navbar = () => {
               <div className="notification-container">
                 <button
                   className="notification-btn"
-                  onClick={() => setShowNotifications(!showNotifications)}
+                  onClick={() => setIsNotificationDrawerOpen(true)}
                   aria-label="Notifications"
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'white' }}>
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                     <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                   </svg>
@@ -138,64 +128,12 @@ const Navbar = () => {
                     <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
                   )}
                 </button>
-
-                {showNotifications && (
-                  <div className="notification-dropdown">
-                    <div className="notification-header">
-                      <h3>Notifications</h3>
-                      {unreadCount > 0 && (
-                        <button className="mark-all-read" onClick={markAllAsRead}>
-                          Mark all as read
-                        </button>
-                      )}
-                    </div>
-                    <div className="notification-list">
-                      {notifications.length === 0 ? (
-                        <div className="no-notifications">
-                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                          </svg>
-                          <p>No notifications yet</p>
-                        </div>
-                      ) : (
-                        notifications.map(notif => (
-                          <div
-                            key={notif.id}
-                            className={`notification-item ${notif.read ? 'read' : 'unread'}`}
-                            onClick={() => markAsRead(notif.id)}
-                          >
-                            <div className="notification-icon">
-                              {notif.type === 'blood-bank' ? (
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                                </svg>
-                              ) : (
-                                <svg width="24" height="24" viewBox="0 0 20 20" fill="currentColor">
-                                  <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" />
-                                </svg>
-                              )}
-                            </div>
-                            <div className="notification-content">
-                              <h4>{notif.title}</h4>
-                              <p>{notif.message}</p>
-                              <span className="notification-time">
-                                {new Date(notif.timestamp).toLocaleString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            </div>
-                            {!notif.read && <div className="unread-dot"></div>}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
+
+              <NotificationCenter 
+                isOpen={isNotificationDrawerOpen} 
+                onClose={() => setIsNotificationDrawerOpen(false)} 
+              />
 
               <div className="profile-dropdown">
                 <button

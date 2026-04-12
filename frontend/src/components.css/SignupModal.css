@@ -260,7 +260,139 @@
 }
 
 .alert-icon {
-  font-size: 1.2rem;
+  color: #db2777; /* Rose 600 */
+}
+
+/* OTP Verification Styles */
+.signup-modal-otp-wrapper {
+  animation: fadeIn 0.4s ease-out;
+  padding: 0.5rem 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.otp-modal-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.otp-modal-header p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.otp-modal-header strong {
+  color: var(--text-main);
+}
+
+.error-alert {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.otp-input-field {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.otp-input-field:focus {
+  transform: scale(1.02);
+  letter-spacing: 10px !important;
+}
+
+.attempts-remaining {
+  display: block;
+  text-align: center;
+  margin-top: 0.75rem;
+  color: #f59e0b; /* Amber 500 */
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.modal-otp-footer {
+  text-align: center;
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-otp-footer p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.resend-timer {
+  color: var(--text-main);
+  font-weight: 600;
+  margin-left: 0.25rem;
+}
+
+.resend-link {
+  background: none;
+  border: none;
+  color: #e63946;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 0.25rem;
+  transition: all 0.2s;
+}
+
+.resend-link:hover:not(:disabled) {
+  text-decoration: underline;
+  opacity: 0.8;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: all 0.2s;
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.back-btn:hover {
+  color: var(--text-main);
+  text-decoration: underline;
+}
+
+.btn-loading {
+  position: relative;
+  color: transparent !important;
+}
+
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: calc(50% - 10px);
+  left: calc(50% - 10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spinner 0.6s linear infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
 }
 
 /* Responsive */

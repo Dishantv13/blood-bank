@@ -66,10 +66,6 @@ const AdminDonationsByUser = () => {
         <p className="page-subtitle">View and manage donation records for: {userName}</p>
       </div>
 
-      <button className="btn-premium" style={{ marginBottom: '1.5rem' }} onClick={() => navigate(ROUTE_PATH.ADMIN_DONATIONS)}>
-        Back to Donations
-      </button>
-
       <div className="filters-panel">
         <input
           type="text"

@@ -47,7 +47,7 @@ export const createAuthSession = async ({
 };
 
 export const getAuthSessionForRefresh = async ({ role, sessionId }) =>
-  AuthSession.findOne({ role, sessionId }).select('+refreshTokenHash').lean();
+  AuthSession.findOne({ role, sessionId }).select('+refreshTokenHash +previousRefreshTokenHash').lean();
 
 export const rotateAuthSession = async ({
   role,
@@ -57,11 +57,15 @@ export const rotateAuthSession = async ({
   tokenVersion,
   req,
 }) => {
+  const session = await AuthSession.findOne({ role, sessionId }).select('refreshTokenHash');
+  const previousRefreshTokenHash = session?.refreshTokenHash || null;
+
   await AuthSession.updateOne(
     { role, sessionId, revokedAt: null },
     {
       $set: {
         refreshTokenHash,
+        previousRefreshTokenHash,
         expiresAt: new Date(refreshTokenExpiresAt),
         tokenVersion,
         lastUsedAt: new Date(),

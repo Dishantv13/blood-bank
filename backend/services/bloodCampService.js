@@ -4,6 +4,8 @@ import User from '../models/User.model.js';
 import Donation from '../models/Donation.model.js';
 import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
+import { sendRegistrationConfirmationEmail } from '../utils/emailService.js';
+import { createNotification, broadcastNotification } from './notificationService.js';
 
 const CAMP_LIST_FIELDS = '_id name organizer organizerName date startTime endTime venue address city state targetUnits collectedUnits description contactPhone status registeredDonors.donor';
 
@@ -54,6 +56,15 @@ export const createCamp = async (bloodBank, data) => {
   });
 
   await camp.save();
+
+  // Notify all users about the new camp
+  broadcastNotification({
+    title: 'New Blood Donation Camp',
+    message: `${bloodBank.name} has organized a new blood donation camp: ${camp.name}. Join us to save lives!`,
+    type: 'event', // Use 'event' type for both events and camps in notifications
+    actionUrl: '/events'
+  }).catch(err => console.error('Broadcast notification for camp failed:', err));
+
   return camp;
 };
 
@@ -131,6 +142,20 @@ export const registerCamp = async (campId, userId) => {
   });
 
   await Promise.all([camp.save(), donation.save()]);
+
+  // Send confirmation email (async)
+  sendRegistrationConfirmationEmail(user, 'camp', camp)
+    .catch(err => console.error('Camp registration email failed:', err));
+
+  // Create in-app notification
+  createNotification({
+    recipient: user._id,
+    recipientModel: 'User',
+    title: 'Camp Registration Confirmed',
+    message: `You have successfully registered for the camp: ${camp.name}.`,
+    type: 'event',
+    actionUrl: '/dashboard'
+  }).catch(err => console.error('In-app notification failed:', err));
 
   return {
     registration: {

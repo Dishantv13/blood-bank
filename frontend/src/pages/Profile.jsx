@@ -192,7 +192,7 @@ const Profile = () => {
       setEditing(false);
       
       // Update global auth context
-      const updatedUser = response.user;
+      const updatedUser = response.user || response.data || response;
       setAuthUser(updatedUser);
       
       setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);

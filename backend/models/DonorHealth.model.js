@@ -140,7 +140,7 @@ const DonorHealthSchema = new mongoose.Schema({
 });
 
 // Update the updatedAt field before saving
-DonorHealthSchema.pre('save', function(next) {
+DonorHealthSchema.pre('save', async function() {
   this.updatedAt = Date.now();
   
   // Auto-calculate eligibility based on conditions
@@ -180,8 +180,6 @@ DonorHealthSchema.pre('save', function(next) {
     this.eligibility.isEligible = true;
     this.eligibility.reasonsForIneligibility = [];
   }
-  
-  next();
 });
 
 // Index for efficient queries

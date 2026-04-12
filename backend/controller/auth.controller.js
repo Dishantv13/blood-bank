@@ -5,8 +5,22 @@ import { ensureValid } from '../middleware/validateRequest.js';
 
 export const register = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
-  const result = await authService.registerAndCreateSession(req, res);
-  successResponse(res, result, 201, 'User registered successfully');
+  const result = await authService.initiateUserRegistration(req, req.body);
+  successResponse(res, result, 200, 'OTP sent to your email');
+});
+
+export const verifyOtp = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
+  const { verificationId, otp } = req.body;
+  const result = await authService.verifyUserRegistrationOtp(req, res, verificationId, otp);
+  successResponse(res, result, 201, 'Registration completed successfully');
+});
+
+export const resendOtp = asyncHandler(async (req, res) => {
+  if (!ensureValid(req, res)) return;
+  const { verificationId } = req.body;
+  const result = await authService.resendUserRegistrationOtp(req, verificationId);
+  successResponse(res, result, 200, 'New OTP sent to your email');
 });
 
 export const login = asyncHandler(async (req, res) => {
@@ -78,5 +92,3 @@ export const changePassword = asyncHandler(async (req, res) => {
   await authService.changePassword(userId, currentPassword, newPassword);
   successResponse(res, { success: true }, 200, 'Password changed successfully');
 });
-
-
