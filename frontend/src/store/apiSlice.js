@@ -15,8 +15,6 @@ if (import.meta.env.PROD && !API_URL.startsWith('https://')) {
   throw new Error('❌ SECURITY VIOLATION: Production API must use HTTPS. Current API_URL: ' + API_URL);
 }
 
-console.info('🔗 API URL configured:', API_URL);
-
 const getUrlFromArgs = (args) => {
   if (typeof args === 'string') return args;
   if (args && typeof args === 'object' && typeof args.url === 'string') return args.url;

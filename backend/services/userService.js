@@ -45,9 +45,8 @@ export const getUserProfile = async (userId) => {
     throw new ApiError(404, 'User not found');
   }
 
-  // Set default activeMode if not set
+  // Provide a sensible default for activeMode without writing to the DB
   if (!user.activeMode) {
-    await User.findByIdAndUpdate(userId, { activeMode: 'patient' });
     user.activeMode = 'patient';
   }
 

@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { Parser } from 'json2csv';
+import mongoose from 'mongoose';
 import User from '../models/User.model.js';
 import BloodRequest from '../models/BloodRequest.model.js';
 import BloodBank from '../models/BloodBank.model.js';
@@ -16,6 +17,35 @@ import {
 } from './bloodBankService.js';
 import { BLOOD_BANK_SAFE_FIELDS, USER_SAFE_FIELDS, sanitizeBloodBank, sanitizeUser } from '../utils/serializers.js';
 
+// Maximum rows returned by any single export to prevent memory exhaustion.
+const MAX_EXPORT_ROWS = 10_000;
+
+/**
+ * Escapes regex special characters and trims to a safe length.
+ * Prevents ReDoS attacks via user-supplied search strings.
+ */
+const escapeRegex = (raw, maxLen = 100) =>
+  String(raw || '').substring(0, maxLen).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Builds a $or search filter with regex-escaped terms applied to the given fields.
+ * Returns null when no valid search string is provided.
+ */
+const buildSafeSearchFilter = (rawSearch, fields) => {
+  if (!rawSearch || typeof rawSearch !== 'string' || !rawSearch.trim()) return null;
+  const escaped = escapeRegex(rawSearch);
+  return { $or: fields.map((field) => ({ [field]: { $regex: escaped, $options: 'i' } })) };
+};
+
+/**
+ * Prefixes cells that start with formula-trigger characters to prevent
+ * CSV injection when the file is opened in a spreadsheet application.
+ */
+const csvSafe = (val) => {
+  const str = String(val ?? '');
+  return /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
+};
+
 const buildWorkbookBuffer = async (sheetName, rows) => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet(sheetName);
@@ -30,44 +60,48 @@ const buildWorkbookBuffer = async (sheetName, rows) => {
 };
 
 export const exportUsers = async () => {
-  const users = await User.find().select(USER_SAFE_FIELDS).lean();
+  const users = await User.find().select(USER_SAFE_FIELDS).limit(MAX_EXPORT_ROWS).lean();
+  const rowsLimited = users.length === MAX_EXPORT_ROWS;
   const rows = users.map((user) => ({
-    Name: user.name,
-    Email: user.email,
+    Name: csvSafe(user.name),
+    Email: csvSafe(user.email),
     Phone: user.phone || 'N/A',
     BloodGroup: user.bloodGroup || 'N/A',
     Role: user.role,
     IsDonor: user.isDonor ? 'Yes' : 'No',
     CreatedAt: new Date(user.createdAt).toLocaleDateString()
   }));
-  return { buffer: await buildWorkbookBuffer('Users', rows), filename: 'users.xlsx' };
+  return { buffer: await buildWorkbookBuffer('Users', rows), filename: 'users.xlsx', rowsLimited };
 };
 
 export const exportRequests = async () => {
   const requests = await BloodRequest.find()
     .populate('requestedBy', 'name email phone')
     .populate('bloodBank', 'name phone')
+    .limit(MAX_EXPORT_ROWS)
     .lean();
 
+  const rowsLimited = requests.length === MAX_EXPORT_ROWS;
   const rows = requests.map((req) => ({
     RequestId: req._id.toString(),
-    RequesterName: req.requestedBy?.name || 'Unknown',
+    RequesterName: csvSafe(req.requestedBy?.name || 'Unknown'),
     BloodGroup: req.bloodGroup,
     Units: req.units,
-    BloodBank: req.bloodBank?.name || 'N/A',
+    BloodBank: csvSafe(req.bloodBank?.name || 'N/A'),
     Status: req.status,
     Urgency: req.urgency,
     RequiredBy: req.requiredBy ? new Date(req.requiredBy).toLocaleDateString() : 'N/A'
   }));
 
-  return { buffer: await buildWorkbookBuffer('Requests', rows), filename: 'blood_requests.xlsx' };
+  return { buffer: await buildWorkbookBuffer('Requests', rows), filename: 'blood_requests.xlsx', rowsLimited };
 };
 
 export const exportBloodBanks = async () => {
-  const banks = await BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean();
+  const banks = await BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).limit(MAX_EXPORT_ROWS).lean();
+  const rowsLimited = banks.length === MAX_EXPORT_ROWS;
   const rows = banks.map((bank) => ({
-    Name: bank.name,
-    Email: bank.email,
+    Name: csvSafe(bank.name),
+    Email: csvSafe(bank.email),
     Phone: bank.phone,
     LicenseNumber: bank.licenseNumber,
     City: bank.address?.city || 'N/A',
@@ -76,35 +110,37 @@ export const exportBloodBanks = async () => {
     CreatedAt: new Date(bank.createdAt).toLocaleDateString()
   }));
 
-  return { buffer: await buildWorkbookBuffer('BloodBanks', rows), filename: 'blood_banks.xlsx' };
+  return { buffer: await buildWorkbookBuffer('BloodBanks', rows), filename: 'blood_banks.xlsx', rowsLimited };
 };
 
 export const exportCamps = async () => {
-  const camps = await BloodCamp.find().populate('organizer', 'name email phone').lean();
+  const camps = await BloodCamp.find().populate('organizer', 'name email phone').limit(MAX_EXPORT_ROWS).lean();
+  const rowsLimited = camps.length === MAX_EXPORT_ROWS;
   const rows = camps.map((camp) => ({
-    CampName: camp.name,
-    Organizer: camp.organizerName || camp.organizer?.name || 'Unknown',
-    Date: new Date(camp.date).toLocaleDateString(),
-    Venue: camp.venue,
-    City: camp.city,
+    CampName: csvSafe(camp.name),
+    Organizer: csvSafe(camp.organizerName || camp.organizer?.name || 'Unknown'),
+    Date: camp.date ? new Date(camp.date).toLocaleDateString() : 'N/A',
+    Venue: csvSafe(camp.venue),
+    City: csvSafe(camp.city),
     Status: camp.status
   }));
 
-  return { buffer: await buildWorkbookBuffer('BloodCamps', rows), filename: 'blood_camps.xlsx' };
+  return { buffer: await buildWorkbookBuffer('BloodCamps', rows), filename: 'blood_camps.xlsx', rowsLimited };
 };
 
 export const exportEvents = async () => {
-  const events = await Event.find().lean();
+  const events = await Event.find().limit(MAX_EXPORT_ROWS).lean();
+  const rowsLimited = events.length === MAX_EXPORT_ROWS;
   const rows = events.map((event) => ({
-    Title: event.title,
-    Date: new Date(event.date).toLocaleDateString(),
-    Organizer: event.organizer,
+    Title: csvSafe(event.title),
+    Date: event.date ? new Date(event.date).toLocaleDateString() : 'N/A',
+    Organizer: csvSafe(event.organizer),
     EventType: event.eventType,
     Visibility: event.visibility,
     Active: event.isActive ? 'Yes' : 'No'
   }));
 
-  return { buffer: await buildWorkbookBuffer('Events', rows), filename: 'events.xlsx' };
+  return { buffer: await buildWorkbookBuffer('Events', rows), filename: 'events.xlsx', rowsLimited };
 };
 
 // ===================== EXPORT FORMAT UPGRADE (CSV + Module-wise/All-in-One) =====================
@@ -122,137 +158,182 @@ const buildCsvBuffer = (rows) => {
 };
 
 export const exportUsersCsv = async () => {
-  const users = await User.find().select(USER_SAFE_FIELDS).lean();
+  const users = await User.find()
+    .select('name email phone bloodGroup isAvailable isDonor lastDonationDate createdAt')
+    .limit(MAX_EXPORT_ROWS)
+    .lean();
+  const rowsLimited = users.length === MAX_EXPORT_ROWS;
   const rows = users.map((user) => ({
-    Name: user.name,
-    Email: user.email,
-    Phone: user.mobileNumber || 'N/A',
-    BloodType: user.bloodType || 'N/A',
-    Status: user.status,
-    DonationCount: user.donationCount || 0,
-    CreatedAt: new Date(user.createdAt).toLocaleDateString()
+    Name: csvSafe(user.name),
+    Email: csvSafe(user.email),
+    Phone: user.phone || 'N/A',
+    BloodGroup: user.bloodGroup || 'N/A',
+    Status: user.isAvailable ? 'active' : 'inactive',
+    IsDonor: user.isDonor ? 'Yes' : 'No',
+    LastDonationDate: user.lastDonationDate ? new Date(user.lastDonationDate).toLocaleDateString() : 'N/A',
+    CreatedAt: new Date(user.createdAt).toLocaleDateString(),
   }));
-  
+
   const csv = buildCsvBuffer(rows);
-  return { buffer: Buffer.from(csv), filename: `users_${new Date().toISOString().split('T')[0]}.csv` };
+  return { buffer: Buffer.from(csv), filename: `users_${new Date().toISOString().split('T')[0]}.csv`, rowsLimited };
 };
 
 export const exportRequestsCsv = async () => {
-  const requests = await BloodRequest.find().lean();
+  const requests = await BloodRequest.find()
+    .select('patientName bloodGroup units hospital status urgency createdAt')
+    .limit(MAX_EXPORT_ROWS)
+    .lean();
+  const rowsLimited = requests.length === MAX_EXPORT_ROWS;
   const rows = requests.map((req) => ({
-    PatientName: req.patientName,
-    BloodType: req.bloodType,
-    Quantity: req.quantity,
-    Hospital: req.hospital,
+    PatientName: csvSafe(req.patientName),
+    BloodGroup: req.bloodGroup,
+    Units: req.units,
+    Hospital: csvSafe(req.hospital?.name || req.hospital?.address || 'N/A'),
     Status: req.status,
     Urgency: req.urgency,
-    RequestedAt: new Date(req.requestedAt).toLocaleDateString()
+    RequestedAt: new Date(req.createdAt).toLocaleDateString(),
   }));
-  
+
   const csv = buildCsvBuffer(rows);
-  return { buffer: Buffer.from(csv), filename: `blood_requests_${new Date().toISOString().split('T')[0]}.csv` };
+  return { buffer: Buffer.from(csv), filename: `blood_requests_${new Date().toISOString().split('T')[0]}.csv`, rowsLimited };
 };
 
 export const exportBloodBanksCsv = async () => {
-  const banks = await BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean();
+  const banks = await BloodBank.find()
+    .select('name email phone licenseNumber address approvalStatus createdAt')
+    .limit(MAX_EXPORT_ROWS)
+    .lean();
+  const rowsLimited = banks.length === MAX_EXPORT_ROWS;
   const rows = banks.map((bank) => ({
-    Name: bank.name,
-    Email: bank.email,
-    Mobile: bank.mobileNumber,
-    RegistrationNumber: bank.registrationNumber,
-    City: bank.city,
-    State: bank.state,
-    Status: bank.approvalStatus || bank.status,
-    CreatedAt: new Date(bank.createdAt).toLocaleDateString()
+    Name: csvSafe(bank.name),
+    Email: csvSafe(bank.email),
+    Phone: bank.phone || 'N/A',
+    LicenseNumber: bank.licenseNumber || 'N/A',
+    City: bank.address?.city || 'N/A',
+    State: bank.address?.state || 'N/A',
+    Status: bank.approvalStatus || 'pending',
+    CreatedAt: new Date(bank.createdAt).toLocaleDateString(),
   }));
-  
+
   const csv = buildCsvBuffer(rows);
-  return { buffer: Buffer.from(csv), filename: `blood_banks_${new Date().toISOString().split('T')[0]}.csv` };
+  return { buffer: Buffer.from(csv), filename: `blood_banks_${new Date().toISOString().split('T')[0]}.csv`, rowsLimited };
 };
 
 export const exportCampsCsv = async () => {
-  const camps = await BloodCamp.find().lean();
+  const camps = await BloodCamp.find()
+    .select('name organizerName venue city date status createdAt')
+    .limit(MAX_EXPORT_ROWS)
+    .lean();
+  const rowsLimited = camps.length === MAX_EXPORT_ROWS;
   const rows = camps.map((camp) => ({
-    Name: camp.name,
-    Location: camp.location,
-    StartDate: new Date(camp.startDate).toLocaleDateString(),
-    EndDate: new Date(camp.endDate).toLocaleDateString(),
-    BloodCollected: camp.bloodCollected || 0,
-    Status: camp.status
+    Name: csvSafe(camp.name),
+    Organizer: csvSafe(camp.organizerName || 'N/A'),
+    Venue: csvSafe(camp.venue || 'N/A'),
+    City: csvSafe(camp.city || 'N/A'),
+    Date: camp.date ? new Date(camp.date).toLocaleDateString() : 'N/A',
+    Status: camp.status,
   }));
-  
+
   const csv = buildCsvBuffer(rows);
-  return { buffer: Buffer.from(csv), filename: `blood_camps_${new Date().toISOString().split('T')[0]}.csv` };
+  return { buffer: Buffer.from(csv), filename: `blood_camps_${new Date().toISOString().split('T')[0]}.csv`, rowsLimited };
 };
 
 export const exportEventsCsv = async () => {
-  const events = await Event.find().lean();
+  const events = await Event.find()
+    .select('title eventType date location isActive createdAt')
+    .limit(MAX_EXPORT_ROWS)
+    .lean();
+  const rowsLimited = events.length === MAX_EXPORT_ROWS;
   const rows = events.map((event) => ({
-    Name: event.name,
-    Type: event.type,
-    StartDate: new Date(event.startDate).toLocaleDateString(),
-    EndDate: new Date(event.endDate).toLocaleDateString(),
-    Location: event.location,
-    Status: event.status
+    Title: csvSafe(event.title),
+    EventType: event.eventType || 'N/A',
+    Date: event.date ? new Date(event.date).toLocaleDateString() : 'N/A',
+    Location: csvSafe(event.location?.name || event.location?.address || 'N/A'),
+    Active: event.isActive ? 'Yes' : 'No',
   }));
-  
+
   const csv = buildCsvBuffer(rows);
-  return { buffer: Buffer.from(csv), filename: `events_${new Date().toISOString().split('T')[0]}.csv` };
+  return { buffer: Buffer.from(csv), filename: `events_${new Date().toISOString().split('T')[0]}.csv`, rowsLimited };
 };
 
 // All-in-One Export
 export const exportAllData = async (format = 'xlsx') => {
   const timestamp = new Date().toISOString().split('T')[0];
-  
+
+  const [usersData, requestsData, banksData, campsData, eventsData] = await Promise.all([
+    User.find().select('name email phone bloodGroup isAvailable isDonor createdAt').limit(MAX_EXPORT_ROWS).lean(),
+    BloodRequest.find().select('patientName bloodGroup units hospital status urgency createdAt').limit(MAX_EXPORT_ROWS).lean(),
+    BloodBank.find().select('name email phone licenseNumber address approvalStatus createdAt').limit(MAX_EXPORT_ROWS).lean(),
+    BloodCamp.find().select('name organizerName venue city date status createdAt').limit(MAX_EXPORT_ROWS).lean(),
+    Event.find().select('title eventType date location isActive createdAt').limit(MAX_EXPORT_ROWS).lean(),
+  ]);
+
+  const rowsLimited =
+    usersData.length === MAX_EXPORT_ROWS ||
+    requestsData.length === MAX_EXPORT_ROWS ||
+    banksData.length === MAX_EXPORT_ROWS ||
+    campsData.length === MAX_EXPORT_ROWS ||
+    eventsData.length === MAX_EXPORT_ROWS;
+
+  const userRows = usersData.map((u) => ({
+    Name: csvSafe(u.name), Email: csvSafe(u.email), Phone: u.phone || 'N/A',
+    BloodGroup: u.bloodGroup || 'N/A', Status: u.isAvailable ? 'active' : 'inactive',
+    IsDonor: u.isDonor ? 'Yes' : 'No', CreatedAt: new Date(u.createdAt).toLocaleDateString(),
+  }));
+  const requestRows = requestsData.map((r) => ({
+    PatientName: csvSafe(r.patientName), BloodGroup: r.bloodGroup, Units: r.units,
+    Hospital: csvSafe(r.hospital?.name || r.hospital?.address || 'N/A'),
+    Status: r.status, Urgency: r.urgency, RequestedAt: new Date(r.createdAt).toLocaleDateString(),
+  }));
+  const bankRows = banksData.map((b) => ({
+    Name: csvSafe(b.name), Email: csvSafe(b.email), Phone: b.phone || 'N/A',
+    LicenseNumber: b.licenseNumber || 'N/A', City: b.address?.city || 'N/A',
+    State: b.address?.state || 'N/A', Status: b.approvalStatus || 'pending',
+    CreatedAt: new Date(b.createdAt).toLocaleDateString(),
+  }));
+  const campRows = campsData.map((c) => ({
+    Name: csvSafe(c.name), Organizer: csvSafe(c.organizerName || 'N/A'),
+    Venue: csvSafe(c.venue || 'N/A'), City: csvSafe(c.city || 'N/A'),
+    Date: c.date ? new Date(c.date).toLocaleDateString() : 'N/A', Status: c.status,
+  }));
+  const eventRows = eventsData.map((e) => ({
+    Title: csvSafe(e.title), EventType: e.eventType || 'N/A',
+    Date: e.date ? new Date(e.date).toLocaleDateString() : 'N/A',
+    Location: csvSafe(e.location?.name || e.location?.address || 'N/A'),
+    Active: e.isActive ? 'Yes' : 'No',
+  }));
+
   if (format === 'csv') {
-    const [usersData, requestsData, banksData, campsData, eventsData] = await Promise.all([
-      User.find().select(USER_SAFE_FIELDS).lean(),
-      BloodRequest.find().lean(),
-      BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean(),
-      BloodCamp.find().lean(),
-      Event.find().lean(),
-    ]);
-
-    const allData = {
-      users: usersData.map(u => ({ ...u, category: 'Users' })),
-      requests: requestsData.map(r => ({ ...r, category: 'Requests' })),
-      banks: banksData.map(b => ({ ...b, category: 'BloodBanks' })),
-      camps: campsData.map(c => ({ ...c, category: 'Camps' })),
-      events: eventsData.map(e => ({ ...e, category: 'Events' })),
-    };
-
-    const csv = buildCsvBuffer(Object.values(allData).flat());
-    return { buffer: Buffer.from(csv), filename: `all_data_${timestamp}.csv` };
-  } else {
-    // XLSX format — fetch all collections in parallel
-    const [usersRows, banksRows, campsRows, eventsRows, requestsRows] = await Promise.all([
-      User.find().select(USER_SAFE_FIELDS).lean(),
-      BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).lean(),
-      BloodCamp.find().lean(),
-      Event.find().lean(),
-      BloodRequest.find().lean(),
-    ]);
-
-    const workbook = new ExcelJS.Workbook();
-
-    const addSheet = (name, rows) => {
-      const sheet = workbook.addWorksheet(name);
-      if (rows.length > 0) {
-        const headers = Object.keys(rows[0]);
-        sheet.addRow(headers);
-        rows.forEach((row) => sheet.addRow(headers.map((h) => row[h])));
-      }
-    };
-
-    addSheet('Users', usersRows);
-    addSheet('BloodBanks', banksRows);
-    addSheet('Camps', campsRows);
-    addSheet('Events', eventsRows);
-    addSheet('Requests', requestsRows);
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    return { buffer, filename: `all_data_${timestamp}.xlsx` };
+    const allRows = [
+      ...userRows.map((r) => ({ ...r, _sheet: 'Users' })),
+      ...requestRows.map((r) => ({ ...r, _sheet: 'Requests' })),
+      ...bankRows.map((r) => ({ ...r, _sheet: 'BloodBanks' })),
+      ...campRows.map((r) => ({ ...r, _sheet: 'Camps' })),
+      ...eventRows.map((r) => ({ ...r, _sheet: 'Events' })),
+    ];
+    const csv = buildCsvBuffer(allRows);
+    return { buffer: Buffer.from(csv), filename: `all_data_${timestamp}.csv`, rowsLimited };
   }
+
+  // XLSX format – one sheet per collection
+  const workbook = new ExcelJS.Workbook();
+  const addSheet = (name, rows) => {
+    const sheet = workbook.addWorksheet(name);
+    if (rows.length > 0) {
+      const headers = Object.keys(rows[0]);
+      sheet.addRow(headers);
+      rows.forEach((row) => sheet.addRow(headers.map((h) => row[h])));
+    }
+  };
+
+  addSheet('Users', userRows);
+  addSheet('BloodBanks', bankRows);
+  addSheet('Camps', campRows);
+  addSheet('Events', eventRows);
+  addSheet('Requests', requestRows);
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  return { buffer, filename: `all_data_${timestamp}.xlsx`, rowsLimited };
 };
 
 // ===================== USERS MANAGEMENT =====================
@@ -290,12 +371,16 @@ export const getAllUsers = async (page = 1, limit = 10, filters = {}) => {
     ];
   }
 
-  const users = await User.find(query)
-    .select('_id name email phone bloodGroup isAvailable donorInfo lastDonationDate createdAt')
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .lean();
+  // Run find + countDocuments in parallel (countDocuments does not depend on userIds)
+  const [users, total] = await Promise.all([
+    User.find(query)
+      .select('_id name email phone bloodGroup isAvailable donorInfo lastDonationDate createdAt')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean(),
+    User.countDocuments(query),
+  ]);
 
   const userIds = users.map((user) => user._id);
 
@@ -312,8 +397,6 @@ export const getAllUsers = async (page = 1, limit = 10, filters = {}) => {
 
   const requestCountMap = new Map(requestCounts.map((item) => [String(item._id), item.count]));
   const donationCountMap = new Map(donationCounts.map((item) => [String(item._id), item.count]));
-
-  const total = await User.countDocuments(query);
   const normalizedUsers = users.map((user) => ({
     _id: user._id,
     name: user.name,
@@ -351,6 +434,7 @@ export const getUserById = async (userId) => {
 };
 
 export const updateUserStatus = async (userId, status) => {
+  ensureValidObjectId(userId, 'user id');
   const validStatuses = ['active', 'inactive', 'suspended'];
   if (!validStatuses.includes(status)) {
     throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
@@ -373,29 +457,33 @@ export const updateUserStatus = async (userId, status) => {
 
 // ===================== BLOOD BANKS MANAGEMENT =====================
 
+const ALLOWED_APPROVAL_STATUSES = ['pending', 'approved', 'rejected'];
+const ALLOWED_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const ALLOWED_CAMP_STATUSES = ['active', 'completed', 'cancelled'];
+const ALLOWED_EVENT_STATUSES = ['scheduled', 'ongoing', 'completed', 'cancelled'];
+const ALLOWED_REQUEST_STATUSES = ['pending', 'approved', 'rejected', 'fulfilled', 'cancelled'];
+const ALLOWED_URGENCY = ['high', 'medium', 'low', 'critical', 'urgent', 'normal'];
+const ALLOWED_DONATION_STATUSES = ['pending', 'approved', 'rejected', 'completed'];
+
 export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.status) {
+  if (filters.status && ALLOWED_APPROVAL_STATUSES.includes(filters.status)) {
     query.approvalStatus = filters.status;
   }
-  if (filters.search) {
-    query.$or = [
-      { name: { $regex: filters.search, $options: 'i' } },
-      { email: { $regex: filters.search, $options: 'i' } },
-      { 'address.city': { $regex: filters.search, $options: 'i' } },
-    ];
-  }
+  const searchFilter = buildSafeSearchFilter(filters.search, ['name', 'email', 'address.city']);
+  if (searchFilter) Object.assign(query, searchFilter);
 
-  const banks = await BloodBank.find(query)
-    .select('_id name email phone address isActive isVerified approvalStatus registrationNumber licenseNumber rejectionReason reviewedAt reviewedBy createdAt')
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const total = await BloodBank.countDocuments(query);
+  const [banks, total] = await Promise.all([
+    BloodBank.find(query)
+      .select('_id name email phone address isActive isVerified approvalStatus registrationNumber licenseNumber rejectionReason reviewedAt reviewedBy createdAt')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean(),
+    BloodBank.countDocuments(query),
+  ]);
   const normalizedBanks = banks.map((bank) => ({
     _id: bank._id,
     name: bank.name,
@@ -503,26 +591,20 @@ export const getAllCamps = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.status) query.status = filters.status;
-  if (filters.bloodBankId) query.organizer = filters.bloodBankId;
-  if (filters.search) {
-    query.$or = [
-      { name: { $regex: filters.search, $options: 'i' } },
-      { venue: { $regex: filters.search, $options: 'i' } },
-      { city: { $regex: filters.search, $options: 'i' } },
-      { address: { $regex: filters.search, $options: 'i' } },
-      { organizerName: { $regex: filters.search, $options: 'i' } },
-    ];
-  }
+  if (filters.status && ALLOWED_CAMP_STATUSES.includes(filters.status)) query.status = filters.status;
+  if (filters.bloodBankId && mongoose.Types.ObjectId.isValid(filters.bloodBankId)) query.organizer = new mongoose.Types.ObjectId(filters.bloodBankId);
+  const searchFilter = buildSafeSearchFilter(filters.search, ['name', 'venue', 'city', 'address', 'organizerName']);
+  if (searchFilter) Object.assign(query, searchFilter);
 
-  const camps = await BloodCamp.find(query)
-    .select('_id name organizer organizerName venue city address date status createdAt')
-    .skip(skip)
-    .limit(limit)
-    .sort({ date: -1 })
-    .lean();
-
-  const total = await BloodCamp.countDocuments(query);
+  const [camps, total] = await Promise.all([
+    BloodCamp.find(query)
+      .select('_id name organizer organizerName venue city address date status createdAt')
+      .skip(skip)
+      .limit(limit)
+      .sort({ date: -1 })
+      .lean(),
+    BloodCamp.countDocuments(query),
+  ]);
   const normalizedCamps = camps.map((camp) => ({
     _id: camp._id,
     name: camp.name,
@@ -550,24 +632,19 @@ export const getCampsByBloodBank = async (bankId, page = 1, limit = 10, filters 
   const skip = (page - 1) * limit;
   const query = { organizer: bankId };
 
-  if (filters.status) query.status = filters.status;
-  if (filters.search) {
-    query.$or = [
-      { name: { $regex: filters.search, $options: 'i' } },
-      { venue: { $regex: filters.search, $options: 'i' } },
-      { city: { $regex: filters.search, $options: 'i' } },
-      { address: { $regex: filters.search, $options: 'i' } },
-    ];
-  }
+  if (filters.status && ALLOWED_CAMP_STATUSES.includes(filters.status)) query.status = filters.status;
+  const searchFilter = buildSafeSearchFilter(filters.search, ['name', 'venue', 'city', 'address']);
+  if (searchFilter) Object.assign(query, searchFilter);
 
-  const camps = await BloodCamp.find(query)
-    .select('_id name organizer organizerName venue city address date status createdAt')
-    .skip(skip)
-    .limit(limit)
-    .sort({ date: -1 })
-    .lean();
-
-  const total = await BloodCamp.countDocuments(query);
+  const [camps, total] = await Promise.all([
+    BloodCamp.find(query)
+      .select('_id name organizer organizerName venue city address date status createdAt')
+      .skip(skip)
+      .limit(limit)
+      .sort({ date: -1 })
+      .lean(),
+    BloodCamp.countDocuments(query),
+  ]);
   const normalizedCamps = camps.map((camp) => ({
     _id: camp._id,
     name: camp.name,
@@ -626,12 +703,12 @@ export const getAllEvents = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.bloodBankId) {
+  if (filters.bloodBankId && mongoose.Types.ObjectId.isValid(filters.bloodBankId)) {
     query.organizerModel = 'BloodBank';
-    query.organizedBy = filters.bloodBankId;
+    query.organizedBy = new mongoose.Types.ObjectId(filters.bloodBankId);
   }
 
-  if (filters.status) {
+  if (filters.status && ALLOWED_EVENT_STATUSES.includes(filters.status)) {
     const now = new Date();
     if (filters.status === 'cancelled') query.isActive = false;
     if (filters.status === 'scheduled') {
@@ -650,24 +727,19 @@ export const getAllEvents = async (page = 1, limit = 10, filters = {}) => {
       query.date = { $lt: new Date(now.getFullYear(), now.getMonth(), now.getDate()) };
     }
   }
-  if (filters.search) {
-    query.$or = [
-      { title: { $regex: filters.search, $options: 'i' } },
-      { description: { $regex: filters.search, $options: 'i' } },
-      { 'location.name': { $regex: filters.search, $options: 'i' } },
-      { 'location.address': { $regex: filters.search, $options: 'i' } },
-    ];
-  }
+  const eventsSearchFilter = buildSafeSearchFilter(filters.search, ['title', 'description', 'location.name', 'location.address']);
+  if (eventsSearchFilter) Object.assign(query, eventsSearchFilter);
 
-  const events = await Event.find(query)
-    .populate('organizedBy', 'name')
-    .select('_id title description date location isActive organizer organizerModel organizedBy createdAt')
-    .skip(skip)
-    .limit(limit)
-    .sort({ date: -1 })
-    .lean();
-
-  const total = await Event.countDocuments(query);
+  const [events, total] = await Promise.all([
+    Event.find(query)
+      .populate('organizedBy', 'name')
+      .select('_id title description date location isActive organizer organizerModel organizedBy createdAt')
+      .skip(skip)
+      .limit(limit)
+      .sort({ date: -1 })
+      .lean(),
+    Event.countDocuments(query),
+  ]);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(todayStart);
@@ -737,24 +809,19 @@ export const getEventsByBloodBank = async (bankId, page = 1, limit = 10, filters
       query.date = { $lt: new Date(now.getFullYear(), now.getMonth(), now.getDate()) };
     }
   }
-  if (filters.search) {
-    query.$or = [
-      { title: { $regex: filters.search, $options: 'i' } },
-      { description: { $regex: filters.search, $options: 'i' } },
-      { 'location.name': { $regex: filters.search, $options: 'i' } },
-      { 'location.address': { $regex: filters.search, $options: 'i' } },
-    ];
-  }
+  const bloodBankEventsSearchFilter = buildSafeSearchFilter(filters.search, ['title', 'description', 'location.name', 'location.address']);
+  if (bloodBankEventsSearchFilter) Object.assign(query, bloodBankEventsSearchFilter);
 
-  const events = await Event.find(query)
-    .populate('organizedBy', 'name')
-    .select('_id title description date location isActive organizer organizerModel organizedBy createdAt')
-    .skip(skip)
-    .limit(limit)
-    .sort({ date: -1 })
-    .lean();
-
-  const total = await Event.countDocuments(query);
+  const [events, total] = await Promise.all([
+    Event.find(query)
+      .populate('organizedBy', 'name')
+      .select('_id title description date location isActive organizer organizerModel organizedBy createdAt')
+      .skip(skip)
+      .limit(limit)
+      .sort({ date: -1 })
+      .lean(),
+    Event.countDocuments(query),
+  ]);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const todayEnd = new Date(todayStart);
@@ -830,29 +897,25 @@ export const getAllRequests = async (page = 1, limit = 10, filters = {}) => {
   const skip = (page - 1) * limit;
   const query = {};
 
-  if (filters.status) query.status = filters.status;
-  if (filters.bloodType) query.bloodGroup = filters.bloodType;
-  if (filters.userId) query.requestedBy = filters.userId;
-  if (filters.urgency) {
+  if (filters.status && ALLOWED_REQUEST_STATUSES.includes(filters.status)) query.status = filters.status;
+  if (filters.bloodType && ALLOWED_BLOOD_GROUPS.includes(filters.bloodType)) query.bloodGroup = filters.bloodType;
+  if (filters.userId && mongoose.Types.ObjectId.isValid(filters.userId)) query.requestedBy = new mongoose.Types.ObjectId(filters.userId);
+  if (filters.urgency && ALLOWED_URGENCY.includes(filters.urgency)) {
     const urgencyMap = { high: 'critical', medium: 'urgent', low: 'normal' };
     query.urgency = urgencyMap[filters.urgency] || filters.urgency;
   }
-  if (filters.search) {
-    query.$or = [
-      { patientName: { $regex: filters.search, $options: 'i' } },
-      { 'hospital.name': { $regex: filters.search, $options: 'i' } },
-      { 'hospital.address': { $regex: filters.search, $options: 'i' } },
-    ];
-  }
+  const requestsSearchFilter = buildSafeSearchFilter(filters.search, ['patientName', 'hospital.name', 'hospital.address']);
+  if (requestsSearchFilter) Object.assign(query, requestsSearchFilter);
 
-  const requests = await BloodRequest.find(query)
-    .select('_id patientName bloodGroup units hospital urgency status createdAt')
-    .skip(skip)
-    .limit(limit)
-    .sort({ createdAt: -1 })
-    .lean();
-
-  const total = await BloodRequest.countDocuments(query);
+  const [requests, total] = await Promise.all([
+    BloodRequest.find(query)
+      .select('_id patientName bloodGroup units hospital urgency status createdAt')
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean(),
+    BloodRequest.countDocuments(query),
+  ]);
   const normalizedRequests = requests.map((request) => {
     const urgencyMap = { critical: 'high', urgent: 'medium', normal: 'low' };
     return {
@@ -911,31 +974,59 @@ export const updateRequestStatus = async (requestId, status) => {
 // ===================== DONATIONS MANAGEMENT =====================
 
 export const getAllDonations = async (page = 1, limit = 10, filters = {}) => {
-  const query = {};
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.min(100, Math.max(1, Number(limit) || 10));
+  const skip = (safePage - 1) * safeLimit;
 
-  if (filters.status) query.status = filters.status;
-  if (filters.bloodType) query.bloodGroup = filters.bloodType;
-  if (filters.userId) query.donor = filters.userId;
-
-  let donations = await Donation.find(query)
-    .populate('donor', 'name')
-    .select('_id donor bloodGroup volumeDonated status donationDate createdAt')
-    .sort({ donationDate: -1 })
-    .lean();
-
-  if (filters.search) {
-    const searchRegex = new RegExp(filters.search, 'i');
-    donations = donations.filter((donation) => searchRegex.test(donation.donor?.name || ''));
+  const matchStage = {};
+  if (filters.status && ALLOWED_DONATION_STATUSES.includes(filters.status)) matchStage.status = filters.status;
+  if (filters.bloodType && ALLOWED_BLOOD_GROUPS.includes(filters.bloodType)) matchStage.bloodGroup = filters.bloodType;
+  if (filters.userId && mongoose.Types.ObjectId.isValid(filters.userId)) {
+    matchStage.donor = new mongoose.Types.ObjectId(filters.userId);
   }
 
-  const total = donations.length;
-  const safePage = Number(page) > 0 ? Number(page) : 1;
-  const safeLimit = Number(limit) > 0 ? Number(limit) : 10;
-  const skip = (safePage - 1) * safeLimit;
-  const pagedDonations = donations.slice(skip, skip + safeLimit);
-  const normalizedDonations = pagedDonations.map((donation) => ({
+  const pipeline = [
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'donor',
+        foreignField: '_id',
+        as: 'donorData',
+        pipeline: [{ $project: { name: 1 } }],
+      },
+    },
+    { $addFields: { donorName: { $arrayElemAt: ['$donorData.name', 0] } } },
+  ];
+
+  if (filters.search && typeof filters.search === 'string') {
+    const escaped = escapeRegex(filters.search);
+    pipeline.push({ $match: { donorName: { $regex: escaped, $options: 'i' } } });
+  }
+
+  const countPipeline = [...pipeline, { $count: 'total' }];
+  const dataPipeline = [
+    ...pipeline,
+    { $sort: { donationDate: -1, createdAt: -1 } },
+    { $skip: skip },
+    { $limit: safeLimit },
+    {
+      $project: {
+        _id: 1, donorName: 1, bloodGroup: 1, volumeDonated: 1,
+        status: 1, donationDate: 1, createdAt: 1,
+      },
+    },
+  ];
+
+  const [countResult, donations] = await Promise.all([
+    Donation.aggregate(countPipeline),
+    Donation.aggregate(dataPipeline),
+  ]);
+
+  const total = countResult[0]?.total || 0;
+  const normalizedDonations = donations.map((donation) => ({
     _id: donation._id,
-    donorName: donation.donor?.name || 'Unknown',
+    donorName: donation.donorName || 'Unknown',
     bloodType: donation.bloodGroup,
     quantity: Math.round((donation.volumeDonated || 0) * 1000),
     status: donation.status,
@@ -988,8 +1079,8 @@ export const updateDonationStatus = async (donationId, status) => {
 export const getInventoryOverview = async (page = 1, limit = 10, filters = {}) => {
   const query = {};
 
-  if (filters.search) {
-    query.bloodBankName = { $regex: filters.search, $options: 'i' };
+  if (filters.search && typeof filters.search === 'string') {
+    query.bloodBankName = { $regex: escapeRegex(filters.search), $options: 'i' };
   }
 
   const inventoryDocs = await Inventory.find(query)

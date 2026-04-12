@@ -1,5 +1,18 @@
 import nodemailer from 'nodemailer';
 
+/**
+ * Escapes HTML special characters to prevent injection in email templates.
+ * Must be applied to every user-supplied value interpolated into HTML.
+ */
+const escapeHtml = (str) =>
+  String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+    .replace(/\//g, '&#x2F;');
+
 // Create transporter for sending emails
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -82,6 +95,7 @@ const sendPasswordResetEmail = async (email, resetToken, userType = 'user') => {
 
 const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
   try {
+    const safeBloodBankName = escapeHtml(bloodBankName || 'Blood Bank');
     const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-login`;
     const mailOptions = {
       from: process.env.EMAIL_USER || 'noreply@raktsarthi.com',
@@ -106,7 +120,7 @@ const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
                 <h2>Blood Bank Registration Approved</h2>
               </div>
               <div class="content">
-                <p>Hello ${bloodBankName || 'Blood Bank'},</p>
+                <p>Hello ${safeBloodBankName},</p>
                 <p>Your blood bank registration has been reviewed and approved by the admin team.</p>
                 <p>You can now log in to your blood bank portal using your registered email and password.</p>
                 <a href="${loginUrl}" class="button">Login to Blood Bank Portal</a>
@@ -134,6 +148,8 @@ const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
 
 const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason) => {
   try {
+    const safeBloodBankName = escapeHtml(bloodBankName || 'Blood Bank');
+    const safeRejectionReason = escapeHtml(rejectionReason);
     const mailOptions = {
       from: process.env.EMAIL_USER || 'noreply@raktsarthi.com',
       to: email,
@@ -157,11 +173,11 @@ const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason
                 <h2>Blood Bank Registration Rejected</h2>
               </div>
               <div class="content">
-                <p>Hello ${bloodBankName || 'Blood Bank'},</p>
+                <p>Hello ${safeBloodBankName},</p>
                 <p>Your registration request has been reviewed by the admin team and was not approved at this time.</p>
                 <div class="reason">
                   <strong>Reason for rejection:</strong>
-                  <p style="margin: 8px 0 0;">${rejectionReason}</p>
+                  <p style="margin: 8px 0 0;">${safeRejectionReason}</p>
                 </div>
                 <p>Please review the reason above and contact the admin team or support before trying again.</p>
                 <p>Best regards,<br><strong>RaktSarthi Team</strong></p>
