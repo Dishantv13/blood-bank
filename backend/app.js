@@ -36,6 +36,28 @@ const shouldCompress = (req, res) => {
   return compression.filter(req, res);
 };
 
+const sanitizeRequestPayload = (req, _res, next) => {
+  const sanitizeOptions = {};
+
+  if (req.body) {
+    mongoSanitize.sanitize(req.body, sanitizeOptions);
+  }
+
+  if (req.params) {
+    mongoSanitize.sanitize(req.params, sanitizeOptions);
+  }
+
+  if (req.headers) {
+    mongoSanitize.sanitize(req.headers, sanitizeOptions);
+  }
+
+  if (req.query) {
+    mongoSanitize.sanitize(req.query, sanitizeOptions);
+  }
+
+  next();
+};
+
 // ==================== CORS CONFIGURATION ====================
 const envOrigins = String(process.env.FRONTEND_URLS || "")
   .split(",")
@@ -138,7 +160,6 @@ app.use(helmet({
     payment: [],
   },
 }));
-app.use(mongoSanitize());
 app.use(compression({ filter: shouldCompress }));
 app.use(requestLogger(1000));
 app.use(cookieParser());
@@ -150,6 +171,7 @@ app.use("/api/", globalApiLimiter);
 // Reduced from 10mb to 1mb to prevent DoS attacks via large payloads
 app.use(json({ limit: "1mb" }));
 app.use(urlencoded({ extended: true, limit: "1mb" }));
+app.use(sanitizeRequestPayload);
 
 // ==================== REQUEST TIMEOUT PROTECTION ====================
 // Prevent hanging connections before route handling starts.
