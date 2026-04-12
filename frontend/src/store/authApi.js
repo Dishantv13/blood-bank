@@ -34,6 +34,20 @@ export const authApi = apiSlice.injectEndpoints({
         body: userData,
       }),
     }),
+    verifyOtp: builder.mutation({
+      query: (otpData) => ({
+        url: AUTH_API_URLS.VERIFY_OTP,
+        method: 'POST',
+        body: otpData,
+      }),
+    }),
+    resendOtp: builder.mutation({
+      query: (otpData) => ({
+        url: AUTH_API_URLS.RESEND_OTP,
+        method: 'POST',
+        body: otpData,
+      }),
+    }),
     logout: builder.mutation({
       query: () => ({
         url: AUTH_API_URLS.LOGOUT,
@@ -100,6 +114,8 @@ export const {
   useAdminLoginMutation,
   useLoginMutation,
   useRegisterMutation,
+  useVerifyOtpMutation,
+  useResendOtpMutation,
   useLogoutMutation,
   useRefreshSessionMutation,
   useAdminLogoutMutation,

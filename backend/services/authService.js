@@ -3,8 +3,13 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.model.js';
-import { sendPasswordResetEmail } from '../utils/emailService.js';
-import { validateUserRegistration, validateEmail, validatePassword } from './validationService.js';
+import RegistrationOtp from '../models/BloodBankRegistrationOtp.model.js';
+import { 
+  sendPasswordResetEmail, 
+  sendWelcomeEmail,
+  sendUserRegistrationOtpEmail 
+} from '../utils/emailService.js';
+import { validateUserRegistration, validateEmail, validatePassword, validatePhone } from './validationService.js';
 import { ApiError } from '../utils/apiError.js';
 import {
   clearAuthCookies,
@@ -60,6 +65,55 @@ const createPkcePair = () => {
   const verifier = toBase64Url(crypto.randomBytes(32));
   const challenge = toBase64Url(crypto.createHash('sha256').update(verifier).digest());
   return { verifier, challenge };
+};
+
+const USER_OTP_EXPIRY_MINUTES = 10;
+const USER_OTP_MAX_VERIFY_ATTEMPTS = 5;
+const USER_OTP_MAX_RESEND_ATTEMPTS = 5;
+const USER_OTP_RESEND_COOLDOWN_SECONDS = 60;
+const USER_PENDING_REGISTRATION_TTL_MINUTES = 60;
+
+const getOtpHashSecret = () => {
+  const secret = process.env.BLOODBANK_OTP_HASH_SECRET;
+  if (!secret) throw new ApiError(500, 'BLOODBANK_OTP_HASH_SECRET is not configured');
+  return secret;
+};
+
+const hashOtp = (otp) =>
+  crypto.createHash('sha256').update(`${String(otp)}:${getOtpHashSecret()}`).digest('hex');
+
+const generateOtp = () => String(crypto.randomInt(100000, 1000000));
+
+const maskEmail = (email = '') => {
+  const [localPart, domain = ''] = String(email).split('@');
+  if (!localPart || !domain) return email;
+  if (localPart.length <= 2) return `${localPart[0]}***@${domain}`;
+  return `${localPart.slice(0, 2)}***${localPart.slice(-1)}@${domain}`;
+};
+
+const buildOtpMeta = (record) => {
+  const now = Date.now();
+  const resendAvailableInSeconds = Math.max(
+    0,
+    Math.ceil(
+      (new Date(record.lastOtpSentAt || now).getTime() + USER_OTP_RESEND_COOLDOWN_SECONDS * 1000 - now) / 1000
+    )
+  );
+  const otpExpiresInSeconds = Math.max(
+    0,
+    Math.ceil((new Date(record.otpExpiresAt).getTime() - now) / 1000)
+  );
+
+  return {
+    verificationId: record.verificationId,
+    maskedEmail: maskEmail(record.email),
+    attemptsRemaining: Math.max(0, USER_OTP_MAX_VERIFY_ATTEMPTS - (record.verifyAttemptsUsed || 0)),
+    resendAttemptsRemaining: Math.max(0, USER_OTP_MAX_RESEND_ATTEMPTS - (record.resendCount || 0)),
+    resendAvailableInSeconds,
+    otpExpiresInSeconds,
+    maxVerifyAttempts: USER_OTP_MAX_VERIFY_ATTEMPTS,
+    maxResendAttempts: USER_OTP_MAX_RESEND_ATTEMPTS,
+  };
 };
 
 const timingSafeEqual = (left, right) => {
@@ -334,19 +388,41 @@ export const refreshUserSession = async (req, res) => {
   ]);
 
   const incomingRefreshHash = hashToken(refreshToken);
-  const requiresGlobalRevoke =
+  const isCurrentMatch = sessionRecord?.refreshTokenHash === incomingRefreshHash;
+  const isGraceMatch = sessionRecord?.rotatedAt && 
+                       (Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 10000) &&
+                       sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
+
+  const isTokenValid = isCurrentMatch || isGraceMatch;
+
+  const requiresSessionRevoke =
     !sessionUser ||
     !sessionRecord ||
     sessionRecord.revokedAt ||
     new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
     Number(decoded.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
     Number(sessionRecord.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
-    sessionRecord.refreshTokenHash !== incomingRefreshHash;
+    !isTokenValid;
 
-  if (requiresGlobalRevoke) {
-    if (sessionUser?._id) {
-      await incrementUserTokenVersion(sessionUser._id, 'refresh_reuse_detected');
+  if (requiresSessionRevoke) {
+    if (sessionRecord?.sessionId) {
+      await revokeAuthSession({ 
+        role: 'user', 
+        sessionId: sessionRecord.sessionId, 
+        reason: 'refresh_token_mismatch' 
+      });
     }
+    
+    // Only perform a global revoke if we suspect a serious breach (e.g., tokenVersion mismatch)
+    const suspectSeriousBreach = sessionUser && (
+      Number(decoded.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
+      Number(sessionRecord?.tokenVersion) !== Number(sessionUser.tokenVersion || 0)
+    );
+
+    if (suspectSeriousBreach && sessionUser?._id) {
+      await incrementUserTokenVersion(sessionUser._id, 'security_breach_detected');
+    }
+
     logRefreshReuseDetected({
       role: 'user',
       sessionId: decoded.sid,
@@ -354,6 +430,7 @@ export const refreshUserSession = async (req, res) => {
       ip: req.ip,
       userAgent: req.get('user-agent'),
     });
+    
     clearAuthCookies(res, 'user');
     throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }
@@ -427,6 +504,9 @@ export const registerUser = async (data) => {
   });
 
   await user.save();
+
+  // Send welcome email (asynchronously, won't block response)
+  sendWelcomeEmail(user.email, user.name).catch(err => console.error('Welcome email failed:', err));
 
   return {
     user: toPublicUser(user)
@@ -545,7 +625,7 @@ export const requestPasswordReset = async (email) => {
   validateEmail(email);
 
   const user = await User.findOne({ email });
-  
+
   // Always generate a token even if user doesn't exist (timing attack prevention)
   const resetToken = crypto.randomBytes(32).toString('hex');
   const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
@@ -565,7 +645,7 @@ export const requestPasswordReset = async (email) => {
       throw new ApiError(500, 'Failed to send reset email. Please try again later.');
     }
   }
-  
+
   // Always return success to prevent user enumeration
   // Attacker cannot determine if email exists in system
   return { success: true };
@@ -602,6 +682,226 @@ export const resetPassword = async (token, newPassword) => {
   await revokeAllPrincipalSessions({ role: 'user', userId: user._id, reason: 'password_reset' });
 
   return { success: true };
+};
+
+export const initiateUserRegistration = async (req, registrationData) => {
+  const { name, email, password, bloodGroup, phone } = registrationData;
+
+  if (!name || !email || !password) {
+    throw new ApiError(400, 'Please provide name, email, and password');
+  }
+
+  validateEmail(email);
+  validatePassword(password);
+  if (phone) validatePhone(phone);
+
+  const existingUser = await User.findOne({ email }).lean();
+  if (existingUser) {
+    throw new ApiError(400, 'User with this email already exists');
+  }
+
+  const otp = generateOtp();
+  const otpHash = hashOtp(otp);
+  const now = new Date();
+  const otpExpiresAt = new Date(now.getTime() + USER_OTP_EXPIRY_MINUTES * 60 * 1000);
+  const recordExpiresAt = new Date(now.getTime() + USER_PENDING_REGISTRATION_TTL_MINUTES * 60 * 1000);
+  const verificationId = crypto.randomUUID();
+
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(password, salt);
+
+  const existingPending = await RegistrationOtp.findOne({ 
+    email: email.toLowerCase(), 
+    type: 'user',
+    status: { $in: ['pending', 'expired'] }
+  });
+
+  const pendingData = {
+    verificationId,
+    email: email.toLowerCase(),
+    type: 'user',
+    otpHash,
+    otpExpiresAt,
+    status: 'pending',
+    verifyAttemptsUsed: 0,
+    resendCount: 0,
+    lastOtpSentAt: now,
+    registrationData: {
+      ...registrationData,
+      password: hashedPassword,
+    },
+    clientMeta: {
+      ip: String(req.ip || ''),
+      userAgent: String(req.get('user-agent') || ''),
+    },
+    expiresAt: recordExpiresAt,
+    verifiedAt: null,
+  };
+
+  if (existingPending) {
+    Object.assign(existingPending, pendingData);
+    await existingPending.save();
+  } else {
+    await RegistrationOtp.create(pendingData);
+  }
+
+  try {
+    await sendUserRegistrationOtpEmail(email, otp, {
+      expiresInMinutes: USER_OTP_EXPIRY_MINUTES,
+    });
+  } catch (error) {
+    console.error('User OTP send failed:', error);
+    await RegistrationOtp.deleteOne({ verificationId });
+    throw new ApiError(500, 'Unable to send OTP email. Please try again later.');
+  }
+
+  const record = await RegistrationOtp.findOne({ verificationId }).lean();
+  return {
+    ...buildOtpMeta(record),
+    nextStep: 'verify_otp',
+  };
+};
+
+export const verifyUserRegistrationOtp = async (req, res, verificationId, otp) => {
+  if (!verificationId || !otp) {
+    throw new ApiError(400, 'verificationId and otp are required');
+  }
+
+  const now = new Date();
+  const pendingRegistration = await RegistrationOtp.findOne({
+    verificationId: String(verificationId),
+    type: 'user'
+  }).select('+otpHash');
+
+  if (!pendingRegistration) {
+    throw new ApiError(400, 'Invalid or expired verification session');
+  }
+
+  if (pendingRegistration.status === 'locked') {
+    throw new ApiError(429, 'Maximum OTP attempts reached. Please restart registration.');
+  }
+
+  if (pendingRegistration.status !== 'pending' || pendingRegistration.expiresAt <= now || pendingRegistration.otpExpiresAt <= now) {
+    pendingRegistration.status = 'expired';
+    await pendingRegistration.save();
+    throw new ApiError(400, 'OTP is invalid or expired. Please restart registration.');
+  }
+
+  if (pendingRegistration.verifyAttemptsUsed >= USER_OTP_MAX_VERIFY_ATTEMPTS) {
+    pendingRegistration.status = 'locked';
+    await pendingRegistration.save();
+    throw new ApiError(429, 'Maximum OTP attempts reached. Please restart registration.');
+  }
+
+  const isOtpValid = pendingRegistration.otpHash === hashOtp(String(otp).trim());
+  if (!isOtpValid) {
+    pendingRegistration.verifyAttemptsUsed += 1;
+    if (pendingRegistration.verifyAttemptsUsed >= USER_OTP_MAX_VERIFY_ATTEMPTS) {
+      pendingRegistration.status = 'locked';
+    }
+    await pendingRegistration.save();
+
+    const meta = buildOtpMeta(pendingRegistration.toObject());
+    throw new ApiError(
+      pendingRegistration.status === 'locked' ? 429 : 400,
+      pendingRegistration.status === 'locked'
+        ? 'Maximum OTP attempts reached. Please restart registration.'
+        : `Invalid OTP. ${meta.attemptsRemaining} attempts remaining.`
+    );
+  }
+
+  // OTP is valid - create the user
+  const regData = pendingRegistration.registrationData;
+  const user = new User({
+    name: regData.name,
+    email: regData.email.toLowerCase(),
+    password: regData.password, // Already hashed during initiation
+    bloodGroup: regData.bloodGroup,
+    phone: regData.phone || '',
+    isDonor: false,
+    address: regData.address || { street: '', city: '', state: '', pincode: '' },
+    role: 'user',
+    isVerified: true,
+  });
+
+  await user.save();
+  await RegistrationOtp.deleteOne({ _id: pendingRegistration._id });
+
+  // Create session for the new user
+  const sessionId = crypto.randomUUID();
+  const { refreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
+    res,
+    'user',
+    buildUserClaims(user, sessionId)
+  );
+
+  await createAuthSession({
+    sessionId,
+    role: 'user',
+    userId: user._id,
+    refreshTokenHash: hashToken(refreshToken),
+    refreshTokenExpiresAt,
+    tokenVersion: user.tokenVersion || 0,
+    req,
+  });
+
+  await sendWelcomeEmail(user.email, user.name);
+
+  return {
+    user: toPublicUser(user),
+    csrfToken,
+    accessTokenExpiresAt,
+  };
+};
+
+export const resendUserRegistrationOtp = async (req, verificationId) => {
+  if (!verificationId) {
+    throw new ApiError(400, 'verificationId is required');
+  }
+
+  const now = new Date();
+  const pendingRegistration = await RegistrationOtp.findOne({
+    verificationId: String(verificationId),
+    type: 'user'
+  }).select('+otpHash');
+
+  if (!pendingRegistration) {
+    throw new ApiError(400, 'Invalid or expired verification session');
+  }
+
+  if (pendingRegistration.status === 'locked') {
+    throw new ApiError(429, 'Maximum attempts reached. Please restart registration.');
+  }
+
+  if (pendingRegistration.resendCount >= USER_OTP_MAX_RESEND_ATTEMPTS) {
+    throw new ApiError(429, 'Maximum resend attempts reached. Please restart registration.');
+  }
+
+  const cooldownExpiry = new Date(pendingRegistration.lastOtpSentAt.getTime() + USER_OTP_RESEND_COOLDOWN_SECONDS * 1000);
+  if (now < cooldownExpiry) {
+    const remaining = Math.ceil((cooldownExpiry - now) / 1000);
+    throw new ApiError(429, `Please wait ${remaining} seconds before requesting a new OTP.`);
+  }
+
+  const otp = generateOtp();
+  const otpHash = hashOtp(otp);
+  
+  pendingRegistration.otpHash = otpHash;
+  pendingRegistration.otpExpiresAt = new Date(now.getTime() + USER_OTP_EXPIRY_MINUTES * 60 * 1000);
+  pendingRegistration.lastOtpSentAt = now;
+  pendingRegistration.resendCount += 1;
+  pendingRegistration.status = 'pending';
+  await pendingRegistration.save();
+
+  try {
+    await sendUserRegistrationOtpEmail(pendingRegistration.email, otp, {
+      expiresInMinutes: USER_OTP_EXPIRY_MINUTES,
+    });
+  } catch (error) {
+    throw new ApiError(500, 'Unable to send OTP email. Please try again later.');
+  }
+
+  return buildOtpMeta(pendingRegistration.toObject());
 };
 
 // Verify reset token

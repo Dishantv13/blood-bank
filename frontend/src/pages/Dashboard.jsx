@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import { 
@@ -18,8 +18,11 @@ import DonateBloodModal from '../components/DonateBloodModal';
 import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Dashboard.css';
 import SkeletonLoader from '../components/SkeletonLoader';
+import EmptyState from '../components/EmptyState';
+import MatchingRequests from '../components/MatchingRequests';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { user, setUser } = useAuth();
   const [message, setMessage] = useState({ type: '', text: '' });
   
@@ -215,7 +218,7 @@ const Dashboard = () => {
   };
 
   if (isGlobalLoading) {
-    return <SkeletonLoader />;
+    return <SkeletonLoader variant="dashboard" />;
   }
 
   return (
@@ -371,6 +374,9 @@ const Dashboard = () => {
           </div>
 
           <div className="donor-dashboard-content">
+            <div className="mb-6">
+              <MatchingRequests userBloodGroup={user?.bloodGroup} />
+            </div>
             <div className="donor-info-card">
               <h2>Your Donor Journey</h2>
               <div className="donor-journey-stats">
@@ -401,11 +407,12 @@ const Dashboard = () => {
                 </span>
               </div>
               {myDonations.length === 0 ? (
-                <div className="empty-state">
-                  <h3>Welcome to Your Donor Journey! 🩸</h3>
-                  <p>You haven't made any donation requests yet. Start your life-saving journey today!</p>
-                  {isActuallyEligible && <button className="btn btn-primary" onClick={() => setShowDonateModal(true)}>Request to Donate Now</button>}
-                </div>
+                <EmptyState 
+                  title="Welcome to Your Donor Journey! 🩸"
+                  message="You haven't made any donation requests yet. Start your life-saving journey today!"
+                  actionLabel={isActuallyEligible ? "Request to Donate Now" : null}
+                  onAction={isActuallyEligible ? () => setShowDonateModal(true) : null}
+                />
               ) : (
                 <div style={{
                   display: 'grid',
@@ -599,16 +606,12 @@ const Dashboard = () => {
               <Link to={ROUTE_PATH.CREATE_REQUEST} className="btn btn-outline">New Request</Link>
             </div>
             {myRequests.length === 0 ? (
-              <div className="empty-state-banner">
-                <div className="empty-state-info">
-                  <p>You haven't made any blood requests yet. Start by creating your first request to get help.</p>
-                </div>
-                <div className="empty-state-action">
-                  <Link to={ROUTE_PATH.CREATE_REQUEST} className="btn btn-primary">
-                    Create Your First Request
-                  </Link>
-                </div>
-              </div>
+              <EmptyState 
+                title="No blood requests yet"
+                message="You haven't made any blood requests yet. Start by creating your first request to get help."
+                actionLabel="Create Your First Request"
+                onAction={() => navigate(ROUTE_PATH.CREATE_REQUEST)}
+              />
             ) : (
               <div style={{
                 display: 'grid',

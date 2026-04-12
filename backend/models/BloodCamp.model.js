@@ -118,9 +118,8 @@ BloodCampSchema.index({ organizer: 1, date: -1 });
 BloodCampSchema.index({ status: 1, date: 1 });
 
 // Update the updatedAt field before saving
-BloodCampSchema.pre('save', function(next) {
+BloodCampSchema.pre('save', async function() {
   this.updatedAt = Date.now();
-  next();
 });
 
 export default mongoose.model('BloodCamp', BloodCampSchema);

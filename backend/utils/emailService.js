@@ -1,8 +1,14 @@
 import nodemailer from 'nodemailer';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import jwt from 'jsonwebtoken';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const templatesDir = path.join(__dirname, 'emailTemplates');
 
 /**
  * Escapes HTML special characters to prevent injection in email templates.
- * Must be applied to every user-supplied value interpolated into HTML.
  */
 const escapeHtml = (str) =>
   String(str ?? '')
@@ -22,255 +28,252 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-// Send password reset email
-const sendPasswordResetEmail = async (email, resetToken, userType = 'user') => {
-  try {
-    let resetUrl;
-    let subject;
-    let htmlTemplate;
+// Email Queue
+const emailQueue = [];
+let isProcessing = false;
 
-    // Generate reset URL based on user type
-    if (userType === 'bloodbank') {
-      resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-reset-password?token=${resetToken}`;
-      subject = 'Blood Bank - Password Reset Request';
-    } else {
-      resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-      subject = 'Password Reset Request - RaktSarthi';
+const processQueue = async () => {
+  if (isProcessing || emailQueue.length === 0) return;
+  isProcessing = true;
+  
+  while (emailQueue.length > 0) {
+    const { to, subject, html } = emailQueue.shift();
+    try {
+      await transporter.sendMail({
+        from: `"RaktSarthi" <${process.env.EMAIL_USER || 'noreply@raktsarthi.com'}>`,
+        to,
+        subject,
+        html
+      });
+    } catch (error) {
+      console.error('Email queue processing error:', error);
+      // Optional: Add retry logic here
     }
-
-    // HTML email template
-    htmlTemplate = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; background-color: #f4f4f4; }
-            .container { max-width: 600px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
-            .content { padding: 20px; color: #333; }
-            .button { background-color: #667eea; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0; }
-            .footer { color: #888; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
-            .warning { color: #d32f2f; font-size: 12px; margin-top: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h2>${userType === 'bloodbank' ? '🏥 Blood Bank' : '🩸 RaktSarthi'}</h2>
-              <p>Password Reset Request</p>
-            </div>
-            <div class="content">
-              <p>Hello,</p>
-              <p>We received a request to reset your password. Click the button below to reset it:</p>
-              <a href="${resetUrl}" class="button">Reset Password</a>
-              <p>Or copy and paste this link in your browser:</p>
-              <p style="word-break: break-all; color: #667eea;"><small>${resetUrl}</small></p>
-              <p class="warning">⚠️ This link will expire in 1 hour.</p>
-              <p>If you didn't request a password reset, you can safely ignore this email.</p>
-              <p>Best regards,<br><strong>RaktSarthi Team</strong></p>
-            </div>
-            <div class="footer">
-              <p>© 2026 RaktSarthi - Blood Donation Management System</p>
-              <p>This is an automated email. Please do not reply to this email.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'noreply@raktsarthi.com',
-      to: email,
-      subject: subject,
-      html: htmlTemplate
-    };
-
-    await transporter.sendMail(mailOptions);
-    return true;
-  } catch (error) {
-    console.error('Error sending email:', error);
-    throw new Error('Failed to send reset email');
+    // Small delay between emails to respect provider limits
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
+  
+  isProcessing = false;
+};
+
+const queueEmail = (to, subject, html) => {
+  emailQueue.push({ to, subject, html });
+  processQueue();
+};
+
+const getTemplate = async (templateName, data) => {
+  try {
+    const filePath = path.join(templatesDir, `${templateName}.html`);
+    let content = await fs.readFile(filePath, 'utf8');
+    
+    // Simple template engines like replacement
+    Object.keys(data).forEach(key => {
+      const value = data[key];
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      content = content.replace(regex, value);
+    });
+    
+    return content;
+  } catch (error) {
+    console.error(`Error loading template ${templateName}:`, error);
+    return null;
+  }
+};
+
+const generateUnsubscribeUrl = (email) => {
+  const token = jwt.sign({ email }, process.env.ACCESS_TOKEN_SECRET || 'secret', { expiresIn: '365d' });
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  return `${baseUrl}/unsubscribe?token=${token}`;
+};
+
+// --- Email Functions ---
+
+const sendPasswordResetEmail = async (email, resetToken, userType = 'user') => {
+  const resetUrl = userType === 'bloodbank' 
+    ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-reset-password?token=${resetToken}`
+    : `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    
+  const subject = userType === 'bloodbank' ? 'Blood Bank - Password Reset Request' : 'Password Reset Request - RaktSarthi';
+  
+  // For legacy support or critical path, keep the inline template or move it to a file
+  // Let's use the file-based approach for consistency if we created it
+  const html = await getTemplate('passwordReset', { resetUrl, userType, subject }) || `Reset your password here: ${resetUrl}`;
+  queueEmail(email, subject, html);
+};
+
+const sendWelcomeEmail = async (email, name) => {
+  const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
+  const unsubscribeUrl = generateUnsubscribeUrl(email);
+  const html = await getTemplate('welcome', { 
+    name: escapeHtml(name), 
+    dashboardUrl, 
+    unsubscribeUrl 
+  });
+  if (html) queueEmail(email, 'Welcome to RaktSarthi! 🩸', html);
+};
+
+const sendRequestReceivedEmail = async (bloodBank, request) => {
+  const requestUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-requests`;
+  const html = await getTemplate('requestReceived', {
+    bloodBankName: escapeHtml(bloodBank.name),
+    patientName: escapeHtml(request.patientName),
+    bloodGroup: request.bloodGroup,
+    urgency: request.urgency,
+    units: request.units,
+    contactNumber: request.contactNumber,
+    requestUrl
+  });
+  if (html) queueEmail(bloodBank.email, 'New Urgent Blood Request Received', html);
+};
+
+const sendRequestStatusUpdateEmail = async (user, request, remarks) => {
+  const requestUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
+  const unsubscribeUrl = generateUnsubscribeUrl(user.email);
+  
+  let statusColor = '#10b981'; // Success green
+  if (request.status === 'rejected') statusColor = '#ef4444';
+  if (request.status === 'pending') statusColor = '#f59e0b';
+
+  const html = await getTemplate('requestStatusChange', {
+    userName: escapeHtml(user.name),
+    patientName: escapeHtml(request.patientName),
+    bloodBankName: escapeHtml(request.bloodBank?.name || 'Blood Bank'),
+    status: request.status.toUpperCase(),
+    statusColor,
+    remarks: escapeHtml(remarks || 'No specific remarks provided.'),
+    requestUrl,
+    unsubscribeUrl
+  });
+  if (html) queueEmail(user.email, `Update on your Blood Request: ${request.status}`, html);
+};
+
+const sendDonationUpdateEmail = async (user, donation, message) => {
+  const historyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
+  const unsubscribeUrl = generateUnsubscribeUrl(user.email);
+  
+  let headerColor = '#3b82f6'; 
+  let icon = '🩸';
+  if (donation.status === 'completed') { headerColor = '#10b981'; icon = '✨'; }
+  if (donation.status === 'rejected') { headerColor = '#ef4444'; icon = 'ℹ️'; }
+
+  const html = await getTemplate('donationUpdate', {
+    userName: escapeHtml(user.name),
+    donationDate: new Date(donation.donationDate).toLocaleDateString(),
+    status: donation.status.toUpperCase(),
+    message: escapeHtml(message),
+    headerColor,
+    icon,
+    boxColor: donation.status === 'rejected' ? '#fef2f2' : '#eff6ff',
+    borderColor: donation.status === 'rejected' ? '#fecaca' : '#bfdbfe',
+    statusColor: headerColor,
+    historyUrl,
+    unsubscribeUrl
+  });
+  if (html) queueEmail(user.email, 'Your Donation Record has been Updated', html);
+};
+
+const sendDonationReminderEmail = async (user) => {
+  const eventsUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/events`;
+  const unsubscribeUrl = generateUnsubscribeUrl(user.email);
+  const html = await getTemplate('donationReminder', {
+    name: escapeHtml(user.name),
+    lastDonationDate: new Date(user.lastDonationDate).toLocaleDateString(),
+    bloodGroup: user.bloodGroup,
+    eventsUrl,
+    unsubscribeUrl
+  });
+  if (html) queueEmail(user.email, 'You are eligible to save a life again! 🦸‍♂️', html);
+};
+
+const sendRegistrationConfirmationEmail = async (user, type, entity) => {
+  const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
+  const unsubscribeUrl = generateUnsubscribeUrl(user.email);
+  const templateName = type === 'camp' ? 'campRegistration' : 'eventRegistration';
+  
+  const html = await getTemplate(templateName, {
+    userName: escapeHtml(user.name),
+    title: escapeHtml(entity.name || entity.title),
+    date: new Date(entity.date).toLocaleDateString(),
+    time: `${entity.startTime} - ${entity.endTime}`,
+    venue: escapeHtml(entity.venue || entity.location?.name || 'TBD'),
+    organizer: escapeHtml(entity.organizerName || entity.organizer || 'Blood Bank'),
+    dashboardUrl,
+    unsubscribeUrl
+  });
+  if (html) queueEmail(user.email, `${type.charAt(0).toUpperCase() + type.slice(1)} Registration Confirmed`, html);
 };
 
 const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
-  try {
-    const safeBloodBankName = escapeHtml(bloodBankName || 'Blood Bank');
-    const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-login`;
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'noreply@raktsarthi.com',
-      to: email,
-      subject: 'Blood Bank Registration Approved - RaktSarthi',
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; background-color: #f4f4f4; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-              .header { background: linear-gradient(135deg, #15803d 0%, #166534 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
-              .content { padding: 20px; color: #333; }
-              .button { background-color: #15803d; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 20px 0; }
-              .footer { color: #888; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h2>Blood Bank Registration Approved</h2>
-              </div>
-              <div class="content">
-                <p>Hello ${safeBloodBankName},</p>
-                <p>Your blood bank registration has been reviewed and approved by the admin team.</p>
-                <p>You can now log in to your blood bank portal using your registered email and password.</p>
-                <a href="${loginUrl}" class="button">Login to Blood Bank Portal</a>
-                <p>If the button does not work, use this link:</p>
-                <p style="word-break: break-all; color: #15803d;"><small>${loginUrl}</small></p>
-                <p>Best regards,<br><strong>RaktSarthi Team</strong></p>
-              </div>
-              <div class="footer">
-                <p>© 2026 RaktSarthi - Blood Donation Management System</p>
-                <p>This is an automated email. Please do not reply to this email.</p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    return true;
-  } catch (error) {
-    console.error('Error sending blood bank approval email:', error);
-    throw new Error('Failed to send approval email');
-  }
+  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-login`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+      <h2>Approved!</h2>
+      <p>Hello ${escapeHtml(bloodBankName)}, your registration is approved.</p>
+      <a href="${loginUrl}">Login Now</a>
+    </div>
+  `; // Fallback or use a template
+  queueEmail(email, 'Blood Bank Approved', html);
 };
 
-const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason) => {
-  try {
-    const safeBloodBankName = escapeHtml(bloodBankName || 'Blood Bank');
-    const safeRejectionReason = escapeHtml(rejectionReason);
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'noreply@raktsarthi.com',
-      to: email,
-      subject: 'Blood Bank Registration Rejected - RaktSarthi',
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; background-color: #f4f4f4; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-              .header { background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
-              .content { padding: 20px; color: #333; }
-              .reason { background: #fef2f2; border-left: 4px solid #dc2626; padding: 14px; border-radius: 6px; margin: 18px 0; }
-              .footer { color: #888; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h2>Blood Bank Registration Rejected</h2>
-              </div>
-              <div class="content">
-                <p>Hello ${safeBloodBankName},</p>
-                <p>Your registration request has been reviewed by the admin team and was not approved at this time.</p>
-                <div class="reason">
-                  <strong>Reason for rejection:</strong>
-                  <p style="margin: 8px 0 0;">${safeRejectionReason}</p>
-                </div>
-                <p>Please review the reason above and contact the admin team or support before trying again.</p>
-                <p>Best regards,<br><strong>RaktSarthi Team</strong></p>
-              </div>
-              <div class="footer">
-                <p>© 2026 RaktSarthi - Blood Donation Management System</p>
-                <p>This is an automated email. Please do not reply to this email.</p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    return true;
-  } catch (error) {
-    console.error('Error sending blood bank rejection email:', error);
-    throw new Error('Failed to send rejection email');
-  }
+const sendWeeklyInventoryDigest = async (bloodBank, stats) => {
+  const inventoryUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-inventory`;
+  const html = await getTemplate('weeklyDigest', {
+    bloodBankName: escapeHtml(bloodBank.name),
+    totalRequests: stats.totalRequests,
+    totalDonations: stats.totalDonations,
+    lowInventoryGroups: stats.lowInventoryGroups.join(', ') || 'None',
+    inventoryUrl
+  });
+  if (html) queueEmail(bloodBank.email, 'Weekly Inventory Digest - RaktSarthi', html);
 };
 
-const sendBloodBankRegistrationOtpEmail = async (email, otp, options = {}) => {
-  const expiresInMinutes = Number(options.expiresInMinutes) || 10;
-  try {
-    const mailOptions = {
-      from: process.env.EMAIL_USER || 'noreply@raktsarthi.com',
-      to: email,
-      subject: 'Verify your blood bank registration email - RaktSarthi',
-      html: `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; background-color: #f4f4f4; }
-              .container { max-width: 600px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-              .header { background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center; }
-              .content { padding: 20px; color: #333; }
-              .otp-box { margin: 16px 0; text-align: center; }
-              .otp-code { display: inline-block; font-size: 28px; letter-spacing: 6px; font-weight: bold; background: #fef2f2; color: #991b1b; padding: 10px 18px; border-radius: 8px; }
-              .warning { color: #b91c1c; font-size: 12px; margin-top: 10px; }
-              .footer { color: #888; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="header">
-                <h2>Email Verification Required</h2>
-              </div>
-              <div class="content">
-                <p>Hello,</p>
-                <p>Use the following OTP to complete your blood bank registration:</p>
-                <div class="otp-box">
-                  <span class="otp-code">${otp}</span>
-                </div>
-                <p class="warning">This OTP expires in ${expiresInMinutes} minutes and can be used only once.</p>
-                <p>If you did not request this, please ignore this email.</p>
-                <p>Best regards,<br><strong>RaktSarthi Team</strong></p>
-              </div>
-              <div class="footer">
-                <p>© 2026 RaktSarthi - Blood Donation Management System</p>
-                <p>This is an automated email. Please do not reply to this email.</p>
-              </div>
-            </div>
-          </body>
-        </html>
-      `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    return true;
-  } catch (error) {
-    console.error('Error sending blood bank registration OTP email:', error);
-    throw new Error('Failed to send OTP email');
-  }
-};
-
-// Verify transporter connection
 const verifyEmailSetup = async () => {
   try {
     await transporter.verify();
-    console.log('Email service is ready to send emails');
+    console.log('Email service is ready');
     return true;
   } catch (error) {
-    console.error('Email service verification failed:', error);
+    console.error('Email verification failed:', error);
     return false;
   }
 };
 
+const sendBloodBankRegistrationOtpEmail = async (email, otp, options = {}) => {
+  const html = await getTemplate('bloodBankOtp', { 
+    otp, 
+    expiresInMinutes: options.expiresInMinutes || 10 
+  });
+  if (html) queueEmail(email, 'Blood Bank Registration - Your OTP', html);
+};
+
+const sendUserRegistrationOtpEmail = async (email, otp, options = {}) => {
+  const html = await getTemplate('userOtp', { 
+    otp, 
+    expiresInMinutes: options.expiresInMinutes || 10 
+  });
+  if (html) queueEmail(email, 'Verify your email - RaktSarthi Registration', html);
+};
+
+const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason) => {
+  const html = await getTemplate('bloodBankRejection', {
+    bloodBankName: escapeHtml(bloodBankName),
+    rejectionReason: escapeHtml(rejectionReason)
+  });
+  if (html) queueEmail(email, 'Update on your Blood Bank Registration', html);
+};
+
 export {
   sendPasswordResetEmail,
+  sendWelcomeEmail,
+  sendRequestReceivedEmail,
+  sendRequestStatusUpdateEmail,
+  sendDonationUpdateEmail,
+  sendDonationReminderEmail,
+  sendRegistrationConfirmationEmail,
   sendBloodBankApprovalEmail,
   sendBloodBankRejectionEmail,
   sendBloodBankRegistrationOtpEmail,
+  sendUserRegistrationOtpEmail,
+  sendWeeklyInventoryDigest,
   verifyEmailSetup
 };

@@ -19,6 +19,15 @@ router.route('/register').post([
   body('bloodGroup').isIn(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).withMessage('Invalid blood group')
 ], authLimiter, authController.register);
 
+router.route('/verify-otp').post([
+  body('verificationId').notEmpty().withMessage('Verification ID is required'),
+  body('otp').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits')
+], authLimiter, authController.verifyOtp);
+
+router.route('/resend-otp').post([
+  body('verificationId').notEmpty().withMessage('Verification ID is required')
+], authLimiter, authController.resendOtp);
+
 router.route('/login').post([
   body('email').isEmail().withMessage('Please enter a valid email'),
   body('password').notEmpty().withMessage('Password is required')

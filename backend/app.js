@@ -24,6 +24,7 @@ import eventsRoutes from "./routes/events.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import donationsRoutes from "./routes/donations.route.js";
 import uploadRoutes from "./routes/upload.route.js";
+import notificationRoutes from "./routes/notification.route.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -219,6 +220,7 @@ app.use("/api/events", eventsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/donations", donationsRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ==================== ERROR HANDLING MIDDLEWARE (must be AFTER routes) ====================
 app.use(globalErrorHandler);

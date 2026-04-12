@@ -2,7 +2,6 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useGetInventoryByIdQuery } from "../store/adminApi.js";
-import AdminBackButton from "./AdminBackButton.jsx";
 import "../adminPage.css/AdminInventory.css";
 
 const AdminInventoryDetails = () => {
@@ -25,14 +24,6 @@ const AdminInventoryDetails = () => {
         <h1 className="page-title">Inventory Details</h1>
         <p className="page-subtitle">View complete blood-group inventory for the selected blood bank</p>
       </div>
-
-      <button
-        className="btn-premium"
-        style={{ marginBottom: "1.5rem" }}
-        onClick={() => navigate(ROUTE_PATH.ADMIN_INVENTORY)}
-      >
-        Back to Inventory
-      </button>
 
       {isLoading && (
         <div className="loading-message">Loading inventory details...</div>

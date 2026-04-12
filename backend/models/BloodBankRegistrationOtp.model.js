@@ -16,6 +16,12 @@ const BloodBankRegistrationOtpSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    type: {
+      type: String,
+      enum: ['user', 'bloodbank'],
+      required: true,
+      index: true,
+    },
     otpHash: {
       type: String,
       required: true,

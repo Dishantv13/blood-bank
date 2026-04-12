@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import '../pages.css/Events.css';
 import SkeletonLoader from '../components/SkeletonLoader';
+import EmptyState from '../components/EmptyState';
 
 const Events = () => {
   const { user } = useAuth();
@@ -139,7 +140,7 @@ const Events = () => {
   const { events: filteredEvents, camps: filteredCamps } = getFilteredContent();
 
   if (loading) {
-    return <SkeletonLoader />;
+    return <SkeletonLoader variant="list" />;
   }
 
   return (
@@ -382,16 +383,10 @@ const Events = () => {
 
       {/* Empty State */}
       {filteredEvents.length === 0 && filteredCamps.length === 0 && (
-        <div className="empty-state">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
-            <line x1="3" y1="10" x2="21" y2="10"/>
-          </svg>
-          <p>No upcoming events or camps at the moment.</p>
-          <p className="empty-subtitle">Check back soon for new blood donation opportunities!</p>
-        </div>
+        <EmptyState 
+          title="No upcoming events or camps"
+          message="Check back soon for new blood donation opportunities!"
+        />
       )}
     </div>
   );

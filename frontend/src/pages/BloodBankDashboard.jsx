@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
-import { useGetBloodBankRequestsQuery, useGetBloodBankApprovedRequestsQuery, useApproveRequestMutation, useRejectRequestMutation } from '../store/requestApi';
+import { useGetBloodBankRequestsQuery, useUpdateRequestStatusMutation } from '../store/requestApi';
 import { useGetBloodBankCampsQuery, useDeleteCampMutation, useLazyGetCampRegistrationsQuery, useDeleteCampRegistrationMutation, useCreateCampMutation, useUpdateCampMutation } from '../store/bloodCampApi';
 import { useGetBloodBankEventsQuery } from '../store/eventApi';
 import { useToast } from '../components/ToastContainer';
@@ -118,7 +118,8 @@ const BloodBankDashboard = () => {
     skip: activeTab !== 'requests' && activeTab !== 'overview'
   });
 
-  const { data: approvedRequestsData, isFetching: loadingApprovedRequests } = useGetBloodBankApprovedRequestsQuery({
+  const { data: approvedRequestsData, isFetching: loadingApprovedRequests } = useGetBloodBankRequestsQuery({
+    status: 'approved',
     ...(requestSourceTab === 'user'
       ? { requestType: 'user' }
       : requestSourceTab === 'bank'
@@ -145,8 +146,7 @@ const BloodBankDashboard = () => {
   const [updateProfile, { isLoading: updatingProfile }] = useUpdateBloodBankProfileMutation();
   const [updateInventoryMutation] = useUpdateBloodBankInventoryMutation();
   const [uploadPhoto, { isLoading: uploadingPhoto }] = useUploadBloodBankPhotoMutation();
-  const [approveRequestMutation] = useApproveRequestMutation();
-  const [rejectRequestMutation] = useRejectRequestMutation();
+  const [updateRequestStatus] = useUpdateRequestStatusMutation();
   const [createCampMutation] = useCreateCampMutation();
   const [updateCampMutation] = useUpdateCampMutation();
   const [deleteCampMutation] = useDeleteCampMutation();
@@ -491,9 +491,10 @@ const BloodBankDashboard = () => {
     }
 
     try {
-      await approveRequestMutation({
+      await updateRequestStatus({
         id: requestId,
-        data: { responseNote: 'Request approved. Blood units are available.' }
+        status: 'approved',
+        note: 'Request approved. Blood units are available.'
       }).unwrap();
 
       addNotification('Blood request approved successfully');
@@ -586,9 +587,10 @@ const BloodBankDashboard = () => {
     if (reason === null) return;
 
     try {
-      await rejectRequestMutation({
+      await updateRequestStatus({
         id: requestId,
-        data: { responseNote: reason || 'Request rejected due to unavailability of blood units.' }
+        status: 'rejected',
+        note: reason || 'Request rejected due to unavailability of blood units.'
       }).unwrap();
 
       addNotification('Blood request rejected');

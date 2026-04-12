@@ -548,19 +548,40 @@ export const refreshBloodBankSession = async (req, res) => {
   ]);
 
   const incomingRefreshHash = hashToken(refreshToken);
-  const requiresGlobalRevoke =
+  const isCurrentMatch = sessionRecord?.refreshTokenHash === incomingRefreshHash;
+  const isGraceMatch = sessionRecord?.rotatedAt && 
+                       (Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 10000) &&
+                       sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
+
+  const isTokenValid = isCurrentMatch || isGraceMatch;
+
+  const requiresSessionRevoke =
     !bloodBankSession ||
     !sessionRecord ||
     sessionRecord.revokedAt ||
     new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
     Number(decoded.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
     Number(sessionRecord.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
-    sessionRecord.refreshTokenHash !== incomingRefreshHash;
+    !isTokenValid;
 
-  if (requiresGlobalRevoke) {
-    if (bloodBankSession?._id) {
-      await incrementBloodBankTokenVersion(bloodBankSession._id, 'refresh_reuse_detected');
+  if (requiresSessionRevoke) {
+    if (sessionRecord?.sessionId) {
+      await revokeAuthSession({ 
+        role: 'bloodbank', 
+        sessionId: sessionRecord.sessionId, 
+        reason: 'refresh_token_mismatch' 
+      });
     }
+
+    const suspectSeriousBreach = bloodBankSession && (
+      Number(decoded.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
+      Number(sessionRecord?.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0)
+    );
+
+    if (suspectSeriousBreach && bloodBankSession?._id) {
+      await incrementBloodBankTokenVersion(bloodBankSession._id, 'security_breach_detected');
+    }
+
     logRefreshReuseDetected({
       role: 'bloodbank',
       sessionId: decoded.sid,
@@ -568,6 +589,7 @@ export const refreshBloodBankSession = async (req, res) => {
       ip: req.ip,
       userAgent: req.get('user-agent'),
     });
+    
     clearAuthCookies(res, 'bloodbank');
     throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }

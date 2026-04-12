@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { TAGS } from '../enum/tagType';
 import { AUTH_API_URLS, BLOODBANK_API_URLS, DONATION_API_URLS } from '../enum/apiUrl';
 import { ROUTE_PATH } from '../enum/routePath';
+import { withRefreshMutex } from '../utils/authMutex';
 
 // Enforce HTTPS in production - prevent insecure connections
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -197,15 +198,8 @@ const buildSkippedDuringLogoutError = () => ({
   },
 });
 
-const refreshRequestsByRole = new Map();
-
 const runRefreshForRole = async (role, api, extraOptions) => {
-  const existingRefreshRequest = refreshRequestsByRole.get(role);
-  if (existingRefreshRequest) {
-    return existingRefreshRequest;
-  }
-
-  const refreshRequest = (async () => {
+  return withRefreshMutex(role, async () => {
     const csrfCookie = parseCookie(getCsrfCookieName(role));
     if (!csrfCookie) {
       await baseQuery({ url: getCsrfEndpoint(role), method: 'GET' }, api, extraOptions);
@@ -228,17 +222,7 @@ const runRefreshForRole = async (role, api, extraOptions) => {
     }
 
     return refreshResult;
-  })();
-
-  refreshRequestsByRole.set(role, refreshRequest);
-
-  try {
-    return await refreshRequest;
-  } finally {
-    if (refreshRequestsByRole.get(role) === refreshRequest) {
-      refreshRequestsByRole.delete(role);
-    }
-  }
+  });
 };
 
 const isCsrfError = (result) => {

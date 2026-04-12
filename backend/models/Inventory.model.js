@@ -36,9 +36,8 @@ const InventorySchema = new mongoose.Schema({
 });
 
 // Update lastModified on save
-InventorySchema.pre('save', function(next) {
+InventorySchema.pre('save', async function() {
   this.lastModified = new Date();
-  next();
 });
 
 InventorySchema.index({ 'items.bloodGroup': 1 });

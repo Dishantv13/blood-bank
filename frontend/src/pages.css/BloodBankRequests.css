@@ -115,6 +115,21 @@
   border-bottom-color: #e63946;
 }
 
+.tab-button.active[data-tab="fulfilled"] {
+    color: #059669;
+    border-bottom-color: #059669;
+}
+
+.tab-button.active[data-tab="completed"] {
+    color: #10b981;
+    border-bottom-color: #10b981;
+}
+
+.tab-button.active[data-tab="rejected"] {
+    color: #ef4444;
+    border-bottom-color: #ef4444;
+}
+
 .tab-button svg {
   width: 20px;
   height: 20px;

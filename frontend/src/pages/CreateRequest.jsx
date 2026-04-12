@@ -4,6 +4,7 @@ import { useToast } from '../components/ToastContainer';
 import { useCreateRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
 import { BLOOD_GROUPS } from '../config/constants';
+import CompatibilityChart from '../components/CompatibilityChart';
 import '../pages.css/CreateRequest.css';
 
 const CreateRequest = () => {
@@ -114,6 +115,11 @@ const CreateRequest = () => {
                     </option>
                   ))}
                 </select>
+                {formData.bloodGroup && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <CompatibilityChart bloodGroup={formData.bloodGroup} />
+                  </div>
+                )}
               </div>
             </div>
 

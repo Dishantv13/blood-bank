@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f9f9f9; }
+        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; text-align: center; color: white; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
+        .content { padding: 40px; }
+        .event-card { background: #eff6ff; border: 1px solid #bfdbfe; padding: 25px; border-radius: 12px; margin: 20px 0; }
+        .event-title { font-size: 20px; font-weight: bold; color: #1e40af; margin-bottom: 15px; }
+        .info-row { margin-bottom: 8px; font-size: 15px; }
+        .footer { background: #f3f4f6; padding: 20px; text-align: center; color: #6b7280; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>RaktSarthi</h1>
+        </div>
+        <div class="content">
+            <h2>Event Registration Confirmed!</h2>
+            <p>Hello <strong>{{userName}}</strong>,</p>
+            <p>Your registration for the following event has been confirmed:</p>
+            
+            <div class="event-card">
+                <div class="event-title">{{title}}</div>
+                <div class="info-row">📅 <strong>Date:</strong> {{date}}</div>
+                <div class="info-row">⏰ <strong>Time:</strong> {{time}}</div>
+                <div class="info-row">📍 <strong>Venue:</strong> {{venue}}</div>
+                <div class="info-row">🏢 <strong>Organizer:</strong> {{organizer}}</div>
+            </div>
+
+            <p>We look forward to seeing you there! If you have any changes in your plan, please update your registration Status in the dashboard.</p>
+            
+            <center>
+                <a href="{{dashboardUrl}}" style="display: inline-block; padding: 12px 28px; background-color: #3b82f6; color: white !important; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 10px 0;">View My Events</a>
+            </center>
+        </div>
+        <div class="footer">
+            <p>© 2026 RaktSarthi. All rights reserved.</p>
+            <p><a href="{{unsubscribeUrl}}">Change email settings</a></p>
+        </div>
+    </div>
+</body>
+</html>

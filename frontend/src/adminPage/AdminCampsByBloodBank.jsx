@@ -72,14 +72,6 @@ const AdminCampsByBloodBank = () => {
         <p className="page-subtitle">View and monitor blood camps for: {bloodBankName}</p>
       </div>
 
-      <button
-        style={{ marginBottom: "1.5rem" }}
-        className="btn-premium"
-        onClick={() => navigate(ROUTE_PATH.ADMIN_CAMPS)}
-      >
-        Back to Camps
-      </button>
-
       <div className="filters-panel">
         <input
           type="text"

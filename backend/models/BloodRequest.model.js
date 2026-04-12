@@ -71,7 +71,7 @@ const BloodRequestSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'fulfilled', 'cancelled'],
+    enum: ['pending', 'approved', 'in_progress', 'fulfilled', 'completed', 'rejected', 'cancelled'],
     default: 'pending'
   },
   description: {
@@ -79,6 +79,35 @@ const BloodRequestSchema = new mongoose.Schema({
     trim: true,
     maxlength: 1000
   },
+  fulfillment: {
+    fulfilledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'BloodBank'
+    },
+    fulfilledAt: Date,
+    unitsProvided: Number,
+    deliveryMethod: {
+      type: String,
+      enum: ['pickup', 'delivery']
+    },
+    notes: String
+  },
+  timeline: [{
+    status: {
+      type: String,
+      required: true
+    },
+    updatedBy: mongoose.Schema.Types.ObjectId,
+    updatedByModel: {
+      type: String,
+      enum: ['User', 'BloodBank']
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    },
+    note: String
+  }],
   bloodBank: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'BloodBank'
@@ -110,6 +139,20 @@ const BloodRequestSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Automatically add initial "pending" timeline entry on creation
+BloodRequestSchema.pre('save', async function() {
+  if (this.isNew && (!this.timeline || this.timeline.length === 0)) {
+    this.timeline.push({
+      status: 'pending',
+      updatedBy: this.requestedBy || this.requestingBloodBank,
+      updatedByModel: this.requestType === 'user' ? 'User' : 'BloodBank',
+      timestamp: new Date(),
+      note: 'Blood request created.'
+    });
+  }
+});
+
 
 // Indexes for efficient queries
 BloodRequestSchema.index({ status: 1, requestType: 1, createdAt: -1 });

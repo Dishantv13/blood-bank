@@ -3,6 +3,8 @@ import {
   useAdminLoginMutation,
   useLoginMutation,
   useRegisterMutation,
+  useVerifyOtpMutation,
+  useResendOtpMutation,
   useLogoutMutation,
   useRefreshSessionMutation,
   useAdminLogoutMutation,
@@ -17,6 +19,7 @@ import {
 } from '../store/bloodBankApi';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
+import { withRefreshMutex, syncAuthAction, onAuthSync } from '../utils/authMutex';
 import { AUTH_API_URLS } from '../enum/apiUrl';
 
 const AuthContext = createContext();
@@ -85,6 +88,8 @@ export const AuthProvider = ({ children }) => {
   const [adminLoginMutation] = useAdminLoginMutation();
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
+  const [verifyOtpMutation] = useVerifyOtpMutation();
+  const [resendOtpMutation] = useResendOtpMutation();
   const [logoutMutation] = useLogoutMutation();
   const [refreshSessionMutation] = useRefreshSessionMutation();
   const [adminLogoutMutation] = useAdminLogoutMutation();
@@ -127,18 +132,27 @@ export const AuthProvider = ({ children }) => {
   }, [clearRefreshTimeout]);
 
   const applyUserSession = useCallback((sessionData) => {
-    setUser(sessionData?.user || sessionData?.data || null);
-    setUserAccessTokenExpiresAt(sessionData?.accessTokenExpiresAt || null);
+    if (!sessionData) return;
+    setUser(sessionData.user || sessionData.data || sessionData);
+    if (sessionData.accessTokenExpiresAt) {
+      setUserAccessTokenExpiresAt(sessionData.accessTokenExpiresAt);
+    }
   }, [setUser]);
 
   const applyAdminSession = useCallback((sessionData) => {
-    setAdminUser(sessionData?.admin || sessionData?.data || null);
-    setAdminAccessTokenExpiresAt(sessionData?.accessTokenExpiresAt || null);
+    if (!sessionData) return;
+    setAdminUser(sessionData.admin || sessionData.data || sessionData);
+    if (sessionData.accessTokenExpiresAt) {
+      setAdminAccessTokenExpiresAt(sessionData.accessTokenExpiresAt);
+    }
   }, [setAdminUser]);
 
   const applyBloodBankSession = useCallback((sessionData) => {
-    setBloodBank(sessionData?.bloodBank || sessionData?.data || null);
-    setBloodBankAccessTokenExpiresAt(sessionData?.accessTokenExpiresAt || null);
+    if (!sessionData) return;
+    setBloodBank(sessionData.bloodBank || sessionData.data || sessionData);
+    if (sessionData.accessTokenExpiresAt) {
+      setBloodBankAccessTokenExpiresAt(sessionData.accessTokenExpiresAt);
+    }
   }, [setBloodBank]);
 
   const clearRoleSession = useCallback((role) => {
@@ -161,27 +175,43 @@ export const AuthProvider = ({ children }) => {
   }, [clearRefreshTimeout, setAdminUser, setBloodBank, setUser]);
 
   const silentlyRefreshRole = useCallback(async (role) => {
-    try {
-      if (role === 'admin') {
-        const response = await refreshAdminSessionMutation().unwrap();
-        applyAdminSession(response);
-        return true;
-      }
+    return withRefreshMutex(role, async () => {
+      try {
+        if (role === 'admin') {
+          const response = await refreshAdminSessionMutation().unwrap();
+          applyAdminSession(response);
+          syncAuthAction('admin', 'refresh', response);
+          return true;
+        }
 
-      if (role === 'bloodbank') {
-        const response = await refreshBloodBankSessionMutation().unwrap();
-        applyBloodBankSession(response);
-        return true;
-      }
+        if (role === 'bloodbank') {
+          const response = await refreshBloodBankSessionMutation().unwrap();
+          applyBloodBankSession(response);
+          syncAuthAction('bloodbank', 'refresh', response);
+          return true;
+        }
 
-      const response = await refreshSessionMutation().unwrap();
-      applyUserSession(response);
-      return true;
-    } catch (_error) {
-      clearRoleSession(role);
-      dispatch(apiSlice.util.resetApiState());
-      return false;
-    }
+        const response = await refreshSessionMutation().unwrap();
+        applyUserSession(response);
+        syncAuthAction('user', 'refresh', response);
+        return true;
+      } catch (error) {
+        // Only clear session on 401 (Unauthorized) or 403 (Forbidden)
+        // Temporary 500 or network errors should NOT log the user out.
+        const status = error?.status || error?.error?.status;
+        const isAuthError = status === 401 || status === 403;
+
+        if (isAuthError) {
+          clearRoleSession(role);
+          dispatch(apiSlice.util.resetApiState());
+          syncAuthAction(role, 'logout');
+          return false;
+        }
+        
+        // Return null to signify a retryable/temporary error
+        return null;
+      }
+    });
   }, [
     applyAdminSession,
     applyBloodBankSession,
@@ -222,7 +252,6 @@ export const AuthProvider = ({ children }) => {
       const isBloodBankPublicAuthPath = isBloodBankPublicAuthRoute(currentPath);
       const isPublicAuthPath = (
         currentPath === '/login' ||
-        currentPath === '/signup' ||
         currentPath === '/forgot-password' ||
         currentPath.startsWith('/reset-password') ||
         currentPath === '/admin/login' ||
@@ -285,11 +314,24 @@ export const AuthProvider = ({ children }) => {
     };
 
     bootstrapSessions();
+
+    // Listen for authentication events from other tabs
+    onAuthSync(({ role, action, data }) => {
+      if (action === 'login' || action === 'refresh') {
+        if (role === 'user') applyUserSession(data);
+        if (role === 'admin') applyAdminSession(data);
+        if (role === 'bloodbank') applyBloodBankSession(data);
+      } else if (action === 'logout') {
+        clearRoleSession(role);
+        dispatch(apiSlice.util.resetApiState());
+      }
+    });
   }, [
     applyAdminSession,
     applyBloodBankSession,
     applyUserSession,
     clearRoleSession,
+    dispatch,
     triggerAdminSession,
     triggerUserSession,
     triggerBloodBankSession,
@@ -362,6 +404,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await adminLoginMutation(credentials).unwrap();
       applyAdminSession(response);
+      syncAuthAction('admin', 'login', response);
       return { success: true };
     } catch (error) {
       return {
@@ -375,6 +418,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await loginMutation(credentials).unwrap();
       applyUserSession(response);
+      syncAuthAction('user', 'login', response);
       return { success: true };
     } catch (error) {
       return {
@@ -387,15 +431,40 @@ export const AuthProvider = ({ children }) => {
   const register = useCallback(async (userData) => {
     try {
       const response = await registerMutation(userData).unwrap();
-      applyUserSession(response);
-      return { success: true };
+      // Ensure we return everything from the response to catch verification metadata
+      return { success: true, ...response, ...(response.data || {}) };
     } catch (error) {
       return {
         success: false,
         message: error.data?.message || 'Registration failed',
       };
     }
-  }, [applyUserSession, registerMutation]);
+  }, [registerMutation]);
+
+  const verifyOtp = useCallback(async (otpData) => {
+    try {
+      const response = await verifyOtpMutation(otpData).unwrap();
+      applyUserSession(response.data || response);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.data?.message || 'OTP verification failed',
+      };
+    }
+  }, [applyUserSession, verifyOtpMutation]);
+
+  const resendOtp = useCallback(async (verificationId) => {
+    try {
+      const response = await resendOtpMutation({ verificationId }).unwrap();
+      return { success: true, ...response.data };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.data?.message || 'Resend OTP failed',
+      };
+    }
+  }, [resendOtpMutation]);
 
   const logout = useCallback(async () => {
     window.__AUTH_LOGOUT_IN_PROGRESS__ = true;
@@ -408,6 +477,7 @@ export const AuthProvider = ({ children }) => {
       // Continue local cleanup even if server logout fails.
     } finally {
       window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
+      syncAuthAction('user', 'logout');
     }
   }, [clearRoleSession, dispatch, logoutMutation]);
 
@@ -422,6 +492,7 @@ export const AuthProvider = ({ children }) => {
       // Continue local cleanup even if server logout fails.
     } finally {
       window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
+      syncAuthAction('admin', 'logout');
     }
   }, [adminLogoutMutation, clearRoleSession, dispatch]);
 
@@ -436,6 +507,7 @@ export const AuthProvider = ({ children }) => {
       // Continue local cleanup even if server logout fails.
     } finally {
       window.__AUTH_LOGOUT_IN_PROGRESS__ = false;
+      syncAuthAction('bloodbank', 'logout');
     }
   }, [clearRoleSession, dispatch, logoutBloodBankMutation]);
 
@@ -457,6 +529,8 @@ export const AuthProvider = ({ children }) => {
     loginAdmin,
     login,
     register,
+    verifyOtp,
+    resendOtp,
     logout,
     logoutAdmin,
     logoutBloodBank,
@@ -475,6 +549,8 @@ export const AuthProvider = ({ children }) => {
     loginAdmin,
     login,
     register,
+    verifyOtp,
+    resendOtp,
     logout,
     logoutAdmin,
     logoutBloodBank,

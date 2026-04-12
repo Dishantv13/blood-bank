@@ -7,6 +7,7 @@ import { BLOOD_GROUPS } from '../config/constants';
 import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Donors.css';
 import SkeletonLoader from '../components/SkeletonLoader';
+import EmptyState from '../components/EmptyState';
 
 const Donors = () => {
   const { user } = useAuth();
@@ -33,9 +34,13 @@ const Donors = () => {
     return lastDonationDate < threeMonthsAgo; // Eligible if donated more than 3 months ago
   };
 
-  // Separate donors into available and recently donated
-  const availableDonors = allDonors.filter(donor => donor.isDonor && calculateDonorEligibility(donor));
-  const recentlyDonatedDonors = allDonors.filter(donor => donor.isDonor && !calculateDonorEligibility(donor));
+  // Separate donors into available and recently donated, excluding the current user
+  const availableDonors = allDonors.filter(donor => 
+    donor.isDonor && calculateDonorEligibility(donor) && (donor._id !== user?._id && donor.id !== user?.id)
+  );
+  const recentlyDonatedDonors = allDonors.filter(donor => 
+    donor.isDonor && !calculateDonorEligibility(donor) && (donor._id !== user?._id && donor.id !== user?.id)
+  );
   
   const donors = availabilityTab === 'available' ? availableDonors : recentlyDonatedDonors;
 
@@ -67,7 +72,7 @@ const Donors = () => {
   // bloodGroups imported from constants
 
   if (loadingDonors) {
-    return <SkeletonLoader />;
+    return <SkeletonLoader variant="list" />;
   }
 
   return (
@@ -138,19 +143,13 @@ const Donors = () => {
       {/* Donor Grid */}
       <div className="donors-grid">
         {donors.length === 0 ? (
-          <div className="empty-state">
-            {availabilityTab === 'available' ? (
-              <>
-                <p>No donors currently available to donate.</p>
-                <p className="empty-state-subtext">All verified donors have donated recently. Please check back soon!</p>
-              </>
-            ) : (
-              <>
-                <p>No donors have donated recently.</p>
-                <p className="empty-state-subtext">Check the "Available to Donate" tab to find donors ready to help.</p>
-              </>
-            )}
-          </div>
+          <EmptyState 
+            title={availabilityTab === 'available' ? "No available donors" : "No recent donations"}
+            message={availabilityTab === 'available' 
+              ? "All verified donors have donated recently. Please check back soon!" 
+              : 'Check the "Available to Donate" tab to find donors ready to help.'
+            }
+          />
         ) : (
           donors.map((donor) => {
             const lastDonation = donor.lastDonationDate || donor.donorInfo?.lastDonationDate;
