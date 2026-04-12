@@ -43,6 +43,7 @@
     "redis": "^5.11.0"
   },
   "devDependencies": {
+    "@express-rate-limit/tsconfig": "^1.0.2",
     "@faker-js/faker": "^10.4.0",
     "nodemon": "^3.1.14"
   }

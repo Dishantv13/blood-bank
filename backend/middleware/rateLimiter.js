@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { getRedisClient } from '../config/redis.js';
 
@@ -28,6 +28,8 @@ const getStore = async (key) => {
   return store;
 };
 
+const getClientIpKey = (req) => ipKeyGenerator(req.ip);
+
 const asyncRateLimit = (key, options) =>
   async (req, res, next) => {
     const store = await getStore(key);
@@ -47,7 +49,7 @@ export const globalApiLimiter = asyncRateLimit('global', {
     if (req.user?.id) return `user:${req.user.id}`;
     if (req.admin?.id) return `admin:${req.admin.id}`;
     if (req.bloodBank?.id) return `bloodbank:${req.bloodBank.id}`;
-    return req.ip;
+    return getClientIpKey(req);
   },
 });
 
@@ -60,7 +62,7 @@ export const authLimiter = asyncRateLimit('auth', {
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
     const email = req.body?.email || req.body?.username || '';
-    return `${req.ip}:${email}`;
+    return `${getClientIpKey(req)}:${email}`;
   },
 });
 
@@ -72,7 +74,7 @@ export const bloodBankOtpInitiateLimiter = asyncRateLimit('bb-otp-init', {
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
     const email = String(req.body?.email || '').toLowerCase().trim();
-    return `bb-otp-init:${req.ip}:${email}`;
+    return `bb-otp-init:${getClientIpKey(req)}:${email}`;
   },
 });
 
@@ -84,7 +86,7 @@ export const bloodBankOtpVerifyLimiter = asyncRateLimit('bb-otp-verify', {
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
     const verificationId = String(req.body?.verificationId || '').trim();
-    return `bb-otp-verify:${req.ip}:${verificationId}`;
+    return `bb-otp-verify:${getClientIpKey(req)}:${verificationId}`;
   },
 });
 
@@ -96,7 +98,7 @@ export const bloodBankOtpResendLimiter = asyncRateLimit('bb-otp-resend', {
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
     const verificationId = String(req.body?.verificationId || '').trim();
-    return `bb-otp-resend:${req.ip}:${verificationId}`;
+    return `bb-otp-resend:${getClientIpKey(req)}:${verificationId}`;
   },
 });
 
@@ -109,7 +111,7 @@ export const passwordResetLimiter = asyncRateLimit('pwd-reset', {
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
     const email = req.body?.email || '';
-    return `password-reset:${req.ip}:${email}`;
+    return `password-reset:${getClientIpKey(req)}:${email}`;
   },
 });
 
@@ -119,7 +121,7 @@ export const requestCreationLimiter = asyncRateLimit('req-create', {
   max: 5,
   message: 'Too many blood requests created. Please try again later.',
   standardHeaders: true,
-  keyGenerator: (req) => req.user?.id || req.ip,
+  keyGenerator: (req) => req.user?.id || getClientIpKey(req),
 });
 
 // Donation rate limiter - one per 24 hours
@@ -128,7 +130,7 @@ export const donationCreationLimiter = asyncRateLimit('donation-create', {
   max: 1,
   message: 'Donation request limit reached for today. Please try again tomorrow.',
   standardHeaders: true,
-  keyGenerator: (req) => req.user?.id || req.ip,
+  keyGenerator: (req) => req.user?.id || getClientIpKey(req),
 });
 
 // Admin action rate limiter - allow more for admins but still rate limit
@@ -137,7 +139,7 @@ export const adminActionLimiter = asyncRateLimit('admin-action', {
   max: 100,
   message: 'Too many admin requests. Please try again later.',
   standardHeaders: true,
-  keyGenerator: (req) => req.admin?.id || req.ip,
+  keyGenerator: (req) => req.admin?.id || getClientIpKey(req),
 });
 
 // Admin export rate limiter - prevent data scraping
@@ -146,6 +148,6 @@ export const adminExportLimiter = asyncRateLimit('admin-export', {
   max: 10,
   message: 'Too many export requests. Please try again after one hour.',
   standardHeaders: true,
-  keyGenerator: (req) => req.admin?.id || req.ip,
+  keyGenerator: (req) => req.admin?.id || getClientIpKey(req),
   skipSuccessfulRequests: false,
 });
