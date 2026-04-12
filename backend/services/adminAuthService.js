@@ -22,6 +22,7 @@ import {
   revokeAuthSession,
   rotateAuthSession,
 } from './sessionService.js';
+import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
 
 const getAdminConfig = () => {
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -45,6 +46,36 @@ const getOrCreateAdminAuthState = async () => {
     return state.toObject();
   }
   return state;
+};
+
+const incrementAdminLoginAttempts = async (adminEmail) => {
+  const attempts = await AdminAuthState.findOneAndUpdate(
+    { email: adminEmail },
+    [
+      {
+        $set: {
+          loginAttempts: { $add: ['$loginAttempts', 1] },
+          lockUntil: {
+            $cond: {
+              if: { $gte: [{ $add: ['$loginAttempts', 1] }, MAX_LOGIN_ATTEMPTS] },
+              then: new Date(Date.now() + LOCK_DURATION_MS),
+              else: '$lockUntil',
+            },
+          },
+          updatedAt: new Date(),
+        },
+      },
+    ],
+    { new: true, upsert: true }
+  ).lean();
+  return attempts;
+};
+
+const clearAdminLoginAttempts = async (adminEmail) => {
+  await AdminAuthState.findOneAndUpdate(
+    { email: adminEmail },
+    { $set: { loginAttempts: 0, lockUntil: null, updatedAt: new Date() } }
+  ).lean();
 };
 
 const createAdminSession = async (req, res, admin) => {
@@ -100,10 +131,30 @@ export const loginAdmin = async (email, password) => {
 
   const normalizedEmail = email.trim().toLowerCase();
   const isEmailMatch = normalizedEmail === adminEmail;
+
+  // Always load the auth state so we can check and update lockout fields,
+  // regardless of whether the email matches (prevents user enumeration via timing).
+  const state = await getOrCreateAdminAuthState();
+
+  // Check lockout before verifying password (prevents timing oracle when locked).
+  if (state.lockUntil && new Date(state.lockUntil) > new Date()) {
+    throw new ApiError(401, 'Invalid admin credentials');
+  }
+
   const isPasswordMatch = await bcrypt.compare(password, adminPasswordHash);
 
   if (!isEmailMatch || !isPasswordMatch) {
+    // Only track attempts against the real admin email to avoid inflating counters
+    // on random enumeration attempts.
+    if (isEmailMatch) {
+      await incrementAdminLoginAttempts(adminEmail);
+    }
     throw new ApiError(401, 'Invalid admin credentials');
+  }
+
+  // Successful login – clear lockout state.
+  if (state.loginAttempts > 0 || state.lockUntil) {
+    await clearAdminLoginAttempts(adminEmail);
   }
 
   return {

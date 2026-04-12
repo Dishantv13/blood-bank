@@ -1,12 +1,33 @@
-const globalErrorHandler = (err, req, res, next) => {
-  // Log error details internally (consider using a proper logging library like Winston)
+const globalErrorHandler = (err, req, res, _next) => {
+  // Handle known Mongoose / MongoDB driver errors before falling through to generic handler
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid value for field: ${err.path}`,
+    });
+  }
+
+  if (err.name === 'MongoServerError' && err.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0] || 'field';
+    return res.status(409).json({
+      success: false,
+      message: `${field} already exists`,
+    });
+  }
+
+  // Structured log — avoid printing the full error object to prevent sensitive
+  // data leakage in log aggregation pipelines.
   console.error({
     message: err.message,
     stack: err.stack,
     path: req.path,
     method: req.method,
     ip: req.ip,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   const statusCode = err.statusCode || 500;

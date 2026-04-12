@@ -2,90 +2,104 @@ import * as adminService from '../services/adminService.js';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 
-// Middleware to check if user is admin
-export const isAdmin = (req, res, next) => {
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ message: 'Access denied. Admin only.' });
-  }
-};
+/**
+ * Returns a safe filename for Content-Disposition headers.
+ * Strips any characters that are not alphanumeric, underscore, hyphen, or dot
+ * to prevent header injection while preserving readability.
+ */
+const safeFilename = (name) => String(name || 'export').replace(/[^a-zA-Z0-9._-]/g, '_');
+
+/**
+ * Parses and clamps a pagination parameter.
+ */
+const parsePage = (raw) => Math.max(1, parseInt(raw) || 1);
+const parseLimit = (raw, max = 100) => Math.min(max, Math.max(1, parseInt(raw) || 10));
 
 // ===================== EXPORT HANDLERS =====================
 
 // Export all users to Excel
 export const exportUsers = asyncHandler(async (req, res) => {
   const result = await adminService.exportUsers();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 }); 
 
 // Export all blood requests to Excel
 export const exportRequests = asyncHandler(async (req, res) => {
   const result = await adminService.exportRequests();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 // Export all blood banks to Excel
 export const exportBloodBanks = asyncHandler(async (req, res) => {
   const result = await adminService.exportBloodBanks();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 // Export all blood camps to Excel
 export const exportCamps = asyncHandler(async (req, res) => {
   const result = await adminService.exportCamps();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 // Export all events to Excel
 export const exportEvents = asyncHandler(async (req, res) => {
   const result = await adminService.exportEvents();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 // NEW: Export handlers for CSV and all-in-one
 export const exportUsersCsv = asyncHandler(async (req, res) => {
   const result = await adminService.exportUsersCsv();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'text/csv');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 export const exportRequestsCsv = asyncHandler(async (req, res) => {
   const result = await adminService.exportRequestsCsv();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'text/csv');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 export const exportBloodBanksCsv = asyncHandler(async (req, res) => {
   const result = await adminService.exportBloodBanksCsv();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'text/csv');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 export const exportCampsCsv = asyncHandler(async (req, res) => {
   const result = await adminService.exportCampsCsv();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'text/csv');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 export const exportEventsCsv = asyncHandler(async (req, res) => {
   const result = await adminService.exportEventsCsv();
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', 'text/csv');
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
@@ -97,17 +111,18 @@ export const exportAllData = asyncHandler(async (req, res) => {
     ? 'text/csv' 
     : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   
-  res.setHeader('Content-Disposition', `attachment; filename=${result.filename}`);
+  res.setHeader('Content-Disposition', `attachment; filename="${safeFilename(result.filename)}"`);
   res.setHeader('Content-Type', contentType);
+  if (result.rowsLimited) res.setHeader('X-Export-Row-Limit', 'true');
   res.send(result.buffer);
 });
 
 // ===================== USERS MANAGEMENT =====================
 
 export const getAllUsers = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, bloodType, search } = req.query;
+  const { page, limit, status, bloodType, search } = req.query;
   const filters = { status, bloodType, search };
-  const result = await adminService.getAllUsers(parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getAllUsers(parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Users retrieved successfully');
 });
 
@@ -127,9 +142,9 @@ export const updateUserStatus = asyncHandler(async (req, res) => {
 // ===================== BLOOD BANKS MANAGEMENT =====================
 
 export const getAllBloodBanks = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, search } = req.query;
+  const { page, limit, status, search } = req.query;
   const filters = { status, search };
-  const result = await adminService.getAllBloodBanks(parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getAllBloodBanks(parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Blood banks retrieved successfully');
 });
 
@@ -144,9 +159,9 @@ export const updateBloodBankStatus = asyncHandler(async (req, res) => {
   const { status, rejectionReason } = req.body;
   const bank = await adminService.updateBloodBankStatus(bankId, status, {
     rejectionReason,
-    reviewedBy: req.admin?.email || req.admin?.name || 'admin',
-    adminEmail: req.admin?.email,
-    adminName: req.admin?.name,
+    reviewedBy: req.admin?.adminEmail || 'admin',
+    adminEmail: req.admin?.adminEmail,
+    adminName: 'Super Admin',
   });
   successResponse(res, bank, 200, 'Blood bank status updated successfully');
 });
@@ -154,17 +169,17 @@ export const updateBloodBankStatus = asyncHandler(async (req, res) => {
 // ===================== CAMPS MANAGEMENT =====================
 
 export const getAllCamps = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, search, bloodBankId } = req.query;
+  const { page, limit, status, search, bloodBankId } = req.query;
   const filters = { status, search, bloodBankId };
-  const result = await adminService.getAllCamps(parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getAllCamps(parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Blood camps retrieved successfully');
 });
 
 export const getCampsByBloodBank = asyncHandler(async (req, res) => {
   const { bankId } = req.params;
-  const { page = 1, limit = 10, status, search } = req.query;
+  const { page, limit, status, search } = req.query;
   const filters = { status, search };
-  const result = await adminService.getCampsByBloodBank(bankId, parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getCampsByBloodBank(bankId, parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Blood bank camps retrieved successfully');
 });
 
@@ -184,17 +199,17 @@ export const updateCampStatus = asyncHandler(async (req, res) => {
 // ===================== EVENTS MANAGEMENT =====================
 
 export const getAllEvents = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, search, bloodBankId } = req.query;
+  const { page, limit, status, search, bloodBankId } = req.query;
   const filters = { status, search, bloodBankId };
-  const result = await adminService.getAllEvents(parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getAllEvents(parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Events retrieved successfully');
 });
 
 export const getEventsByBloodBank = asyncHandler(async (req, res) => {
   const { bankId } = req.params;
-  const { page = 1, limit = 10, status, search } = req.query;
+  const { page, limit, status, search } = req.query;
   const filters = { status, search };
-  const result = await adminService.getEventsByBloodBank(bankId, parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getEventsByBloodBank(bankId, parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Blood bank events retrieved successfully');
 });
 
@@ -214,9 +229,9 @@ export const updateEventStatus = asyncHandler(async (req, res) => {
 // ===================== REQUESTS MANAGEMENT =====================
 
 export const getAllRequests = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, bloodType, urgency, search, userId } = req.query;
+  const { page, limit, status, bloodType, urgency, search, userId } = req.query;
   const filters = { status, bloodType, urgency, search, userId };
-  const result = await adminService.getAllRequests(parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getAllRequests(parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Blood requests retrieved successfully');
 });
 
@@ -236,9 +251,9 @@ export const updateRequestStatus = asyncHandler(async (req, res) => {
 // ===================== DONATIONS MANAGEMENT =====================
 
 export const getAllDonations = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, status, bloodType, search, userId } = req.query;
+  const { page, limit, status, bloodType, search, userId } = req.query;
   const filters = { status, bloodType, search, userId };
-  const result = await adminService.getAllDonations(parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getAllDonations(parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Donations retrieved successfully');
 });
 
@@ -258,9 +273,9 @@ export const updateDonationStatus = asyncHandler(async (req, res) => {
 // ===================== INVENTORY MANAGEMENT =====================
 
 export const getInventoryOverview = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, bloodType, search } = req.query;
+  const { page, limit, bloodType, search } = req.query;
   const filters = { bloodType, search };
-  const result = await adminService.getInventoryOverview(parseInt(page), parseInt(limit), filters);
+  const result = await adminService.getInventoryOverview(parsePage(page), parseLimit(limit), filters);
   successResponse(res, result, 200, 'Inventory retrieved successfully');
 });
 
