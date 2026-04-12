@@ -16,10 +16,19 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-router': ['react-router-dom'],
-          'vendor-redux': ['@reduxjs/toolkit', 'react-redux'],
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("react-router-dom")) return "vendor-router";
+          if (id.includes("@reduxjs/toolkit") || id.includes("react-redux")) {
+            return "vendor-redux";
+          }
+          if (
+            id.includes("/react/") ||
+            id.includes("/react-dom/") ||
+            id.includes("/scheduler/")
+          ) {
+            return "vendor-react";
+          }
         },
       },
     },
