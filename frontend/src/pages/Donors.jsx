@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useGetDonorsQuery } from '../store/userApi';
 import { useAuth } from '../context/AuthContext';
 import MapModal from '../components/MapModal';
-import { BLOOD_GROUPS } from '../enum/constants ';
+import { BLOOD_GROUPS } from '../enum/constants';
 import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/Donors.css';
 import SkeletonLoader from '../components/SkeletonLoader';
