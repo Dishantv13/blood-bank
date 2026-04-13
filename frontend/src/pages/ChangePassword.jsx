@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useChangeUserPasswordMutation } from '../store/userApi';
-import { MIN_PASSWORD_LENGTH } from '../config/constants';
+import { MIN_PASSWORD_LENGTH } from '../enum/constants';
 import '../pages.css/ChangePassword.css'
 
 const ChangePassword = () => {

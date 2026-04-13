@@ -4,9 +4,6 @@ import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import { sendLiveEvent } from '../utils/sse.js';
 
-/**
- * Create a new notification for a user or blood bank.
- */
 export const createNotification = async (data) => {
   const notification = new Notification({
     recipient: data.recipient,

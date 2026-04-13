@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import MapModal from '../components/MapModal';
 import { nameValidator, phoneValidator, pincodeValidator } from '../validation/validation';
-import { BLOOD_GROUPS, MAX_IMAGE_SIZE_BYTES, MESSAGE_DISPLAY_MS } from '../config/constants';
+import { BLOOD_GROUPS, MAX_IMAGE_SIZE_BYTES, MESSAGE_DISPLAY_MS } from '../enum/constants';
 import '../pages.css/Profile.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 

@@ -2,7 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { TAGS } from '../enum/tagType';
 import { AUTH_API_URLS, BLOODBANK_API_URLS, DONATION_API_URLS } from '../enum/apiUrl';
 import { ROUTE_PATH } from '../enum/routePath';
-import { withRefreshMutex } from '../utils/authMutex';
+import { withRefreshMutex } from '../enum/authMutex';
 
 // Enforce HTTPS in production - prevent insecure connections
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';

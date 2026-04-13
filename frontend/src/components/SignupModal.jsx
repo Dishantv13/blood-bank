@@ -13,7 +13,7 @@ import {
   emailValidator,
   pincodeValidator,
 } from "../validation/validation";
-import { BLOOD_GROUPS, MIN_PASSWORD_LENGTH } from "../config/constants";
+import { BLOOD_GROUPS, MIN_PASSWORD_LENGTH } from "../enum/constants";
 
 const SignupModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();

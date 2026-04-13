@@ -4,7 +4,7 @@ import { useGetBloodBankByIdQuery } from '../store/bloodBankApi';
 import { useCreateInterBankRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useToast } from '../components/ToastContainer';
-import { BLOOD_GROUPS } from '../config/constants';
+import { BLOOD_GROUPS } from '../enum/constants';
 import { useAuth } from '../context/AuthContext';
 import '../pages.css/BloodBankDirectoryDetails.css';
 

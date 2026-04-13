@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useResetPasswordMutation, useVerifyResetTokenMutation } from '../store/userApi';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
-import { MIN_PASSWORD_LENGTH } from '../config/constants';
+import { MIN_PASSWORD_LENGTH } from '../enum/constants';
 import '../pages.css/ResetPassword.css';
 
 const ResetPassword = () => {
