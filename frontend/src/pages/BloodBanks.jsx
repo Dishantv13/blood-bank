@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetAllBloodBanksQuery } from '../store/bloodBankApi';
-import { BLOOD_GROUPS } from '../config/constants';
+import { BLOOD_GROUPS } from '../enum/constants';
 import { ROUTE_PATH } from '../enum/routePath';
 import MapModal from '../components/MapModal';
 import SkeletonLoader from '../components/SkeletonLoader';

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
-import { MIN_PASSWORD_LENGTH } from '../config/constants';
+import { MIN_PASSWORD_LENGTH } from '../enum/constants';
 import '../pages.css/BloodBankChangePassword.css'
 
 const BloodBankChangePassword = () => {

@@ -19,7 +19,7 @@ import {
 } from '../store/bloodBankApi';
 import { useDispatch } from 'react-redux';
 import { apiSlice } from '../store/apiSlice';
-import { withRefreshMutex, syncAuthAction, onAuthSync } from '../utils/authMutex';
+import { withRefreshMutex, syncAuthAction, onAuthSync } from '../enum/authMutex';
 import { AUTH_API_URLS } from '../enum/apiUrl';
 
 const AuthContext = createContext();
