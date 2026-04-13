@@ -35,6 +35,7 @@ import {
   revokeAuthSession,
   rotateAuthSession,
 } from './sessionService.js';
+import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 
 const buildBloodBankClaims = (bloodBank) => ({
   bloodBankId: String(bloodBank.id),
@@ -189,7 +190,7 @@ const incrementBloodBankTokenVersion = async (bloodBankId, reason = 'security_ev
       $inc: { tokenVersion: 1 },
       $set: { passwordChangedAt: new Date() },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).select('_id email +tokenVersion').lean();
 
   if (!updatedBank) {
@@ -611,6 +612,7 @@ export const refreshBloodBankSession = async (req, res) => {
     refreshTokenExpiresAt,
     tokenVersion: Number(bloodBankSession.tokenVersion || 0),
     req,
+    isGraceUpdate: isGraceMatch,
   });
   return { bloodBank: result.bloodBank, csrfToken, accessTokenExpiresAt };
 };
@@ -700,20 +702,26 @@ export const loginBloodBank = async (email, password) => {
 // Get all public blood banks or nearby ones
 export const getAllBloodBanks = async (query) => {
   const { latitude, longitude, maxDistance, bloodGroup } = query;
+  const { page, limit, skip } = getPaginationParams({ query });
+  
   const cacheKey = JSON.stringify({
     latitude: latitude || null,
     longitude: longitude || null,
     maxDistance: maxDistance || null,
     bloodGroup: bloodGroup || null,
+    page,
+    limit
   });
+  
   const cached = getCachedPublicBanks(cacheKey);
   if (cached) {
     return cached;
   }
 
-  let bloodBanks;
+  let rawBanks;
+  let rawTotal;
+
   if (latitude && longitude) {
-    // Geospatial query for nearby blood banks
     const geoQuery = {
       isActive: true,
       approvalStatus: 'approved',
@@ -723,18 +731,30 @@ export const getAllBloodBanks = async (query) => {
             type: 'Point',
             coordinates: [parseFloat(longitude), parseFloat(latitude)]
           },
-          $maxDistance: maxDistance ? parseInt(maxDistance) : 50000 // 50km default
+          $maxDistance: maxDistance ? parseInt(maxDistance) : 50000 
         }
       }
     };
 
-    bloodBanks = await BloodBank.find(geoQuery).select(BLOOD_BANK_LIST_FIELDS).lean();
+    const [bloodBanks, total] = await Promise.all([
+      BloodBank.find(geoQuery).select(BLOOD_BANK_LIST_FIELDS).skip(skip).limit(limit).lean(),
+      BloodBank.countDocuments(geoQuery)
+    ]);
+    
+    rawBanks = bloodBanks;
+    rawTotal = total;
   } else {
-    bloodBanks = await BloodBank.find({ isActive: true, approvalStatus: 'approved' }).select(BLOOD_BANK_LIST_FIELDS).lean();
+    const baseQuery = { isActive: true, approvalStatus: 'approved' };
+    const [bloodBanks, total] = await Promise.all([
+      BloodBank.find(baseQuery).select(BLOOD_BANK_LIST_FIELDS).skip(skip).limit(limit).lean(),
+      BloodBank.countDocuments(baseQuery)
+    ]);
+    rawBanks = bloodBanks;
+    rawTotal = total;
   }
 
   // Batch fetch inventories (avoid N+1)
-  const bankIds = bloodBanks.map(bank => bank._id);
+  const bankIds = rawBanks.map(bank => bank._id);
   const inventories = bankIds.length
     ? await Inventory.find({ bloodBank: { $in: bankIds } })
       .select('bloodBank items.bloodGroup items.units')
@@ -756,7 +776,7 @@ export const getAllBloodBanks = async (query) => {
     return logoCandidate;
   };
 
-  const bloodBanksWithInventory = bloodBanks.map(bank => ({
+  const bloodBanksWithInventory = rawBanks.map(bank => ({
     ...sanitizeBloodBank(bank),
     logo: resolveLightweightLogo(bank),
     inventory: inventoryMap.get(bank._id.toString()) || bank.inventory || []
@@ -768,12 +788,14 @@ export const getAllBloodBanks = async (query) => {
     const filteredBanks = bloodBanksWithInventory.filter(bank =>
       bank.inventory.some(item => item.bloodGroup === bloodGroup && item.units > 0)
     );
-    setCachedPublicBanks(cacheKey, filteredBanks);
-    return filteredBanks;
+    const response = buildPaginatedResponse(filteredBanks, rawTotal, page, limit); // Note: total might be slightly off if locally filtered
+    setCachedPublicBanks(cacheKey, response);
+    return response;
   }
 
-  setCachedPublicBanks(cacheKey, bloodBanksWithInventory);
-  return bloodBanksWithInventory;
+  const response = buildPaginatedResponse(bloodBanksWithInventory, rawTotal, page, limit);
+  setCachedPublicBanks(cacheKey, response);
+  return response;
 };
 
 // Get blood bank by ID
@@ -848,7 +870,7 @@ export const updateBloodBankProfile = async (bloodBankId, updateData) => {
         logo,
         imageUrl: logo
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select(BLOOD_BANK_SAFE_FIELDS).lean(),
     Inventory.findOne({ bloodBank: bloodBankId }).lean()
   ]);

@@ -569,7 +569,7 @@ const BloodBankDashboard = () => {
       formData.append('photo', bloodBankPhoto);
 
       await uploadPhoto(formData).unwrap();
-      
+
       addNotification('Hospital photo uploaded successfully!');
       success('Hospital photo uploaded successfully!');
       setBloodBankPhoto(null);
@@ -2057,9 +2057,9 @@ const BloodBankDashboard = () => {
                     />
                   </div>
 
-                  <button 
-                    type="submit" 
-                    className={`btn-save-settings ${isProfileChanged ? 'has-changes' : ''}`} 
+                  <button
+                    type="submit"
+                    className={`btn-save-settings ${isProfileChanged ? 'has-changes' : ''}`}
                     disabled={!isProfileChanged || updatingProfile}
                   >
                     {updatingProfile && savingSection === 'profile' ? (
@@ -2133,8 +2133,8 @@ const BloodBankDashboard = () => {
                     </label>
                   </div>
 
-                  <button 
-                    className={`btn-save-settings ${isHoursChanged ? 'has-changes' : ''}`} 
+                  <button
+                    className={`btn-save-settings ${isHoursChanged ? 'has-changes' : ''}`}
                     onClick={handleSaveHours}
                     disabled={!isHoursChanged || updatingProfile}
                   >
@@ -2278,9 +2278,9 @@ const BloodBankDashboard = () => {
                     />
                   </div>
 
-                  <button 
-                    type="submit" 
-                    className={`btn-save-settings btn-danger ${isPasswordReady ? 'has-changes' : ''}`} 
+                  <button
+                    type="submit"
+                    className={`btn-save-settings btn-danger ${isPasswordReady ? 'has-changes' : ''}`}
                     disabled={!isPasswordReady || changingPassword}
                   >
                     {changingPassword ? (

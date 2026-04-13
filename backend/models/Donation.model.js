@@ -30,7 +30,7 @@ const DonationSchema = new mongoose.Schema({
     default: 'pending'
   },
   volumeDonated: {
-    type: Number, // In liters (L)
+    type: Number,
     default: 0
   },
   donationDate: {
@@ -42,6 +42,14 @@ const DonationSchema = new mongoose.Schema({
   isFake: {
     type: Boolean,
     default: false
+  },
+  certificateCode: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  certificateIssuedAt: {
+    type: Date
   }
 }, {
   timestamps: true

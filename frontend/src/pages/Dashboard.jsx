@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
-import { 
-  useGetAllRequestsQuery, 
-  useGetMyRequestsQuery, 
+import {
+  useGetAllRequestsQuery,
+  useGetMyRequestsQuery,
 } from '../store/requestApi';
-import { 
-  useGetDashboardStatsQuery, 
+import {
+  useGetDashboardStatsQuery,
   useToggleModeMutation,
   useUpdateProfileMutation,
   useGetProfileQuery
@@ -16,6 +16,7 @@ import { useGetAllCampsQuery } from '../store/bloodCampApi';
 import { useGetMyDonationsQuery } from '../store/donationApi';
 import DonateBloodModal from '../components/DonateBloodModal';
 import { ROUTE_PATH } from '../enum/routePath';
+import { FaCheckCircle, FaAward, FaHistory } from 'react-icons/fa';
 import '../pages.css/Dashboard.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 import EmptyState from '../components/EmptyState';
@@ -25,19 +26,19 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user, setUser } = useAuth();
   const [message, setMessage] = useState({ type: '', text: '' });
-  
+
   // RTK Query Hooks replace all the manual useState + useEffect logic
-  const { 
-    data: allRequestsRes, 
-    isLoading: loadingAllRequests 
+  const {
+    data: allRequestsRes,
+    isLoading: loadingAllRequests
   } = useGetAllRequestsQuery({ status: 'pending' });
-  
-  const { 
-    data: myRequestsRes, 
-    isLoading: loadingMyRequests 
+
+  const {
+    data: myRequestsRes,
+    isLoading: loadingMyRequests
   } = useGetMyRequestsQuery();
-  
-  const { 
+
+  const {
     data: dashboardStatsRes,
     isLoading: loadingStats
   } = useGetDashboardStatsQuery();
@@ -71,10 +72,10 @@ const Dashboard = () => {
   const { data: campsRes, isLoading: loadingCamps } = useGetAllCampsQuery({}, {
     skip: !user // ensure we only fetch when authorized
   });
-  
+
   const camps = campsRes?.data || campsRes?.camps || [];
   const upcomingCamps = camps.filter(c => new Date(c.date) >= new Date()).length;
-  
+
   // Only show full screen loading for initial data fetch, not for mutations like toggleMode
   const isGlobalLoading = loadingAllRequests || loadingMyRequests || loadingStats || loadingProfile || loadingCamps;
 
@@ -85,14 +86,14 @@ const Dashboard = () => {
     lastDonation: null,
     upcomingEvents: 0
   });
-  
+
   const [showDonorModal, setShowDonorModal] = useState(false);
   const [showDonateModal, setShowDonateModal] = useState(false);
   const [donorRegistration, setDonorRegistration] = useState({
     registerAsDonor: false,
     availableForDonation: false
   });
-  
+
   const toast = useToast();
 
   const fetchDonorStats = useCallback(() => {
@@ -133,7 +134,7 @@ const Dashboard = () => {
 
   let nextEligibleDate = null;
   let isWaitingPeriod = false;
-  
+
   if (lastDonationDate) {
     const d = new Date(lastDonationDate);
     nextEligibleDate = new Date(d.setMonth(d.getMonth() + 3));
@@ -143,7 +144,7 @@ const Dashboard = () => {
     nextEligibleDate.setHours(0, 0, 0, 0);
     isWaitingPeriod = nextEligibleDate > today;
   }
-  
+
   const isActuallyEligible = user?.donorInfo?.isEligible && !isWaitingPeriod;
 
   useEffect(() => {
@@ -158,7 +159,7 @@ const Dashboard = () => {
     if (!user.phone || user.phone.trim() === '') missingFields.push('Phone Number');
     if (!user.bloodGroup || user.bloodGroup === '') missingFields.push('Blood Group');
     if (!user.address?.city || user.address?.city.trim() === '' || !user.address?.state || user.address?.state.trim() === '') missingFields.push('Address');
-    
+
     if (missingFields.length > 0) {
       setMessage({
         type: 'warning',
@@ -179,12 +180,12 @@ const Dashboard = () => {
 
     const currentMode = user.activeMode || 'patient';
     const newMode = currentMode === 'donor' ? 'patient' : 'donor';
-    
+
     if (newMode === 'donor' && !user.isDonor) {
       setShowDonorModal(true);
       return;
     }
-    
+
     try {
       const response = await toggleMode({ mode: newMode }).unwrap();
       if (response && response.data) {
@@ -203,9 +204,9 @@ const Dashboard = () => {
         isDonor: true,
         activeMode: 'donor'
       };
-      
+
       const response = await updateProfile(updateData).unwrap();
-      
+
       if (response && response.data) {
         setUser(response.data);
         setShowDonorModal(false);
@@ -235,13 +236,13 @@ const Dashboard = () => {
             </span>
           </div>
           {user && (
-            <button 
-              className="btn-mode-toggle" 
+            <button
+              className="btn-mode-toggle"
               onClick={handleModeToggle}
               disabled={togglingMode}
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M14.5 4.5V2.5M14.5 4.5H16.5M14.5 4.5L11.5 7.5M5.5 15.5V17.5M5.5 15.5H3.5M5.5 15.5L8.5 12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M14.5 4.5V2.5M14.5 4.5H16.5M14.5 4.5L11.5 7.5M5.5 15.5V17.5M5.5 15.5H3.5M5.5 15.5L8.5 12.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Switch to {(user.activeMode || 'patient') === 'donor' ? 'Patient' : 'Donor'}
             </button>
@@ -249,20 +250,22 @@ const Dashboard = () => {
           {(user?.activeMode || 'patient') === 'donor' && !user?.isDonor && (
             <Link to={ROUTE_PATH.DONOR_FORM} className="btn btn-donor">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.2"/>
+                <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.2" />
               </svg>
               Complete Donor Registration
             </Link>
           )}
           <Link to={ROUTE_PATH.CHANGE_PASSWORD} className="btn btn-secondary">
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-              <rect x="3" y="9" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2"/>
-              <path d="M6 9V6C6 3.79086 7.79086 2 10 2C12.2091 2 14 3.79086 14 6V9" stroke="currentColor" strokeWidth="2"/>
+              <rect x="3" y="9" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" />
+              <path d="M6 9V6C6 3.79086 7.79086 2 10 2C12.2091 2 14 3.79086 14 6V9" stroke="currentColor" strokeWidth="2" />
             </svg>
             Change Password
           </Link>
         </div>
       </div>
+
+
 
       {message.text && (
         <div className={`alert alert-${message.type}`}>
@@ -275,9 +278,9 @@ const Dashboard = () => {
         <div className="donor-mode-container">
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-icon stat-icon-donations" style={{background: "linear-gradient(135deg, #ef4444, #b91c1c)"}}>
+              <div className="stat-icon stat-icon-donations" style={{ background: "linear-gradient(135deg, #ef4444, #b91c1c)" }}>
                 <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                  <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -286,10 +289,10 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon stat-icon-events" style={{  background: "linear-gradient(135deg, #3b82f6, #2563eb)"}}>
+              <div className="stat-icon stat-icon-events" style={{ background: "linear-gradient(135deg, #3b82f6, #2563eb)" }}>
                 <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
-                  <rect x="3" y="4" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M16 2V6M8 2V6M3 10H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <rect x="3" y="4" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="2" />
+                  <path d="M16 2V6M8 2V6M3 10H17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -298,9 +301,9 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon stat-icon-blood" style={{  background: "linear-gradient(135deg, #dc2626, #7f1d1d)",}}>
+              <div className="stat-icon stat-icon-blood" style={{ background: "linear-gradient(135deg, #dc2626, #7f1d1d)", }}>
                 <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
-                  <path d="M2 10h4l3-6 4 12 3-6h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2 10h4l3-6 4 12 3-6h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -309,10 +312,10 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="stat-card">
-              <div className="stat-icon stat-icon-upcoming" style={{background: "linear-gradient(135deg, #f59e0b, #d97706)",}}>
+              <div className="stat-icon stat-icon-upcoming" style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", }}>
                 <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
-                  <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M10 5V10L13 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="2" />
+                  <path d="M10 5V10L13 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -320,14 +323,14 @@ const Dashboard = () => {
                 <p>Upcoming Events</p>
               </div>
             </div>
-            
+
             <div className="stat-card">
               <div className="stat-icon stat-icon-camps" style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2"/>
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2" />
+                  <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2" />
+                  <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -343,11 +346,11 @@ const Dashboard = () => {
               <div className="eligibility-icon" style={{ background: isWaitingPeriod ? "linear-gradient(135deg, #6b7280, #374151)" : "linear-gradient(135deg, #10b981, #059669)" }}>
                 {isWaitingPeriod ? (
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                    <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
                   </svg>
                 ) : (
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
                 )}
               </div>
@@ -362,7 +365,7 @@ const Dashboard = () => {
                   Request to Donate Now
                 </button>
               ) : isWaitingPeriod ? (
-                <button className="btn btn-secondary btn-disabled-eligibility" disabled style={{ cursor: 'not-allowed'}}>
+                <button className="btn btn-secondary btn-disabled-eligibility" disabled style={{ cursor: 'not-allowed' }}>
                   Eligible on {nextEligibleDate?.toLocaleDateString()}
                 </button>
               ) : (
@@ -407,7 +410,7 @@ const Dashboard = () => {
                 </span>
               </div>
               {myDonations.length === 0 ? (
-                <EmptyState 
+                <EmptyState
                   title="Welcome to Your Donor Journey! 🩸"
                   message="You haven't made any donation requests yet. Start your life-saving journey today!"
                   actionLabel={isActuallyEligible ? "Request to Donate Now" : null}
@@ -423,26 +426,26 @@ const Dashboard = () => {
                     .sort((a, b) => new Date(b.donationDate) - new Date(a.donationDate))
                     .slice(0, 6)
                     .map(donation => (
-                    <div key={donation._id} className="request-card" style={{ marginBottom: 0 }}>
-                      <div className="request-header">
-                        <span className="blood-type-badge">{donation.bloodGroup}</span>
-                        <span className={`status-badge status-${donation.status}`}>{donation.status.toUpperCase()}</span>
+                      <div key={donation._id} className="request-card" style={{ marginBottom: 0 }}>
+                        <div className="request-header">
+                          <span className="blood-type-badge">{donation.bloodGroup}</span>
+                          <span className={`status-badge status-${donation.status}`}>{donation.status.toUpperCase()}</span>
+                        </div>
+                        <div className="request-details">
+                          <p><strong>Date:</strong> {new Date(donation.donationDate).toLocaleDateString()}</p>
+                          {donation.bloodBank && <p><strong>Blood Bank:</strong> {donation.bloodBank.name}</p>}
+                          {donation.camp && <p><strong>Camp:</strong> {donation.camp.name}</p>}
+                          {donation.status === 'completed' && (
+                            <p>
+                              <strong>Volume:</strong>{' '}
+                              {getDonationVolumeLiters(donation.volumeDonated) > 0
+                                ? `${getDonationVolumeLiters(donation.volumeDonated).toFixed(2)}L`
+                                : 'Not recorded'}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="request-details">
-                        <p><strong>Date:</strong> {new Date(donation.donationDate).toLocaleDateString()}</p>
-                        {donation.bloodBank && <p><strong>Blood Bank:</strong> {donation.bloodBank.name}</p>}
-                        {donation.camp && <p><strong>Camp:</strong> {donation.camp.name}</p>}
-                        {donation.status === 'completed' && (
-                          <p>
-                            <strong>Volume:</strong>{' '}
-                            {getDonationVolumeLiters(donation.volumeDonated) > 0
-                              ? `${getDonationVolumeLiters(donation.volumeDonated).toFixed(2)}L`
-                              : 'Not recorded'}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
@@ -465,9 +468,9 @@ const Dashboard = () => {
             <div className="stat-card">
               <div className="stat-icon stat-icon-my" style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)' }}>
                 <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
-                  <rect x="6" y="2" width="8" height="14" rx="1" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M8 2H8C8 0.895 8.895 0 10 0C11.105 0 12 0.895 12 2H12" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M8 8H12M8 11H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <rect x="6" y="2" width="8" height="14" rx="1" stroke="currentColor" strokeWidth="2" />
+                  <path d="M8 2H8C8 0.895 8.895 0 10 0C11.105 0 12 0.895 12 2H12" stroke="currentColor" strokeWidth="2" />
+                  <path d="M8 8H12M8 11H12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -478,10 +481,10 @@ const Dashboard = () => {
             <div className="stat-card">
               <div className="stat-icon stat-icon-donors" style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
                 <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
-                  <circle cx="7" cy="5" r="3" stroke="currentColor" strokeWidth="2"/>
-                  <circle cx="13" cy="5" r="3" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M1 17C1 13.686 3.686 11 7 11C10.314 11 13 13.686 13 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  <path d="M7 17C7 13.686 9.686 11 13 11C16.314 11 19 13.686 19 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="7" cy="5" r="3" stroke="currentColor" strokeWidth="2" />
+                  <circle cx="13" cy="5" r="3" stroke="currentColor" strokeWidth="2" />
+                  <path d="M1 17C1 13.686 3.686 11 7 11C10.314 11 13 13.686 13 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M7 17C7 13.686 9.686 11 13 11C16.314 11 19 13.686 19 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -492,8 +495,8 @@ const Dashboard = () => {
             <div className="stat-card">
               <div className="stat-icon stat-icon-events" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
                 <svg width="32" height="32" viewBox="0 0 20 20" fill="none">
-                  <rect x="3" y="4" width="14" height="14" rx="1" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M3 8H17M7 2V6M13 2V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <rect x="3" y="4" width="14" height="14" rx="1" stroke="currentColor" strokeWidth="2" />
+                  <path d="M3 8H17M7 2V6M13 2V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -505,10 +508,10 @@ const Dashboard = () => {
             <div className="stat-card">
               <div className="stat-icon stat-icon-camps" style={{ background: 'linear-gradient(135deg, #16a34a, #15803d)' }}>
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2"/>
-                  <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2"/>
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2" />
+                  <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="2" />
+                  <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" strokeWidth="2" />
                 </svg>
               </div>
               <div className="stat-content">
@@ -523,7 +526,7 @@ const Dashboard = () => {
             <div className="eligibility-info">
               <div className="eligibility-icon" style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)' }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                 </svg>
               </div>
               <div className="eligibility-text">
@@ -537,7 +540,7 @@ const Dashboard = () => {
               </Link>
             </div>
           </div>
-          
+
           {/* Compute charts from myRequests directly */}
           {(() => {
             // Build blood group distribution from myRequests
@@ -606,7 +609,7 @@ const Dashboard = () => {
               <Link to={ROUTE_PATH.CREATE_REQUEST} className="btn btn-outline">New Request</Link>
             </div>
             {myRequests.length === 0 ? (
-              <EmptyState 
+              <EmptyState
                 title="No blood requests yet"
                 message="You haven't made any blood requests yet. Start by creating your first request to get help."
                 actionLabel="Create Your First Request"
@@ -622,22 +625,22 @@ const Dashboard = () => {
                   .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                   .slice(0, 6)
                   .map(request => (
-                  <div key={request._id} className="request-card" style={{ marginBottom: 0 }}>
-                    <div className="request-header">
-                      <span className="blood-type-badge">{request.bloodGroup}</span>
-                      <span className={`status-badge status-${request.status}`}>{request.status.toUpperCase()}</span>
+                    <div key={request._id} className="request-card" style={{ marginBottom: 0 }}>
+                      <div className="request-header">
+                        <span className="blood-type-badge">{request.bloodGroup}</span>
+                        <span className={`status-badge status-${request.status}`}>{request.status.toUpperCase()}</span>
+                      </div>
+                      <div className="request-details">
+                        <p><strong>Patient:</strong> {request.patientName}</p>
+                        <p><strong>Urgency:</strong> {request.urgency}</p>
+                        <p><strong>Hospital:</strong> {request.hospital?.name || 'N/A'}</p>
+                        <p><strong>Requested Date:</strong> {new Date(request.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="request-footer">
+                        <Link to={ROUTE_PATH.REQUEST_DETAILS.replace(":requestId", request._id)} className="view-details-link">View Full Details →</Link>
+                      </div>
                     </div>
-                    <div className="request-details">
-                      <p><strong>Patient:</strong> {request.patientName}</p>
-                      <p><strong>Urgency:</strong> {request.urgency}</p>
-                      <p><strong>Hospital:</strong> {request.hospital?.name || 'N/A'}</p>
-                      <p><strong>Requested Date:</strong> {new Date(request.createdAt).toLocaleDateString()}</p>
-                    </div>
-                    <div className="request-footer">
-                       <Link to={ROUTE_PATH.REQUEST_DETAILS.replace(":requestId", request._id)} className="view-details-link">View Full Details →</Link>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             )}
           </div>
@@ -655,7 +658,7 @@ const Dashboard = () => {
               <p className="modal-description">
                 To switch to donor mode, please confirm your registration as a blood donor.
               </p>
-              
+
               <div className="checkbox-group">
                 <label className="checkbox-label required">
                   <input
@@ -674,15 +677,15 @@ const Dashboard = () => {
               </div>
 
               <div className="modal-actions">
-                <button 
-                  className="btn-cancel" 
+                <button
+                  className="btn-cancel"
                   onClick={() => setShowDonorModal(false)}
                   disabled={updatingProfile || togglingMode}
                 >
                   Cancel
                 </button>
-                <button 
-                  className="btn-submit" 
+                <button
+                  className="btn-submit"
                   onClick={handleDonorRegistration}
                   disabled={updatingProfile || togglingMode || !donorRegistration.registerAsDonor}
                 >
@@ -695,7 +698,7 @@ const Dashboard = () => {
       )}
 
       {showDonateModal && (
-        <DonateBloodModal 
+        <DonateBloodModal
           onClose={() => setShowDonateModal(false)}
           onSuccess={() => { toast.success('Your donation request has been sent for approval.'); fetchDonorStats(); }}
         />

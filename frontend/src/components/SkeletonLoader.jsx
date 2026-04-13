@@ -102,12 +102,20 @@ const SkeletonLoader = ({ variant = 'default' }) => {
     </div>
   );
 
-  switch (variant) {
-    case 'dashboard': return renderDashboard();
-    case 'list': return renderList();
-    case 'form': return renderForm();
-    default: return renderDefault();
-  }
+  const content = (() => {
+    switch (variant) {
+      case 'dashboard': return renderDashboard();
+      case 'list': return renderList();
+      case 'form': return renderForm();
+      default: return renderDefault();
+    }
+  })();
+
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading content...">
+      {content}
+    </div>
+  );
 };
 
 export default SkeletonLoader;

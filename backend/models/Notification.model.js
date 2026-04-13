@@ -23,7 +23,7 @@ const NotificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['request', 'donation', 'event', 'system', 'inventory'],
+    enum: ['request', 'donation', 'event', 'system', 'inventory', 'reminder'],
     default: 'system'
   },
   actionUrl: {

@@ -144,6 +144,8 @@ const DonorHealthForm = () => {
     }
   }, [user, reset]);
 
+
+
   const calculateEligibility = (data) => {
     // Check if any disease is present
     const hasDisease = Object.values(data.diseases).some(v => v === true);
@@ -299,6 +301,8 @@ const DonorHealthForm = () => {
       <form onSubmit={handleSubmit(onSubmit)} className="donor-health-form">
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
+
+
 
         {/* Personal Information */}
         <section className="form-section">

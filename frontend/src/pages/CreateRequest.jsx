@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer';
+import { useAuth } from '../context/AuthContext';
+import { FaLock, FaExclamationTriangle } from 'react-icons/fa';
 import { useCreateRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
 import { BLOOD_GROUPS } from '../enum/constants';
@@ -10,6 +12,7 @@ import '../pages.css/CreateRequest.css';
 const CreateRequest = () => {
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
@@ -234,6 +237,8 @@ const CreateRequest = () => {
               />
             </div>
           </div>
+
+
 
           <div className="form-actions">
             <button

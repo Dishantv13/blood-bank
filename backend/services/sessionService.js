@@ -56,24 +56,28 @@ export const rotateAuthSession = async ({
   refreshTokenExpiresAt,
   tokenVersion,
   req,
+  isGraceUpdate = false,
 }) => {
-  const session = await AuthSession.findOne({ role, sessionId }).select('refreshTokenHash');
-  const previousRefreshTokenHash = session?.refreshTokenHash || null;
+  const update = {
+    refreshTokenHash,
+    expiresAt: new Date(refreshTokenExpiresAt),
+    tokenVersion,
+    lastUsedAt: new Date(),
+    rotatedAt: new Date(),
+    ip: getRequestIp(req),
+    userAgent: getRequestUserAgent(req),
+  };
+
+  // Only move current hash to previous if this isn't already a grace-period update.
+  // This preserves the "original" old token for multiple concurrent tab refreshes.
+  if (!isGraceUpdate) {
+    const session = await AuthSession.findOne({ role, sessionId }).select('refreshTokenHash');
+    update.previousRefreshTokenHash = session?.refreshTokenHash || null;
+  }
 
   await AuthSession.updateOne(
     { role, sessionId, revokedAt: null },
-    {
-      $set: {
-        refreshTokenHash,
-        previousRefreshTokenHash,
-        expiresAt: new Date(refreshTokenExpiresAt),
-        tokenVersion,
-        lastUsedAt: new Date(),
-        rotatedAt: new Date(),
-        ip: getRequestIp(req),
-        userAgent: getRequestUserAgent(req),
-      },
-    }
+    { $set: update }
   );
 };
 

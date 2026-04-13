@@ -280,6 +280,7 @@ export const refreshAdminSession = async (req, res) => {
     refreshTokenExpiresAt,
     tokenVersion: Number(state.tokenVersion || 0),
     req,
+    isGraceUpdate: isGraceMatch,
   });
 
   const session = await getSessionAdmin();

@@ -92,3 +92,5 @@ export const changePassword = asyncHandler(async (req, res) => {
   await authService.changePassword(userId, currentPassword, newPassword);
   successResponse(res, { success: true }, 200, 'Password changed successfully');
 });
+
+

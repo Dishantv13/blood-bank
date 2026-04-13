@@ -97,7 +97,13 @@ textarea::placeholder {
 
 input:focus, textarea:focus, select:focus {
   border-color: #e63946;
-  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.2);
+}
+
+/* Global focus ring for keyboard users (WCAG 2.1) */
+:focus-visible {
+  outline: 3px solid #e63946;
+  outline-offset: 2px;
 }
 
 a {
@@ -157,4 +163,36 @@ input:-webkit-autofill:active {
   -webkit-text-fill-color: var(--text-main) !important;
   caret-color: var(--text-main) !important;
   transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Screen reader only utility (WCAG 2.1) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to content link (WCAG 2.1) */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #e63946;
+  color: white;
+  padding: 1rem 1.5rem;
+  z-index: 9999;
+  transition: top 0.3s;
+  font-weight: bold;
+  border-radius: 0 0 10px 0;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: none;
 }

@@ -109,6 +109,9 @@ const isLoginOrAuthMutationPath = (url = '') => {
 };
 
 const normalizeApiPayload = (rawResponse) => {
+  // If result is a Blob (file download), return it as is to avoid wrapping
+  if (rawResponse instanceof Blob) return rawResponse;
+
   const isObject = rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse);
   const isWrappedSuccess =
     isObject &&

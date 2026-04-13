@@ -1,0 +1,507 @@
+:root {
+  --premium-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --neon-red: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.donation-history-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.header-titles {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.header-titles h1 {
+  font-size: 2.2rem;
+  color: var(--text-main);
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: unset;
+  margin-bottom: 0.25rem;
+  font-weight: 900;
+  letter-spacing: -1px;
+}
+
+.header-titles p {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.stats-mini-grid {
+  display: flex;
+  gap: 2rem;
+}
+
+.stat-pill {
+  background: var(--card-bg);
+  padding: 1rem 1.5rem;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--glass-border);
+  min-width: 140px;
+  backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.stat-pill.highlight {
+  background: var(--glass-bg);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.stat-pill::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--primary-color);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-pill:hover {
+  transform: translateY(-5px);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.stat-pill:hover::before {
+  opacity: 1;
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-main);
+  line-height: 1.2;
+}
+
+.stat-value.next-date {
+  font-size: 1.1rem;
+  color: var(--primary-color);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-top: 0.5rem;
+  font-weight: 700;
+}
+
+/* Tabs Styling */
+.history-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 3rem;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.6rem;
+  border-radius: 18px;
+  border: 1px solid var(--glass-border);
+  width: fit-content;
+  backdrop-filter: blur(15px);
+}
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem 2rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 14px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-btn svg {
+  font-size: 1.3rem;
+}
+
+.tab-btn:hover:not(.active) {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+  background: var(--primary-color);
+  color: white;
+  box-shadow: 0 10px 25px rgba(230, 57, 70, 0.4);
+}
+
+/* Timeline Components */
+/* Grid-based Timeline Cards */
+.donation-timeline.grid-view {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.timeline-card {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.timeline-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary-color);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.card-date {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  text-transform: uppercase;
+}
+
+.card-body h4 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-metrics {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.card-metrics .metric {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-metrics .metric .label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.card-metrics .metric .value {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.card-notes {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 1rem;
+  line-height: 1.4;
+}
+
+.status-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: var(--glass-bg);
+}
+
+.status-badge.completed { color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+.status-badge.pending { color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+.status-badge.rejected { color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+.timeline-body h4 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+  color: var(--text-main);
+}
+
+.timeline-body p {
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+/* Achievements */
+.badges-section h2, 
+.certificates-section h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.badges-section > p, 
+.certificates-section > p {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+}
+
+/* Achievements Grid Styling */
+.donor-badges-container {
+  margin-top: 1rem;
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 2rem;
+}
+
+.badge-card {
+  background: var(--card-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.badge-card.locked {
+  opacity: 0.6;
+}
+
+.badge-card.unlocked {
+  border-color: var(--primary-color);
+  background: radial-gradient(circle at top right, rgba(239, 68, 68, 0.1), transparent);
+}
+
+.badge-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+}
+
+.badge-icon-wrapper {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: white;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.badge-card:hover .badge-icon-wrapper {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.badge-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-main);
+  text-align: center;
+}
+
+.lock-overlay {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  font-size: 1.2rem;
+}
+
+.certificates-grid, 
+.donation-timeline.grid-view {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.certificate-card {
+  padding: 1.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.cert-card-left {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.download-btn {
+  width: 100%;
+  flex-direction: row;
+  justify-content: center;
+  padding: 0.8rem;
+}
+
+/* Certificate Card Premium Styling */
+.certificate-card {
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 24px;
+  border: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.certificate-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.certificate-card:hover {
+  transform: translateY(-8px);
+  border-color: var(--primary-color);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+}
+
+.cert-card-left {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.cert-icon-box {
+  width: 64px;
+  height: 64px;
+  background: var(--glass-bg);
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  font-size: 1.8rem;
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s ease;
+}
+
+.certificate-card:hover .cert-icon-box {
+  background: var(--primary-color);
+  color: white;
+  transform: rotate(10deg);
+}
+
+.cert-details h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.cert-details p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.verify-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 100px;
+  width: fit-content;
+}
+
+.download-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-main);
+  padding: 1.25rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 110px;
+}
+
+.download-btn:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 8px 16px rgba(230, 57, 70, 0.3);
+}
+
+.download-btn span {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.download-btn svg {
+  font-size: 1.4rem;
+}
+
+.empty-history-notice {
+  padding: 5rem 3rem;
+  border: 2px dashed var(--glass-border);
+  background: transparent;
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+  .donation-history-page { padding: 2rem 1rem; }
+  .header-titles h1 { font-size: 2.5rem; }
+  .history-header { flex-direction: column; align-items: flex-start; gap: 2rem; }
+  .stats-mini-grid { width: 100%; flex-wrap: wrap; }
+  .stat-pill { flex: 1; min-width: 140px; }
+  .certificates-grid { grid-template-columns: 1fr; }
+}

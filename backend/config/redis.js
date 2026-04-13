@@ -3,11 +3,7 @@ import { createClient } from 'redis';
 let _client = null;
 let _connectionFailed = false;
 
-/**
- * Returns a connected Redis client, or null when Redis is unavailable.
- * Rate limiters and caches use this to decide whether to use Redis or fall
- * back to an in-process store.
- */
+// Returns a connected Redis client, or null when unavailable.
 export const getRedisClient = async () => {
   if (_client) return _client;
   if (_connectionFailed) return null;
@@ -52,16 +48,38 @@ export const getRedisClient = async () => {
   }
 };
 
-/**
- * Gracefully closes the Redis connection on server shutdown.
- */
+let _subClient = null;
+
+// Dedicated client for Pub/Sub subscriptions.
+export const getRedisSubClient = async () => {
+  if (_subClient) return _subClient;
+  
+  const client = await getRedisClient();
+  if (!client) return null;
+
+  try {
+    const subClient = client.duplicate();
+    await subClient.connect();
+    _subClient = subClient;
+    return _subClient;
+  } catch (err) {
+    console.error('[Redis] Failed to create sub client:', err.message);
+    return null;
+  }
+};
+
+// Gracefully closes Redis connections on shutdown.
 export const closeRedisClient = async () => {
   if (_client) {
     try {
       await _client.quit();
-    } catch (_err) {
-      // Ignore errors during shutdown
-    }
+    } catch (_err) { }
     _client = null;
+  }
+  if (_subClient) {
+    try {
+      await _subClient.quit();
+    } catch (_err) { }
+    _subClient = null;
   }
 };

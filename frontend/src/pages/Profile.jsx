@@ -8,6 +8,12 @@ import { nameValidator, phoneValidator, pincodeValidator } from '../validation/v
 import { BLOOD_GROUPS, MAX_IMAGE_SIZE_BYTES, MESSAGE_DISPLAY_MS } from '../enum/constants';
 import '../pages.css/Profile.css';
 import SkeletonLoader from '../components/SkeletonLoader';
+import DonorBadges from '../components/DonorBadges';
+import DonationTimeline from '../components/DonationTimeline';
+import { useGetMyDonationsQuery } from '../store/donationApi';
+import { FaAward, FaHistory, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import { ROUTE_PATH } from '../enum/routePath';
 
 const defaultFormValues = {
   name: '',
@@ -32,9 +38,10 @@ const keepOnlyDigits = (event, maxLength) => {
 const Profile = () => {
   const { setUser: setAuthUser } = useAuth();
   const toast = useToast();
-  
+
   // RTK Query Hooks replace manual fetching and state
   const { data: userRes, isLoading: loadingProfile } = useGetProfileQuery();
+  const { data: donationRes } = useGetMyDonationsQuery(undefined, { skip: !userRes?.data?.isDonor });
   const [updateProfileMutation] = useUpdateProfileMutation();
   const user = userRes?.data || null;
 
@@ -46,7 +53,7 @@ const Profile = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
-  
+
   const {
     register,
     watch,
@@ -58,7 +65,7 @@ const Profile = () => {
     defaultValues: defaultFormValues,
     mode: 'onBlur',
   });
-  
+
   const watchedIsDonor = watch('isDonor');
   const watchedIsAvailable = watch('isAvailable');
   const watchedLocation = watch('location');
@@ -147,14 +154,14 @@ const Profile = () => {
       setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
       return;
     }
-    
+
     try {
       setUploadingImage(true);
-      
+
       // Save to localStorage
       const userId = user?._id || 'default';
       localStorage.setItem(`userPhoto_${userId}`, previewImage);
-      
+
       setMessageType('success');
       setMessage('Profile picture updated successfully!');
       setProfileImage(null);
@@ -185,16 +192,16 @@ const Profile = () => {
       }
 
       const response = await updateProfileMutation(normalizedData).unwrap();
-      
+
       setMessageType('success');
       setMessage('Profile updated successfully!');
       toast.success('Profile updated successfully!');
       setEditing(false);
-      
+
       // Update global auth context
       const updatedUser = response.user || response.data || response;
       setAuthUser(updatedUser);
-      
+
       setTimeout(() => setMessage(''), MESSAGE_DISPLAY_MS);
     } catch (error) {
       setMessageType('error');
@@ -220,8 +227,8 @@ const Profile = () => {
                 <img src={previewImage || user?.profilePicture} alt="Profile" className="profile-image" />
               ) : (
                 <svg width="64" height="64" viewBox="0 0 20 20" fill="none">
-                  <circle cx="10" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M3 19C3 15.134 6.13401 12 10 12C13.866 12 17 15.134 17 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="10" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+                  <path d="M3 19C3 15.134 6.13401 12 10 12C13.866 12 17 15.134 17 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               )}
             </div>
@@ -235,7 +242,7 @@ const Profile = () => {
               />
               <label htmlFor="profileImageInput" className="upload-btn">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                  <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M17 13v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2M15 8l-5-5m0 0L5 8m5-5v12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Upload Photo
               </label>
@@ -325,9 +332,9 @@ const Profile = () => {
               {/* Location Section */}
               <div className="profile-section">
                 <h2>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{verticalAlign: 'middle', marginRight: '8px'}}>
-                    <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                    <circle cx="12" cy="7" r="2"/>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: '8px' }}>
+                    <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z" />
+                    <circle cx="12" cy="7" r="2" />
                   </svg>
                   My Location
                 </h2>
@@ -339,13 +346,13 @@ const Profile = () => {
                       <span className="coord-label">Longitude:</span>
                       <span className="coord-value">{user.location.coordinates[0].toFixed(6)}</span>
                     </div>
-                    <button 
+                    <button
                       className="btn-view-map"
                       onClick={() => setShowMapModal(true)}
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                        <circle cx="12" cy="7" r="2"/>
+                        <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z" />
+                        <circle cx="12" cy="7" r="2" />
                       </svg>
                       View on Map
                     </button>
@@ -353,8 +360,8 @@ const Profile = () => {
                 ) : (
                   <div className="no-location-card">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.5">
-                      <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                      <circle cx="12" cy="7" r="2"/>
+                      <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z" />
+                      <circle cx="12" cy="7" r="2" />
                     </svg>
                     <p>No location shared yet</p>
                     <small>Edit your profile to share your location</small>
@@ -365,12 +372,13 @@ const Profile = () => {
               <button className="btn btn-primary" onClick={() => setEditing(true)}>
                 Edit Profile
               </button>
+
             </div>
           ) : (
             <form onSubmit={handleFormSubmit(onSubmit)} className="profile-edit-form">
               <div className="profile-section">
                 <h2>Edit Personal Information</h2>
-                
+
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="name">Name</label>
@@ -427,7 +435,7 @@ const Profile = () => {
                 <div className="form-group">
                   <label>Register as a blood donor</label>
                   <div className="option-cards">
-                    <label 
+                    <label
                       className={`option-card ${watchedIsDonor === true ? 'selected' : ''}`}
                       onClick={() => setValue('isDonor', true, { shouldDirty: true })}
                     >
@@ -441,14 +449,14 @@ const Profile = () => {
                       />
                       <div className="option-content">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>
+                          <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
                         </svg>
                         <span className="option-title">Yes</span>
                         <small>I'm a donor</small>
                       </div>
                     </label>
 
-                    <label 
+                    <label
                       className={`option-card ${watchedIsDonor === false ? 'selected' : ''}`}
                       onClick={() => setValue('isDonor', false, { shouldDirty: true })}
                     >
@@ -462,9 +470,9 @@ const Profile = () => {
                       />
                       <div className="option-content">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <circle cx="12" cy="12" r="10"/>
-                          <line x1="15" y1="9" x2="9" y2="15"/>
-                          <line x1="9" y1="9" x2="15" y2="15"/>
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
                         </svg>
                         <span className="option-title">No</span>
                         <small>Not a donor</small>
@@ -477,7 +485,7 @@ const Profile = () => {
                   <div className="form-group">
                     <label>Available for donation</label>
                     <div className="option-cards">
-                      <label 
+                      <label
                         className={`option-card ${watchedIsAvailable === true ? 'selected' : ''}`}
                         onClick={() => setValue('isAvailable', true, { shouldDirty: true })}
                       >
@@ -491,14 +499,14 @@ const Profile = () => {
                         />
                         <div className="option-content">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="20 6 9 17 4 12"/>
+                            <polyline points="20 6 9 17 4 12" />
                           </svg>
                           <span className="option-title">Yes</span>
                           <small>Ready to donate</small>
                         </div>
                       </label>
 
-                      <label 
+                      <label
                         className={`option-card ${watchedIsAvailable === false ? 'selected' : ''}`}
                         onClick={() => setValue('isAvailable', false, { shouldDirty: true })}
                       >
@@ -512,9 +520,9 @@ const Profile = () => {
                         />
                         <div className="option-content">
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="12" y1="8" x2="12" y2="12" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" />
                           </svg>
                           <span className="option-title">No</span>
                           <small>Not available now</small>
@@ -527,7 +535,7 @@ const Profile = () => {
 
               <div className="profile-section">
                 <h2>Edit Address</h2>
-                
+
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="address.street">Street</label>
@@ -588,18 +596,18 @@ const Profile = () => {
               {/* Location Section in Edit Mode */}
               <div className="profile-section">
                 <h2>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{verticalAlign: 'middle', marginRight: '8px'}}>
-                    <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                    <circle cx="12" cy="7" r="2"/>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: '8px' }}>
+                    <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z" />
+                    <circle cx="12" cy="7" r="2" />
                   </svg>
                   Share Your Location
                 </h2>
                 <p className="location-help-text">
                   Share your location so patients can find nearby donors easily.
                 </p>
-                
+
                 <div className="location-capture-section">
-                  <button 
+                  <button
                     type="button"
                     className={`btn-capture-location ${watchedLocation ? 'has-location' : ''}`}
                     onClick={handleGetLocation}
@@ -613,21 +621,21 @@ const Profile = () => {
                     ) : watchedLocation ? (
                       <>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
+                          <polyline points="20 6 9 17 4 12" />
                         </svg>
                         Location Captured - Click to Update
                       </>
                     ) : (
                       <>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z"/>
-                          <circle cx="12" cy="7" r="2"/>
+                          <path d="M12 2C9.5 2 7 4 7 7C7 11 12 18 12 18C12 18 17 11 17 7C17 4 14.5 2 12 2Z" />
+                          <circle cx="12" cy="7" r="2" />
                         </svg>
                         Capture My Location
                       </>
                     )}
                   </button>
-                  
+
                   {watchedLocation && (
                     <div className="captured-location-info">
                       <span>📍 Lat: {watchedLocation.coordinates[1].toFixed(6)}, Lng: {watchedLocation.coordinates[0].toFixed(6)}</span>
@@ -672,7 +680,7 @@ const Profile = () => {
 
       {/* Map Modal for viewing location */}
       {showMapModal && user?.location && (
-        <MapModal 
+        <MapModal
           location={user.location}
           name={user.name}
           onClose={() => setShowMapModal(false)}

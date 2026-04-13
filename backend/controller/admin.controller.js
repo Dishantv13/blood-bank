@@ -2,16 +2,10 @@ import * as adminService from '../services/adminService.js';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 
-/**
- * Returns a safe filename for Content-Disposition headers.
- * Strips any characters that are not alphanumeric, underscore, hyphen, or dot
- * to prevent header injection while preserving readability.
- */
+// Returns a safe filename for Content-Disposition, preventing header injection.
 const safeFilename = (name) => String(name || 'export').replace(/[^a-zA-Z0-9._-]/g, '_');
 
-/**
- * Parses and clamps a pagination parameter.
- */
+// Parses and clamps a pagination parameter.
 const parsePage = (raw) => Math.max(1, parseInt(raw) || 1);
 const parseLimit = (raw, max = 100) => Math.min(max, Math.max(1, parseInt(raw) || 10));
 

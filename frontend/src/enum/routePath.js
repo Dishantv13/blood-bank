@@ -9,6 +9,8 @@ export const ROUTE_PATH = {
   DASHBOARD: "/dashboard",
   PROFILE: "/profile",
   DONOR_FORM: "/donor-form",
+  DONATION_HISTORY: "/donation-history",
+  VERIFY_CERTIFICATE: "/verify-certificate/:code",
 
   // User Section
   BLOOD_BANKS: "/blood-banks",

@@ -417,7 +417,7 @@ const BloodBankRegister = () => {
           <div className="step-number">
             {step > s ? (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                <polyline points="20 6 9 17 4 12"/>
+                <polyline points="20 6 9 17 4 12" />
               </svg>
             ) : s}
           </div>
@@ -436,8 +436,8 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label htmlFor="name">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-            <polyline points="9 22 9 12 15 12 15 22"/>
+            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            <polyline points="9 22 9 12 15 12 15 22" />
           </svg>
           Blood Bank Name *
         </label>
@@ -453,8 +453,8 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label htmlFor="email">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
           </svg>
           Email Address *
         </label>
@@ -470,7 +470,7 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label htmlFor="phone">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
           </svg>
           Phone Number *
         </label>
@@ -493,8 +493,8 @@ const BloodBankRegister = () => {
       <div className="form-group password-field">
         <label htmlFor="password">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0110 0v4"/>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
           </svg>
           Password *
         </label>
@@ -516,15 +516,15 @@ const BloodBankRegister = () => {
           >
             {showPassword ? (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                <path d="M1 1l22 22"/>
-                <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+                <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
+                <path d="M1 1l22 22" />
+                <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
+                <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
               </svg>
             ) : (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             )}
           </button>
@@ -535,8 +535,8 @@ const BloodBankRegister = () => {
       <div className="form-group password-field">
         <label htmlFor="confirmPassword">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0110 0v4"/>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0110 0v4" />
           </svg>
           Confirm Password *
         </label>
@@ -558,15 +558,15 @@ const BloodBankRegister = () => {
           >
             {showConfirmPassword ? (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                <path d="M1 1l22 22"/>
-                <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+                <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
+                <path d="M1 1l22 22" />
+                <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
+                <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
               </svg>
             ) : (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                <circle cx="12" cy="12" r="3"/>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             )}
           </button>
@@ -584,11 +584,11 @@ const BloodBankRegister = () => {
         <div className="form-group">
           <label htmlFor="licenseNumber">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="16" y1="13" x2="8" y2="13"/>
-              <line x1="16" y1="17" x2="8" y2="17"/>
-              <polyline points="10 9 9 9 8 9"/>
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
             </svg>
             License Number *
           </label>
@@ -606,10 +606,10 @@ const BloodBankRegister = () => {
         <div className="form-group">
           <label htmlFor="registrationNumber">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
             Registration Number
           </label>
@@ -628,8 +628,8 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label htmlFor="address">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-            <circle cx="12" cy="10" r="3"/>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+            <circle cx="12" cy="10" r="3" />
           </svg>
           Address *
         </label>
@@ -705,8 +705,8 @@ const BloodBankRegister = () => {
       <div className="form-group location-section">
         <label>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-            <circle cx="12" cy="10" r="3"/>
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+            <circle cx="12" cy="10" r="3" />
           </svg>
           Share Location (Required) *
         </label>
@@ -724,15 +724,15 @@ const BloodBankRegister = () => {
           ) : locationShared ? (
             <>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12"/>
+                <polyline points="20 6 9 17 4 12" />
               </svg>
               Location Shared
             </>
           ) : (
             <>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
-                <circle cx="12" cy="10" r="3"/>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                <circle cx="12" cy="10" r="3" />
               </svg>
               Share My Location
             </>
@@ -741,7 +741,7 @@ const BloodBankRegister = () => {
         {locationShared && location && (
           <div className="location-info">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="20 6 9 17 4 12"/>
+              <polyline points="20 6 9 17 4 12" />
             </svg>
             <span>
               Location: {location.coordinates[1].toFixed(6)}, {location.coordinates[0].toFixed(6)}
@@ -760,8 +760,8 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
           </svg>
           Operating Hours
         </label>
@@ -803,7 +803,7 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
           Services Offered *
         </label>
@@ -825,8 +825,8 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label htmlFor="contactPersonName">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
           </svg>
           Contact Person Name
         </label>
@@ -872,9 +872,9 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <circle cx="8.5" cy="8.5" r="1.5"/>
-            <polyline points="21 15 16 10 5 21"/>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
           </svg>
           Hospital Logo / Profile Photo (Optional)
         </label>
@@ -882,8 +882,8 @@ const BloodBankRegister = () => {
           {logoPreview ? (
             <div className="logo-preview-wrapper register-preview">
               <img src={logoPreview} alt="Logo Preview" />
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="remove-logo-btn"
                 onClick={() => {
                   setLogoFile(null);
@@ -896,7 +896,7 @@ const BloodBankRegister = () => {
           ) : (
             <div className="logo-upload-placeholder" onClick={() => document.getElementById('logo-file').click()}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
               </svg>
               <span>Click to upload hospital logo</span>
               <small>Max 5MB (JPG, PNG)</small>
@@ -1006,118 +1006,118 @@ const BloodBankRegister = () => {
         <ThemeToggle />
       </div>
       <div className="blood-bank-auth-container">
-      <div className="auth-left-panel">
-        <div className="auth-branding">
-          <div className="auth-logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/>
-            </svg>
-          </div>
-          <h1>Join Our Network</h1>
-          <p>Register your blood bank and connect with thousands of donors</p>
-        </div>
-        
-        <div className="auth-features">
-          <div className="feature-item1">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            <span>Quick Registration Process</span>
-          </div>
-          <div className="feature-item1">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-            <span>Verified & Secure Platform</span>
-          </div>
-          <div className="feature-item1">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 00-3-3.87"/>
-              <path d="M16 3.13a4 4 0 010 7.75"/>
-            </svg>
-            <span>Large Donor Network</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="auth-right-panel">
-        <div className="auth-form-container">
-          <div className="auth-form-header">
-            <h2>Register Blood Bank</h2>
-            <p>Create your blood bank account</p>
-          </div>
-
-          {!isOtpFlowActive && renderStepIndicator()}
-
-          {!isOtpFlowActive && getStepError() && (
-            <div className="auth-alert auth-alert-error">
+        <div className="auth-left-panel">
+          <div className="auth-branding">
+            <div className="auth-logo">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor" />
               </svg>
-              {getStepError()}
             </div>
-          )}
+            <h1>Join Our Network</h1>
+            <p>Register your blood bank and connect with thousands of donors</p>
+          </div>
 
-          {!isOtpFlowActive ? (
-            <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
-              {step === 1 && renderStep1()}
-              {step === 2 && renderStep2()}
-              {step === 3 && renderStep3()}
-
-              <div className="form-navigation">
-                {step > 1 && (
-                  <button type="button" onClick={prevStep} className="auth-btn auth-btn-secondary">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="19" y1="12" x2="5" y2="12"/>
-                      <polyline points="12 19 5 12 12 5"/>
-                    </svg>
-                    Back
-                  </button>
-                )}
-                
-                {step < 3 ? (
-                  <button type="button" onClick={nextStep} className="auth-btn">
-                    Next
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="5" y1="12" x2="19" y2="12"/>
-                      <polyline points="12 5 19 12 12 19"/>
-                    </svg>
-                  </button>
-                ) : (
-                  <button type="submit" className="auth-btn" disabled={isSubmitting || isInitiatingRegistration}>
-                    {isSubmitting || isInitiatingRegistration ? (
-                      <span className="loading-spinner"></span>
-                    ) : (
-                      <>
-                        Register
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </>
-                    )}
-                  </button>
-                )}
-              </div>
-            </form>
-          ) : (
-            renderOtpVerification()
-          )}
-
-          <div className="auth-footer">
-            <p>
-              Already have an account?{' '}
-              <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN}>Sign in here</Link>
-            </p>
+          <div className="auth-features">
+            <div className="feature-item1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>Quick Registration Process</span>
+            </div>
+            <div className="feature-item1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              <span>Verified & Secure Platform</span>
+            </div>
+            <div className="feature-item1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 00-3-3.87" />
+                <path d="M16 3.13a4 4 0 010 7.75" />
+              </svg>
+              <span>Large Donor Network</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <style>{`
+        <div className="auth-right-panel">
+          <div className="auth-form-container">
+            <div className="auth-form-header">
+              <h2>Register Blood Bank</h2>
+              <p>Create your blood bank account</p>
+            </div>
+
+            {!isOtpFlowActive && renderStepIndicator()}
+
+            {!isOtpFlowActive && getStepError() && (
+              <div className="auth-alert auth-alert-error">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                {getStepError()}
+              </div>
+            )}
+
+            {!isOtpFlowActive ? (
+              <form onSubmit={handleSubmit(onSubmit)} className="auth-form">
+                {step === 1 && renderStep1()}
+                {step === 2 && renderStep2()}
+                {step === 3 && renderStep3()}
+
+                <div className="form-navigation">
+                  {step > 1 && (
+                    <button type="button" onClick={prevStep} className="auth-btn auth-btn-secondary">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="19" y1="12" x2="5" y2="12" />
+                        <polyline points="12 19 5 12 12 5" />
+                      </svg>
+                      Back
+                    </button>
+                  )}
+
+                  {step < 3 ? (
+                    <button type="button" onClick={nextStep} className="auth-btn">
+                      Next
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                        <polyline points="12 5 19 12 12 19" />
+                      </svg>
+                    </button>
+                  ) : (
+                    <button type="submit" className="auth-btn" disabled={isSubmitting || isInitiatingRegistration}>
+                      {isSubmitting || isInitiatingRegistration ? (
+                        <span className="loading-spinner"></span>
+                      ) : (
+                        <>
+                          Register
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </form>
+            ) : (
+              renderOtpVerification()
+            )}
+
+            <div className="auth-footer">
+              <p>
+                Already have an account?{' '}
+                <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN}>Sign in here</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <style>{`
         .step-indicator {
           display: flex;
           justify-content: center;

@@ -221,9 +221,9 @@ const incrementUserTokenVersion = async (userId, reason = 'security_event') => {
       $inc: { tokenVersion: 1 },
       $set: { passwordChangedAt: new Date() },
     },
-    { new: true }
+    { returnDocument: 'after' }
   ).select('_id email role +tokenVersion').lean();
-
+  
   if (!updatedUser) {
     throw new ApiError(401, 'User session is invalid');
   }
@@ -454,6 +454,7 @@ export const refreshUserSession = async (req, res) => {
     refreshTokenExpiresAt,
     tokenVersion: Number(sessionUser.tokenVersion || 0),
     req,
+    isGraceUpdate: isGraceMatch,
   });
 
   const result = await getSessionUser(decoded.userId);
@@ -559,10 +560,6 @@ export const googleLoginWithClaims = async ({ email, name, googleId, photoURL, e
   const displayName = String(name || '').trim() || normalizedEmail.split('@')[0] || 'Google User';
   const normalizedGoogleId = String(googleId || '').trim();
   const normalizedPhotoUrl = String(photoURL || '').trim();
-
-  if (!emailVerified) {
-    throw new ApiError(403, 'Google account email must be verified');
-  }
 
   if (!normalizedEmail || !normalizedGoogleId) {
     throw new ApiError(400, 'Missing required Google user data');
@@ -821,7 +818,7 @@ export const verifyUserRegistrationOtp = async (req, res, verificationId, otp) =
     isDonor: false,
     address: regData.address || { street: '', city: '', state: '', pincode: '' },
     role: 'user',
-    isVerified: true,
+    isEmailVerified: true,
   });
 
   await user.save();
@@ -958,4 +955,6 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
 
   return { success: true };
 };
+
+
 

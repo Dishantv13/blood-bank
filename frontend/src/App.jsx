@@ -68,6 +68,9 @@ const ChangePassword = lazy(() => import('./pages/ChangePassword'));
 const BloodBankChangePassword = lazy(() => import('./pages/BloodBankChangePassword'));
 const BloodBankDirectoryDetails = lazy(() => import('./pages/BloodBankDirectoryDetails'));
 const BloodBankPublicDetails = lazy(() => import('./pages/BloodBankPublicDetails'));
+const DonationHistory = lazy(() => import('./pages/DonationHistory'));
+const VerifyCertificate = lazy(() => import('./pages/VerifyCertificate'));
+
 // ADMIN PAGE
 const AdminLogin = lazy(() => import('./adminPage/AdminLogin'));
 const AdminDashboard = lazy(() => import('./adminPage/AdminDashboard'));
@@ -106,13 +109,16 @@ const Layout = ({ children }) => {
 
   return (
     <>
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       {showNavbar && <Navbar />}
       {showAdminThemeButton && (
         <div className="admin-theme-fab">
           <ThemeToggle />
         </div>
       )}
-      {children}
+      <main id="main-content">
+        {children}
+      </main>
     </>
   );
 };
@@ -170,6 +176,8 @@ function App() {
                       path={ROUTE_PATH.BLOOD_BANK_RESET_PASSWORD}
                       element={<BloodBankResetPassword />}
                     />
+
+
 
                     {/* Admin Routes */}
                     <Route path={ROUTE_PATH.ADMIN_LOGIN} element={<AdminLogin />} />
@@ -300,6 +308,16 @@ function App() {
                         </PrivateRoute>
                       }
                     />
+                    <Route
+                      path={ROUTE_PATH.DONATION_HISTORY}
+                      element={
+                        <PrivateRoute>
+                          <DonationHistory />
+                        </PrivateRoute>
+                      }
+                    />
+
+                    <Route path={ROUTE_PATH.VERIFY_CERTIFICATE} element={<VerifyCertificate />} />
 
                     {/* Fallback */}
                     <Route path={ROUTE_PATH.WILDCARD} element={<NotFound />} />

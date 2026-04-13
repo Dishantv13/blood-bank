@@ -55,6 +55,15 @@ export const donationApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: tagList(TAGS.DONATION),
     }),
+    verifyCertificate: builder.query({
+      query: (code) => DONATION_API_URLS.VERIFY_CERTIFICATE(code),
+    }),
+    downloadCertificate: builder.mutation({
+      query: (donationId) => ({
+        url: DONATION_API_URLS.DOWNLOAD_CERTIFICATE(donationId),
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -66,4 +75,6 @@ export const {
   useRecordDonationMutation,
   useUpdateDonationStatusMutation,
   useCreateDonationMutation,
+  useVerifyCertificateQuery,
+  useDownloadCertificateMutation,
 } = donationApi;

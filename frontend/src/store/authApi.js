@@ -106,6 +106,7 @@ export const authApi = apiSlice.injectEndpoints({
     getAdminCsrfToken: builder.query({
       query: () => AUTH_API_URLS.ADMIN_CSRF_TOKEN,
     }),
+
   }),
   overrideExisting: false,
 });

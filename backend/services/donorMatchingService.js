@@ -1,9 +1,6 @@
 import User from '../models/User.model.js';
 import { createNotification } from './notificationService.js';
 
-/**
- * Blood group compatibility map (Receiver Group -> Compatible Donor Groups)
- */
 const COMPATIBILITY_MAP = {
   'A+': ['A+', 'A-', 'O+', 'O-'],
   'A-': ['A-', 'O-'],
@@ -15,11 +12,6 @@ const COMPATIBILITY_MAP = {
   'O-': ['O-']
 };
 
-/**
- * Finds matching donors for a blood request
- * @param {Object} request - BloodRequest document
- * @param {Object} options - Filtering options (maxDistance, limit)
- */
 export const findMatchingDonors = async (request, options = {}) => {
   const { bloodGroup, hospital } = request;
   const maxDistance = options.maxDistance || 10000; // Default 10km
@@ -32,10 +24,9 @@ export const findMatchingDonors = async (request, options = {}) => {
     isAvailable: true,
     bloodGroup: { $in: compatibleGroups },
     activeMode: 'donor',
-    _id: { $ne: request.requestedBy } // Don't match the requester
+    _id: { $ne: request.requestedBy }
   };
 
-  // Filter by eligibility (last donation date > 56 days / 3 months)
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   query.$or = [
@@ -73,10 +64,6 @@ export const findMatchingDonors = async (request, options = {}) => {
   return donors;
 };
 
-/**
- * Automatically notifies matching donors for a new request
- * @param {Object} request - BloodRequest document
- */
 export const notifyMatchingDonors = async (request) => {
   if (request.status !== 'pending') return;
 

@@ -20,27 +20,18 @@ import { BLOOD_BANK_SAFE_FIELDS, USER_SAFE_FIELDS, sanitizeBloodBank, sanitizeUs
 // Maximum rows returned by any single export to prevent memory exhaustion.
 const MAX_EXPORT_ROWS = 10_000;
 
-/**
- * Escapes regex special characters and trims to a safe length.
- * Prevents ReDoS attacks via user-supplied search strings.
- */
+// Prevents ReDoS attacks by escaping regex characters and trimming input.
 const escapeRegex = (raw, maxLen = 100) =>
   String(raw || '').substring(0, maxLen).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/**
- * Builds a $or search filter with regex-escaped terms applied to the given fields.
- * Returns null when no valid search string is provided.
- */
+// Builds a safe $or search filter with regex-escaped terms.
 const buildSafeSearchFilter = (rawSearch, fields) => {
   if (!rawSearch || typeof rawSearch !== 'string' || !rawSearch.trim()) return null;
   const escaped = escapeRegex(rawSearch);
   return { $or: fields.map((field) => ({ [field]: { $regex: escaped, $options: 'i' } })) };
 };
 
-/**
- * Prefixes cells that start with formula-trigger characters to prevent
- * CSV injection when the file is opened in a spreadsheet application.
- */
+// Escapes formula-trigger characters to prevent CSV injection.
 const csvSafe = (val) => {
   const str = String(val ?? '');
   return /^[=+\-@\t\r]/.test(str) ? `'${str}` : str;
@@ -445,7 +436,7 @@ export const updateUserStatus = async (userId, status) => {
   const user = await User.findByIdAndUpdate(
     userId,
     { isAvailable, updatedAt: new Date() },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!user) {
@@ -687,7 +678,7 @@ export const updateCampStatus = async (campId, status) => {
   const camp = await BloodCamp.findByIdAndUpdate(
     campId,
     { status, updatedAt: new Date() },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!camp) {
@@ -881,7 +872,7 @@ export const updateEventStatus = async (eventId, status) => {
   const event = await Event.findByIdAndUpdate(
     eventId,
     { status, updatedAt: new Date() },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!event) {
@@ -961,7 +952,7 @@ export const updateRequestStatus = async (requestId, status) => {
   const request = await BloodRequest.findByIdAndUpdate(
     requestId,
     { status, updatedAt: new Date() },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!request) {
@@ -1064,7 +1055,7 @@ export const updateDonationStatus = async (donationId, status) => {
   const donation = await Donation.findByIdAndUpdate(
     donationId,
     { status, updatedAt: new Date() },
-    { new: true }
+    { returnDocument: 'after' }
   ).lean();
 
   if (!donation) {

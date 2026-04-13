@@ -4,10 +4,11 @@ import mongoose from 'mongoose';
 import { validateDonation, validateBloodGroup } from './validationService.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import { ApiError } from '../utils/apiError.js';
-import { sendDonationUpdateEmail } from '../utils/emailService.js';
+import { sendDonationUpdateEmail, sendCertificateNotificationEmail } from '../utils/emailService.js';
 import { createNotification } from './notificationService.js';
+import { generateVerificationCode } from './certificateService.js';
 
-const DONATION_ELIGIBILITY_PERIOD = 3 * 30 * 24 * 60 * 60 * 1000; // 3 months in ms
+const DONATION_ELIGIBILITY_PERIOD = 90 * 24 * 60 * 60 * 1000; // 90 days in ms
 
 // Create donation request
 export const createDonationRequest = async (donorId, bloodBankId, data) => {
@@ -55,7 +56,7 @@ export const getUserDonations = async (donorId, query) => {
   // Optimized queries - parallel execution
   const [donations, total] = await Promise.all([
     Donation.find({ donor: donorId })
-      .select('_id bloodGroup status volumeDonated donationDate type createdAt')
+      .select('_id bloodGroup status volumeDonated donationDate type createdAt certificateCode certificateIssuedAt')
       .populate('bloodBank', 'name phone')
       .populate('camp', 'name date')
       .sort({ createdAt: -1 })
@@ -111,17 +112,18 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
     throw new ApiError(400, 'This donation has already been recorded');
   }
 
-  // Update donation with atomic operation
   const updatedDonation = await Donation.findByIdAndUpdate(
     donationId,
     {
       $set: {
         status: 'completed',
         volumeDonated,
-        donationDate: new Date()
+        donationDate: new Date(),
+        certificateCode: generateVerificationCode(),
+        certificateIssuedAt: new Date()
       }
     },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   ).populate('donor', 'name email').populate('bloodBank', 'name');
 
   // Send donation completion email (async)
@@ -132,14 +134,18 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
       `Your donation of ${volumeDonated} units was successfully completed and recorded.`
     ).catch(err => console.error('Donation record email failed:', err));
 
+    // Send certificate notification email
+    sendCertificateNotificationEmail(updatedDonation.donor, updatedDonation)
+      .catch(err => console.error('Certificate email failed:', err));
+
     // Create in-app notification
     createNotification({
       recipient: updatedDonation.donor._id,
       recipientModel: 'User',
       title: 'Donation Completed ✨',
-      message: `Your blood donation of ${volumeDonated} units has been successfully recorded. Thank you for your contribution!`,
+      message: `Your blood donation of ${volumeDonated} units has been successfully recorded. Your certificate is ready!`,
       type: 'donation',
-      actionUrl: '/dashboard'
+      actionUrl: '/donation-history'
     }).catch(err => console.error('In-app notification failed:', err));
   }
 
@@ -187,7 +193,7 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
   const updatedDonation = await Donation.findByIdAndUpdate(
     donationId,
     { $set: { status, updatedAt: new Date() } },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   ).populate('donor', 'name email').populate('bloodBank', 'name');
 
   // Send status update email (async)

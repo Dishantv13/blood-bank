@@ -8,9 +8,37 @@ import BloodBank from '../models/BloodBank.model.js';
 
 const EVENT_LIST_FIELDS = '_id title description organizer eventType location date startTime endTime contactInfo expectedDonors isActive visibility maxParticipants registeredDonors';
 
+const EVENTS_CACHE_TTL_MS = 2 * 60 * 1000;
+const eventsCache = new Map();
+
+const getCachedEvents = (key) => {
+  const cached = eventsCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    eventsCache.delete(key);
+    return null;
+  }
+  return cached.payload;
+};
+
+const setCachedEvents = (key, payload) => {
+  eventsCache.set(key, {
+    payload,
+    expiresAt: Date.now() + EVENTS_CACHE_TTL_MS,
+  });
+};
+
+export const invalidateEventsCache = () => {
+  eventsCache.clear();
+};
+
 export const getAllEvents = async (query) => {
   const { latitude, longitude, maxDistance } = query;
   const { page, limit, skip } = getPaginationParams({ query });
+  const cacheKey = JSON.stringify({ query, page, limit });
+  const cached = getCachedEvents(cacheKey);
+  if (cached) return cached;
+
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const baseFilter = { isActive: true, date: { $gte: startOfToday } };
@@ -34,7 +62,9 @@ export const getAllEvents = async (query) => {
       .skip(skip)
       .limit(limit)
       .lean();
-    return buildPaginatedResponse(events, events.length, page, limit);
+    const response = buildPaginatedResponse(events, events.length, page, limit);
+    setCachedEvents(cacheKey, response);
+    return response;
   }
 
   const [events, total] = await Promise.all([
@@ -48,12 +78,15 @@ export const getAllEvents = async (query) => {
     Event.countDocuments(baseFilter)
   ]);
 
-  return buildPaginatedResponse(events, total, page, limit);
+  const response = buildPaginatedResponse(events, total, page, limit);
+  setCachedEvents(cacheKey, response);
+  return response;
 };
 
 export const createEvent = async (data) => {
   const event = new Event(data);
   await event.save();
+  invalidateEventsCache();
 
   // Notify all users about the new event
   const bloodBank = await BloodBank.findById(event.organizedBy).select('name').lean();
@@ -105,5 +138,6 @@ export const deleteEvent = async (eventId) => {
   if (!event) throw new ApiError(404, 'Event not found');
 
   await Event.findByIdAndDelete(eventId);
+  invalidateEventsCache();
   return { success: true };
 };

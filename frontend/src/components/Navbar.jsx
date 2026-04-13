@@ -7,6 +7,9 @@ import ThemeToggle from './ThemeToggle';
 import { ROUTE_PATH } from '../enum/routePath';
 import NotificationCenter from './NotificationCenter';
 import { useGetUnreadCountQuery } from '../store/notificationApi';
+import { FaHistory, FaUserEdit, FaAward } from 'react-icons/fa';
+
+const dropdownItemClass = "dropdown-item";
 
 const Navbar = () => {
   const { isAuthenticated, user, logout } = useAuth();
@@ -17,7 +20,7 @@ const Navbar = () => {
 
   const { data: unreadData } = useGetUnreadCountQuery(undefined, {
     skip: !isAuthenticated,
-    pollingInterval: 30000 
+    pollingInterval: 30000
   });
   const unreadCount = unreadData?.unreadCount || 0;
 
@@ -50,7 +53,9 @@ const Navbar = () => {
             <button
               className="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle menu"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
+              aria-haspopup="true"
             >
               {mobileMenuOpen ? (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -97,11 +102,18 @@ const Navbar = () => {
                 </>
               )}
               {user?.activeMode === 'donor' && user?.isDonor && (
-                <li>
-                  <NavLink to={ROUTE_PATH.DONOR_FORM} className={getNavLinkClass}>
-                    Donor Profile
-                  </NavLink>
-                </li>
+                <>
+                  <li>
+                    <NavLink to={ROUTE_PATH.DONOR_FORM} className={getNavLinkClass}>
+                      Donor Profile
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink to={ROUTE_PATH.DONATION_HISTORY} className={getNavLinkClass}>
+                      Donation History
+                    </NavLink>
+                  </li>
+                </>
               )}
             </ul>
           </>
@@ -130,15 +142,18 @@ const Navbar = () => {
                 </button>
               </div>
 
-              <NotificationCenter 
-                isOpen={isNotificationDrawerOpen} 
-                onClose={() => setIsNotificationDrawerOpen(false)} 
+              <NotificationCenter
+                isOpen={isNotificationDrawerOpen}
+                onClose={() => setIsNotificationDrawerOpen(false)}
               />
 
               <div className="profile-dropdown">
                 <button
                   className="btn btn-outline profile-btn"
                   onClick={() => setShowDropdown(!showDropdown)}
+                  aria-haspopup="true"
+                  aria-expanded={showDropdown}
+                  aria-label="User profile and settings"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
                     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
@@ -158,15 +173,20 @@ const Navbar = () => {
                         My Profile
                       </Link>
                       {user?.activeMode === 'donor' && user?.isDonor && (
-                        <Link to={ROUTE_PATH.DONOR_FORM} className="dropdown-item" onClick={() => setShowDropdown(false)}>
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <>
+                          <Link to={ROUTE_PATH.DONOR_FORM} className={dropdownItemClass} onClick={() => setShowDropdown(false)}>
+                            {/* <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
                             <polyline points="14 2 14 8 20 8" />
                             <line x1="12" y1="18" x2="12" y2="12" />
                             <line x1="9" y1="15" x2="15" y2="15" />
-                          </svg>
-                          Donor Profile
-                        </Link>
+                          </svg> */}
+                            <FaUserEdit /> Donor Profile
+                          </Link>
+                          <Link to={ROUTE_PATH.DONATION_HISTORY} className={dropdownItemClass} onClick={() => setShowDropdown(false)}>
+                            <FaHistory /> Donation History
+                          </Link>
+                        </>
                       )}
                       <div className="dropdown-divider"></div>
                       <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN} className="dropdown-item" onClick={() => setShowDropdown(false)}>

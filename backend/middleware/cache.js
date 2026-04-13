@@ -1,40 +1,8 @@
-import { createClient } from 'redis';
+import { getRedisClient } from '../config/redis.js';
 
 const pendingResponses = new Map();
 const memoryCacheStore = new Map();
 const CACHE_PREFIX = 'api-cache:';
-
-const redisUrl = process.env.REDIS_URL;
-let redisClient = null;
-let redisInitPromise = null;
-
-const getRedisClient = async () => {
-  if (!redisUrl) return null;
-  if (redisClient?.isReady) return redisClient;
-  if (redisInitPromise) return redisInitPromise;
-
-  const client = createClient({ url: redisUrl });
-  client.on('error', (error) => {
-    console.warn('Redis cache error:', error.message);
-  });
-
-  redisInitPromise = client
-    .connect()
-    .then(() => {
-      redisClient = client;
-      return redisClient;
-    })
-    .catch((error) => {
-      console.warn('Redis cache disabled:', error.message);
-      redisClient = null;
-      return null;
-    })
-    .finally(() => {
-      redisInitPromise = null;
-    });
-
-  return redisInitPromise;
-};
 
 const normalizeQueryParams = (searchParams) => {
   const entries = [];

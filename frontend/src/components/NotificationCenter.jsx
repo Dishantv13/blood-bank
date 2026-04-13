@@ -3,6 +3,7 @@ import { useGetNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutati
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import EmptyState from './EmptyState';
+import { NOTIFICATION_API_URLS } from '../enum/apiUrl';
 
 const NotificationCenter = ({ isOpen, onClose }) => {
   const { isAuthenticated } = useAuth();
@@ -10,7 +11,7 @@ const NotificationCenter = ({ isOpen, onClose }) => {
     skip: !isAuthenticated,
     pollingInterval: 30000 // Fallback polling
   });
-  
+
   const [markAsRead] = useMarkAsReadMutation();
   const [markAllAsRead] = useMarkAllAsReadMutation();
   const [deleteNotification] = useDeleteNotificationMutation();
@@ -21,7 +22,7 @@ const NotificationCenter = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const streamUrl = `/api/notifications/stream`;
+    const streamUrl = `/api${NOTIFICATION_API_URLS.STREAM}`;
     const eventSource = new EventSource(streamUrl, { withCredentials: true });
 
     eventSource.addEventListener('notification', (event) => {
@@ -73,16 +74,16 @@ const NotificationCenter = ({ isOpen, onClose }) => {
               <p>Loading notifications...</p>
             </div>
           ) : notifications.length === 0 ? (
-            <EmptyState 
-              title="No notifications yet" 
+            <EmptyState
+              title="No notifications yet"
               description="Stay tuned! We'll notify you about blood requests, event updates, and more."
               variant="list"
             />
           ) : (
             <div className="notification-items">
               {notifications.map((notif) => (
-                <div 
-                  key={notif._id} 
+                <div
+                  key={notif._id}
                   className={`notification-card ${notif.isRead ? 'read' : 'unread'}`}
                   onClick={() => !notif.isRead && markAsRead(notif._id)}
                 >
@@ -99,8 +100,8 @@ const NotificationCenter = ({ isOpen, onClose }) => {
                       </Link>
                     )}
                   </div>
-                  <button 
-                    className="delete-btn" 
+                  <button
+                    className="delete-btn"
                     onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
                     title="Delete notification"
                   >

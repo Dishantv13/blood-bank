@@ -67,7 +67,7 @@ const ResetPassword = () => {
       }).unwrap();
       setMessage(response.message || 'Password changed successfully');
       setSuccess(true);
-      
+
       // Redirect to login after 2 seconds
       setTimeout(() => {
         navigate(ROUTE_PATH.LOGIN);
@@ -93,7 +93,7 @@ const ResetPassword = () => {
         <div className="reset-password-box error-box">
           <h2>Invalid Reset Link</h2>
           <p>{error}</p>
-          <button 
+          <button
             className="back-button"
             onClick={() => navigate(ROUTE_PATH.FORGOT_PASSWORD)}
           >
@@ -138,15 +138,15 @@ const ResetPassword = () => {
                 >
                   {showPassword ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                      <path d="M1 1l22 22"/>
-                      <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                      <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+                      <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
+                      <path d="M1 1l22 22" />
+                      <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
+                      <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
                     </svg>
                   ) : (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
                     </svg>
                   )}
                 </button>
@@ -175,15 +175,15 @@ const ResetPassword = () => {
                 >
                   {showConfirmPassword ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                      <path d="M1 1l22 22"/>
-                      <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                      <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+                      <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
+                      <path d="M1 1l22 22" />
+                      <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
+                      <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
                     </svg>
                   ) : (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                      <circle cx="12" cy="12" r="3"/>
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
                     </svg>
                   )}
                 </button>
@@ -193,8 +193,8 @@ const ResetPassword = () => {
             {error && <div className="error-message">{error}</div>}
             {message && <div className="success-message-text">{message}</div>}
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="submit-button"
               disabled={loading || !password || !confirmPassword}
             >

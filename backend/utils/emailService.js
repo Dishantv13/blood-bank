@@ -7,9 +7,7 @@ import jwt from 'jsonwebtoken';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const templatesDir = path.join(__dirname, 'emailTemplates');
 
-/**
- * Escapes HTML special characters to prevent injection in email templates.
- */
+// Escapes HTML special characters to prevent injection in email templates.
 const escapeHtml = (str) =>
   String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -262,9 +260,41 @@ const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason
   if (html) queueEmail(email, 'Update on your Blood Bank Registration', html);
 };
 
+const sendVerificationEmail = async (email, token) => {
+  const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${token}`;
+  const html = await getTemplate('verifyEmail', { verifyUrl });
+  if (html) queueEmail(email, 'Verify your email - RaktSarthi', html);
+};
+
+const sendCertificateNotificationEmail = async (user, donation) => {
+  const historyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/donation-history`;
+  const unsubscribeUrl = generateUnsubscribeUrl(user.email);
+  const html = await getTemplate('donationCertificate', {
+    name: escapeHtml(user.name),
+    donationDate: new Date(donation.donationDate).toLocaleDateString(),
+    certificateCode: donation.certificateCode,
+    historyUrl,
+    unsubscribeUrl
+  });
+  if (html) queueEmail(user.email, 'Your Donation Certificate is Ready! 📜', html);
+};
+
+const broadcastNotificationEmail = async (user, notification) => {
+  const unsubscribeUrl = generateUnsubscribeUrl(user.email);
+  const html = await getTemplate('broadcastNotification', {
+    name: escapeHtml(user.name),
+    title: escapeHtml(notification.title),
+    message: escapeHtml(notification.message),
+    unsubscribeUrl
+  });
+  if (html) queueEmail(user.email, notification.title, html);
+};
+
 export {
   sendPasswordResetEmail,
   sendWelcomeEmail,
+  sendVerificationEmail,
+  sendCertificateNotificationEmail,
   sendRequestReceivedEmail,
   sendRequestStatusUpdateEmail,
   sendDonationUpdateEmail,
@@ -275,5 +305,6 @@ export {
   sendBloodBankRegistrationOtpEmail,
   sendUserRegistrationOtpEmail,
   sendWeeklyInventoryDigest,
+  broadcastNotificationEmail,
   verifyEmailSetup
 };

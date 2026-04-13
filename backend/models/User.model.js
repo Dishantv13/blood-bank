@@ -119,6 +119,7 @@ const UserSchema = new mongoose.Schema({
     isEligible: { type: Boolean, default: false },
     eligibilityReasons: Object,
     lastUpdated: Date,
+    lastReminderSentAt: Date,
     
     // Core identity fields that might be needed frequently
     dateOfBirth: Date,
@@ -149,17 +150,9 @@ const UserSchema = new mongoose.Schema({
     default: null,
     select: false
   },
-  authSession: {
-    refreshTokenHash: {
-      type: String,
-      default: null,
-      select: false
-    },
-    refreshTokenIssuedAt: {
-      type: Date,
-      default: null,
-      select: false
-    }
+  isEmailVerified: {
+    type: Boolean,
+    default: true
   },
   createdAt: {
     type: Date,

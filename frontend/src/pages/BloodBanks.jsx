@@ -6,7 +6,7 @@ import { ROUTE_PATH } from '../enum/routePath';
 import MapModal from '../components/MapModal';
 import SkeletonLoader from '../components/SkeletonLoader';
 import EmptyState from '../components/EmptyState';
-import { FiMapPin, FiPhone, FiMail, FiClock, FiCheckCircle, FiInfo, FiChevronRight } from 'react-icons/fi';
+import { FiMapPin, FiPhone, FiClock, FiCheckCircle, FiChevronRight } from 'react-icons/fi';
 import '../pages.css/BloodBanks.css';
 
 const BloodBanks = () => {
@@ -37,8 +37,9 @@ const BloodBanks = () => {
           
           <div className="filter-card">
             <div className="filter-item">
-              <label>Filter Availability</label>
+              <label htmlFor="blood-group-filter">Filter Availability</label>
               <select
+                id="blood-group-filter"
                 className="custom-select"
                 value={filterBloodGroup}
                 onChange={(e) => setFilterBloodGroup(e.target.value)}
@@ -71,11 +72,12 @@ const BloodBanks = () => {
                   <div className="card-media">
                     <img 
                       src={bank.profileImage || `https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80`} 
-                      alt={bank.name} 
+                      alt={`Facility: ${bank.name}`} 
                       className="bank-img"
+                      loading="lazy"
                     />
                     <div className="bank-status-chip">
-                      <span className="pulse-dot"></span> Open Now
+                      <span className="pulse-dot" aria-hidden="true"></span> Open Now
                     </div>
                   </div>
 

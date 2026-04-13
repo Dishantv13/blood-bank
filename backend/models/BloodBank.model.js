@@ -170,18 +170,7 @@ const BloodBankSchema = new mongoose.Schema({
     default: null,
     select: false
   },
-  authSession: {
-    refreshTokenHash: {
-      type: String,
-      default: null,
-      select: false
-    },
-    refreshTokenIssuedAt: {
-      type: Date,
-      default: null,
-      select: false
-    }
-  },
+
   createdAt: {
     type: Date,
     default: Date.now

@@ -64,4 +64,6 @@ router.route('/change-password').post(auth, [
     .withMessage('Password must contain uppercase, lowercase, number, and special character (@$!%*?&)')
 ], authController.changePassword);
 
+
+
 export default router;

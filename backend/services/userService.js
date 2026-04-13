@@ -5,33 +5,50 @@ import Donation from '../models/Donation.model.js';
 import Event from '../models/Event.model.js';
 import mongoose from 'mongoose';
 import * as validationService from './validationService.js';
+import { checkAndSendSingleReminder } from './reminderService.js';
 import { ApiError } from '../utils/apiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 import { sanitizeUser, USER_DONOR_FIELDS, USER_PROFILE_FIELDS } from '../utils/serializers.js';
+import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 
-const DASHBOARD_STATS_TTL_MS = 30 * 1000;
-const dashboardStatsCache = new Map();
+import { getRedisClient } from '../config/redis.js';
 
-const getDashboardStatsFromCache = (userId) => {
-  const key = String(userId);
-  const cached = dashboardStatsCache.get(key);
-  if (!cached) return null;
-  if (cached.expiresAt <= Date.now()) {
-    dashboardStatsCache.delete(key);
+const DISHBOARD_STATS_TTL = 30; // 30 seconds
+
+const getDashboardStatsFromCache = async (userId) => {
+  try {
+    const redis = await getRedisClient();
+    if (!redis) return null;
+
+    const data = await redis.get(`cache:dashboard:${userId}`);
+    return data ? JSON.parse(data) : null;
+  } catch (err) {
+    console.error('[Cache] Redis get error:', err.message);
     return null;
   }
-  return cached.payload;
 };
 
-const setDashboardStatsCache = (userId, payload) => {
-  dashboardStatsCache.set(String(userId), {
-    payload,
-    expiresAt: Date.now() + DASHBOARD_STATS_TTL_MS,
-  });
-};
+const setDashboardStatsCache = async (userId, payload) => {
+  try {
+    const redis = await getRedisClient();
+    if (!redis) return;
 
-const invalidateDashboardStatsCache = (userId) => {
-  dashboardStatsCache.delete(String(userId));
+    await redis.set(`cache:dashboard:${userId}`, JSON.stringify(payload), {
+      EX: DISHBOARD_STATS_TTL
+    });
+  } catch (err) {
+    console.error('[Cache] Redis set error:', err.message);
+  }
+};
+const invalidateDashboardStatsCache = async (userId) => {
+  try {
+    const redis = await getRedisClient();
+    if (!redis) return;
+
+    await redis.del(`cache:dashboard:${userId}`);
+  } catch (err) {
+    console.error('[Cache] Redis delete error:', err.message);
+  }
 };
 
 // Get user profile
@@ -108,7 +125,7 @@ export const updateUserProfile = async (userId, updateData) => {
   const user = await User.findByIdAndUpdate(
     userId,
     { $set: updateFields },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   ).select(USER_PROFILE_FIELDS).lean();
 
   if (!user) {
@@ -252,6 +269,7 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
 // Get available donors by blood group
 export const getAvailableDonors = async (query) => {
   const { bloodGroup, latitude, longitude, maxDistance } = query;
+  const { page, limit, skip } = getPaginationParams({ query });
 
   let filterQuery = { isDonor: true, isAvailable: true };
   if (bloodGroup) {
@@ -260,6 +278,8 @@ export const getAvailableDonors = async (query) => {
   }
 
   let donors;
+  let total;
+
   if (latitude && longitude) {
     donors = await User.find({
       ...filterQuery,
@@ -272,12 +292,29 @@ export const getAvailableDonors = async (query) => {
           $maxDistance: maxDistance ? parseInt(maxDistance) : 10000
         }
       }
-    }).select(USER_DONOR_FIELDS).lean();
+    })
+    .select(USER_DONOR_FIELDS)
+    .skip(skip)
+    .limit(limit)
+    .lean();
+    
+    // countDocuments for geospatial needs a match but not necessarily $near
+    total = await User.countDocuments(filterQuery);
   } else {
-    donors = await User.find(filterQuery).select(USER_DONOR_FIELDS).lean();
+    const [donorDocs, donorCount] = await Promise.all([
+      User.find(filterQuery)
+        .select(USER_DONOR_FIELDS)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      User.countDocuments(filterQuery)
+    ]);
+    donors = donorDocs;
+    total = donorCount;
   }
 
-  return donors.map((donor) => sanitizeUser(donor));
+  const results = donors.map((donor) => sanitizeUser(donor));
+  return buildPaginatedResponse(results, total, page, limit);
 };
 
 // Toggle between donor and patient mode
@@ -314,10 +351,13 @@ export const toggleMode = async (userId, mode) => {
 
 // Get dashboard statistics
 export const getDashboardStats = async (userId) => {
-  const cachedStats = getDashboardStatsFromCache(userId);
+  const cachedStats = await getDashboardStatsFromCache(userId);
   if (cachedStats) {
     return cachedStats;
   }
+
+  // Trigger background check for reminders (fire and forget)
+  checkAndSendSingleReminder(userId).catch(err => console.error('Reminder trigger error:', err));
 
   const userObjectId = new mongoose.Types.ObjectId(userId);
   const now = new Date();
@@ -441,6 +481,6 @@ export const getDashboardStats = async (userId) => {
     }
   };
 
-  setDashboardStatsCache(userId, result);
+  await setDashboardStatsCache(userId, result);
   return result;
 };

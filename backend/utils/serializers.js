@@ -98,6 +98,14 @@ export const BLOOD_BANK_LIST_FIELDS = [
   'approvalStatus',
 ].join(' ');
 
+const optimizeCloudinaryUrl = (url) => {
+  if (!url || typeof url !== 'string' || !url.includes('cloudinary.com')) return url;
+  if (url.includes('/upload/')) {
+    return url.replace('/upload/', '/upload/f_auto,q_auto/');
+  }
+  return url;
+};
+
 export const sanitizeUser = (user) => {
   if (!user) return null;
   const normalizedId = user._id || user.id;
@@ -114,7 +122,7 @@ export const sanitizeUser = (user) => {
     activeMode: user.activeMode || 'patient',
     address: user.address || {},
     location: user.location,
-    photoURL: user.photoURL || '',
+    photoURL: optimizeCloudinaryUrl(user.photoURL || ''),
     photoURLPublicId: user.photoURLPublicId || '',
     isAvailable: typeof user.isAvailable === 'boolean' ? user.isAvailable : true,
     healthForm: user.healthForm,
@@ -133,13 +141,13 @@ export const sanitizeBloodBank = (bloodBank) => {
     name: bloodBank.name,
     email: bloodBank.email,
     phone: bloodBank.phone || '',
-    logo: bloodBank.logo || '',
-    imageUrl: bloodBank.imageUrl || '',
+    establishedYear: bloodBank.establishedYear,
     licenseNumber: bloodBank.licenseNumber || '',
     registrationNumber: bloodBank.registrationNumber || '',
-    establishedYear: bloodBank.establishedYear,
     address: bloodBank.address || {},
-    profileImage: bloodBank.profileImage || '',
+    profileImage: optimizeCloudinaryUrl(bloodBank.profileImage || ''),
+    logo: optimizeCloudinaryUrl(bloodBank.logo || ''),
+    imageUrl: optimizeCloudinaryUrl(bloodBank.imageUrl || ''),
     profileImagePublicId: bloodBank.profileImagePublicId || '',
     location: bloodBank.location,
     inventory: bloodBank.inventory || [],

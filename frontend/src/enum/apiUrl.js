@@ -82,6 +82,8 @@ export const DONATION_API_URLS = {
     UPDATE_DONATION_STATUS: (donationId) =>
         `/donations/bank/${donationId}/status`,
     CREATE_DONATION: '/donations/bank/create',
+    VERIFY_CERTIFICATE: (code) => `/donations/verify-certificate/${code}`,
+    DOWNLOAD_CERTIFICATE: (donationId) => `/donations/${donationId}/certificate`,
 };
 
 export const EVENT_API_URLS = {
@@ -137,10 +139,10 @@ export const USER_API_URLS = {
     GET_DASHBOARD_STATS: '/users/dashboard/stats',
 
     // Auth
-    FORGOT_PASSWORD: '/api/auth/forgot-password',
-    RESET_PASSWORD: (token) => `/api/auth/reset-password/${token}`,
-    VERIFY_RESET_TOKEN: '/api/auth/verify-reset-token',
-    CHANGE_PASSWORD: '/api/auth/change-password',
+    FORGOT_PASSWORD: '/auth/forgot-password',
+    RESET_PASSWORD: (token) => `/auth/reset-password/${token}`,
+    VERIFY_RESET_TOKEN: '/auth/verify-reset-token',
+    CHANGE_PASSWORD: '/auth/change-password',
 };
 
 
@@ -206,4 +208,8 @@ export const ADMIN_URLS = {
     ALL_XLSX: '/admin/export/all?format=xlsx',
     ALL_CSV: '/admin/export/all?format=csv',
   },
+};
+
+export const NOTIFICATION_API_URLS = {
+  STREAM: '/notifications/stream',
 };
