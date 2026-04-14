@@ -8,23 +8,13 @@ import mongoose from "mongoose";
 import { globalErrorHandler } from "./middleware/globalErrorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { globalApiLimiter } from "./middleware/rateLimiter.js";
+import redisClient from "./utils/redisClient.js";
+// import logger from "./utils/logger.js";
 
 // ==================== ROUTE IMPORTS ====================
 // IMPORT ROUTES FILE
 
-import authRoutes from "./routes/auth.route.js";
-import adminAuthRoutes from "./routes/adminAuth.route.js";
-import userRoutes from "./routes/users.route.js";
-import bloodBankRoutes from "./routes/bloodBank.route.js";
-import bloodBankPortalRoutes from "./routes/bloodBankPortal.route.js";
-import bloodCampsRoutes from "./routes/bloodCamps.route.js";
-import donorHealthRoutes from "./routes/donorHealth.route.js";
-import requestsRoutes from "./routes/requests.route.js";
-import eventsRoutes from "./routes/events.route.js";
-import adminRoutes from "./routes/admin.route.js";
-import donationsRoutes from "./routes/donations.route.js";
-import uploadRoutes from "./routes/upload.route.js";
-import notificationRoutes from "./routes/notification.route.js";
+import v1Router from "./routes/index.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -110,10 +100,10 @@ app.options("/{*any}", cors(corsOptions));
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
     // Check if request is over HTTPS
-    const isHttps = req.secure || 
-                    req.headers['x-forwarded-proto'] === 'https' ||
-                    req.headers['x-forwarded-ssl'] === 'on';
-    
+    const isHttps = req.secure ||
+      req.headers['x-forwarded-proto'] === 'https' ||
+      req.headers['x-forwarded-ssl'] === 'on';
+
     if (!isHttps) {
       // Redirect to HTTPS
       return res.redirect(301, `https://${req.headers.host}${req.url}`);
@@ -191,36 +181,48 @@ app.use((req, res, next) => {
 });
 
 // ==================== HEALTH CHECK ====================
+// ==================== SYSTEM ROUTES ====================
 app.get("/", (_req, res) => {
   res.json({
     status: "ok",
     message: "RaktSarthi API is running",
+    version: "v1.0.0",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Health check endpoint (unversioned for infrastructure monitoring)
+app.get("/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    redis: redisClient.isReady ? "connected" : "disconnected",
     timestamp: new Date().toISOString()
   });
 });
 
 app.get("/api/health", (_req, res) => {
   res.json({
-    status: mongoose.connection.readyState === 1 ? "ok" : "degraded",
+    status: "ok",
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    redis: redisClient.isReady ? "connected" : "disconnected",
     timestamp: new Date().toISOString()
   });
 });
 
-// ==================== ROUTES ====================
-app.use("/api/auth", authRoutes);
-app.use("/api/admin-auth", adminAuthRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/bloodbanks", bloodBankRoutes);
-app.use("/api/blood-banks", bloodBankRoutes);
-app.use("/api/bloodbank", bloodBankPortalRoutes);
-app.use("/api/blood-camps", bloodCampsRoutes);
-app.use("/api/donor-health", donorHealthRoutes);
-app.use("/api/requests", requestsRoutes);
-app.use("/api/events", eventsRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/donations", donationsRoutes);
-app.use("/api/upload", uploadRoutes);
-app.use("/api/notifications", notificationRoutes);
+// ==================== VERSIONED API ROUTES ====================
+app.use("/api/v1", v1Router);
+
+// Legacy /api redirect to /api/v1
+app.use("/api", (req, res, next) => {
+  if (req.path.startsWith("/v1") || req.path === "/health") return next();
+
+  // Clean path to prevent double slashes
+  const cleanPath = req.path.startsWith("/") ? req.path : `/${req.path}`;
+  const nextPath = `/api/v1${cleanPath}`;
+  
+  res.redirect(307, nextPath);
+});
 
 // ==================== ERROR HANDLING MIDDLEWARE (must be AFTER routes) ====================
 app.use(globalErrorHandler);

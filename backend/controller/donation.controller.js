@@ -3,8 +3,6 @@ import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import * as donationService from '../services/donationService.js';
 import * as certificateService from '../services/certificateService.js';
-import Donation from '../models/Donation.model.js';
-import { ApiError } from '../utils/apiError.js';
 
 // Create donation request
 export const createDonationRequest = asyncHandler(async (req, res) => {
@@ -22,12 +20,12 @@ export const createDonationRequest = asyncHandler(async (req, res) => {
 export const getMyDonations = asyncHandler(async (req, res) => {
   const donorId = req.user.userId || req.user._id || req.user.id;
   const result = await donationService.getUserDonations(donorId, req.query);
-  successResponse(res, result, 200, 'Donationhistory retrieved successfully');
+  successResponse(res, result, 200, 'Donation history retrieved successfully');
 });
 
 // Get blood bank's donations
 export const getBloodBankDonations = asyncHandler(async (req, res) => {
-  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id;
+  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank.id;
   const result = await donationService.getBloodBankDonations(bloodBankId, req.query);
   successResponse(res, result, 200, 'Blood bank donations retrieved successfully');
 });
@@ -39,7 +37,7 @@ export const recordDonation = asyncHandler(async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id;
+  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank.id;
   const { donationId } = req.params;
   const result = await donationService.recordDonation(donationId, bloodBankId, req.body.volumeDonated);
   successResponse(res, result, 200, 'Donation recorded successfully');
@@ -52,7 +50,7 @@ export const updateDonationStatus = asyncHandler(async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id;
+  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank.id;
   const { donationId } = req.params;
   const result = await donationService.updateDonationStatus(donationId, bloodBankId, req.body.status);
   successResponse(res, result, 200, 'Donation status updated successfully');
@@ -65,7 +63,7 @@ export const createDonationByBank = asyncHandler(async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
-  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id;
+  const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank.id;
   const result = await donationService.createDonationRequest(req.body.donorId, bloodBankId, {
     campId: req.body.campId,
     bloodGroup: req.body.bloodGroup
@@ -76,35 +74,15 @@ export const createDonationByBank = asyncHandler(async (req, res) => {
 // Download donation certificate
 export const downloadCertificate = asyncHandler(async (req, res) => {
   const { donationId } = req.params;
-  const userId = req.user.userId || req.user._id || req.user.id;
-
-  const donation = await Donation.findById(donationId)
-    .populate('donor', 'name')
-    .populate('bloodBank', 'name address')
-    .populate('camp', 'name address');
-
-  if (!donation) {
-    throw new ApiError(404, 'Donation record not found');
-  }
-
-  // Security check: Only the donor or an admin can download the certificate
-  if (donation.donor._id.toString() !== userId.toString() && req.user.role !== 'admin') {
-    throw new ApiError(403, 'Unauthorized to download this certificate');
-  }
-
-  if (donation.status !== 'completed') {
-    throw new ApiError(400, 'Donation is not completed yet. Certificate not available.');
-  }
-
-  const pdfBuffer = await certificateService.generateDonationCertificate(donation);
+  const result = await donationService.getDonationCertificate(donationId, req.user);
 
   res.set({
     'Content-Type': 'application/pdf',
-    'Content-Disposition': `attachment; filename=Donation_Certificate_${donation.certificateCode}.pdf`,
-    'Content-Length': pdfBuffer.length,
+    'Content-Disposition': `attachment; filename=Donation_Certificate_${result.certificateCode}.pdf`,
+    'Content-Length': result.pdfBuffer.length,
   });
 
-  res.send(pdfBuffer);
+  res.send(result.pdfBuffer);
 });
 
 // Public verify certificate

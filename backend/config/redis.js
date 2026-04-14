@@ -1,85 +1,71 @@
 import { createClient } from 'redis';
+export const redisConfig = {
+  socket: {
+    host: process.env.REDIS_HOST || '127.0.0.1',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    tls: process.env.REDIS_TLS === 'true',
+    reconnectStrategy: (retries) => {
+      const delay = Math.min(retries * 500, 30000);
+      return delay;
+    }
+  },
+  password: process.env.REDIS_PASSWORD || undefined,
+  username: process.env.REDIS_USERNAME || undefined,
+};  
 
 let _client = null;
-let _connectionFailed = false;
+let _isConnecting = false;
+let _lastErrorLoggedAt = 0;
+const ERROR_LOG_INTERVAL = 60000; // Log error at most once per minute
 
-// Returns a connected Redis client, or null when unavailable.
+// Returns a singleton Redis client.
 export const getRedisClient = async () => {
-  if (_client) return _client;
-  if (_connectionFailed) return null;
-
-  const url = process.env.REDIS_URL;
-  if (!url) {
-    if (process.env.NODE_ENV === 'production') {
-      console.warn('[Redis] REDIS_URL not set. Rate limiters will use in-memory store (not safe for multi-instance deployments).');
-    }
-    _connectionFailed = true;
-    return null;
-  }
-
-  try {
-    const client = createClient({
-      url,
-      socket: {
-        connectTimeout: 5000,
-        reconnectStrategy: (retries) => {
-          if (retries >= 3) {
-            console.warn('[Redis] Giving up after 3 reconnect attempts. Falling back to in-memory store.');
-            _connectionFailed = true;
-            return false;
-          }
-          return Math.min(retries * 200, 1000);
-        },
-      },
-    });
-
-    client.on('error', (err) => {
-      console.error('[Redis] Client error:', err.message);
-    });
-
-    await client.connect();
-    _client = client;
-    console.log('[Redis] Connected successfully.');
-    return _client;
-  } catch (err) {
-    console.warn(`[Redis] Failed to connect: ${err.message}. Falling back to in-memory store.`);
-    _connectionFailed = true;
-    return null;
-  }
-};
-
-let _subClient = null;
-
-// Dedicated client for Pub/Sub subscriptions.
-export const getRedisSubClient = async () => {
-  if (_subClient) return _subClient;
+  if (_client?.isReady) return _client;
   
-  const client = await getRedisClient();
-  if (!client) return null;
+  if (!_client) {
+    _client = createClient(redisConfig);
 
-  try {
-    const subClient = client.duplicate();
-    await subClient.connect();
-    _subClient = subClient;
-    return _subClient;
-  } catch (err) {
-    console.error('[Redis] Failed to create sub client:', err.message);
-    return null;
+    _client.on('error', (err) => {
+      const now = Date.now();
+      if (now - _lastErrorLoggedAt > ERROR_LOG_INTERVAL) {
+        console.warn(`[Redis] Connectivity issue: ${err.message}. System is using local memory fallback.`);
+        _lastErrorLoggedAt = now;
+      }
+    });
+
+    _client.on('ready', () => {
+      console.log('✅ Redis: Connected and ready.');
+      _lastErrorLoggedAt = 0; // Reset logging timer
+    });
+
+    _client.on('reconnecting', () => {
+      // Quiet reconnecting logs
+    });
   }
+
+  if (!_isConnecting && !_client.isOpen) {
+    _isConnecting = true;
+    try {
+      await _client.connect();
+    } catch (err) {
+      // Errors handled by the .on('error') listener
+    } finally {
+      _isConnecting = false;
+    }
+  }
+
+  return _client;
 };
 
-// Gracefully closes Redis connections on shutdown.
+// Gracefully closes the Redis connection.
 export const closeRedisClient = async () => {
   if (_client) {
+    console.log('Redis: Closing connection...');
     try {
-      await _client.quit();
-    } catch (_err) { }
+      if (_client.isOpen) await _client.quit();
+    } catch (err) {
+      // Ignore
+    }
     _client = null;
-  }
-  if (_subClient) {
-    try {
-      await _subClient.quit();
-    } catch (_err) { }
-    _subClient = null;
   }
 };

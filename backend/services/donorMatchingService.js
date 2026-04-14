@@ -1,4 +1,4 @@
-import User from '../models/User.model.js';
+import userRepository from '../repositories/UserRepository.js';
 import { createNotification } from './notificationService.js';
 
 const COMPATIBILITY_MAP = {
@@ -19,47 +19,15 @@ export const findMatchingDonors = async (request, options = {}) => {
 
   const compatibleGroups = COMPATIBILITY_MAP[bloodGroup] || [bloodGroup];
 
-  const query = {
-    isDonor: true,
-    isAvailable: true,
-    bloodGroup: { $in: compatibleGroups },
-    activeMode: 'donor',
-    _id: { $ne: request.requestedBy }
-  };
-
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-  query.$or = [
-    { 'donorInfo.lastDonationDate': { $exists: false } },
-    { 'donorInfo.lastDonationDate': null },
-    { 'donorInfo.lastDonationDate': { $lte: threeMonthsAgo } }
-  ];
 
-  let donors = [];
-
-  if (hospital?.location?.coordinates?.length === 2) {
-    donors = await User.find({
-      ...query,
-      location: {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: hospital.location.coordinates
-          },
-          $maxDistance: maxDistance
-        }
-      }
-    })
-    .select('name email phone bloodGroup location donorInfo')
-    .limit(limit)
-    .lean();
-  } else {
-    // Fallback to non-geospatial if location is missing
-    donors = await User.find(query)
-      .select('name email phone bloodGroup location donorInfo')
-      .limit(limit)
-      .lean();
-  }
+  const donors = await userRepository.findMatchingDonors(request, { 
+    compatibleGroups, 
+    maxDistance, 
+    limit,
+    threeMonthsAgo 
+  });
 
   return donors;
 };

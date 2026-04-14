@@ -78,14 +78,6 @@ const EventSchema = new mongoose.Schema({
     type: Number,
     default: 100
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
   isFake: {
     type: Boolean,
     default: false

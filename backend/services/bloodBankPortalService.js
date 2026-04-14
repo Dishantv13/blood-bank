@@ -1,15 +1,16 @@
 import ExcelJS from 'exceljs';
-import BloodRequest from '../models/BloodRequest.model.js';
-import BloodBank from '../models/BloodBank.model.js';
-import BloodCamp from '../models/BloodCamp.model.js';
-import Inventory from '../models/Inventory.model.js';
-import Event from '../models/Event.model.js';
+import requestRepository from '../repositories/RequestRepository.js';
+import bloodBankRepository from '../repositories/BloodBankRepository.js';
+import bloodCampRepository from '../repositories/BloodCampRepository.js';
+import inventoryRepository from '../repositories/InventoryRepository.js';
+import eventRepository from '../repositories/EventRepository.js';
 import { ApiError } from '../utils/apiError.js';
 import { addInventoryUnits, subtractInventoryUnits } from './inventoryService.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 import { BLOOD_BANK_SAFE_FIELDS, sanitizeBloodBank } from '../utils/serializers.js';
 import * as validationService from './validationService.js';
 import { revokeAllPrincipalSessions } from './sessionService.js';
+import * as auditService from './auditService.js';
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return '';
@@ -34,7 +35,6 @@ export const getAllRequests = async (bloodBankId, query) => {
       'bloodBankResponse.status': { $in: responseStatuses }
     };
 
-    // Non-pending user requests should only include requests already handled by this blood bank.
     if (!isPending) {
       userScope.bloodBank = bloodBankId;
     }
@@ -72,17 +72,17 @@ export const getAllRequests = async (bloodBankId, query) => {
   const skip = (parsedPage - 1) * parsedLimit;
 
   const [requests, total] = await Promise.all([
-    BloodRequest.find(filter)
-      .populate([
+    requestRepository.find(filter, {
+      populate: [
         { path: 'requestedBy', select: 'name email phone bloodGroup' },
         { path: 'requestingBloodBank', select: 'name email phone address' },
         { path: 'targetBloodBank', select: 'name email phone address' }
-      ])
-      .sort({ urgency: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(parsedLimit)
-      .lean(),
-    BloodRequest.countDocuments(filter)
+      ],
+      sort: { urgency: -1, createdAt: -1 },
+      skip,
+      limit: parsedLimit
+    }),
+    requestRepository.count(filter)
   ]);
 
   return {
@@ -131,17 +131,17 @@ export const getApprovedRequests = async (bloodBankId, query) => {
   const skip = (parsedPage - 1) * parsedLimit;
 
   const [requests, total] = await Promise.all([
-    BloodRequest.find(approvedQuery)
-      .populate([
+    requestRepository.find(approvedQuery, {
+      populate: [
         { path: 'requestedBy', select: 'name email phone bloodGroup' },
         { path: 'requestingBloodBank', select: 'name email phone address' },
         { path: 'targetBloodBank', select: 'name email phone address' }
-      ])
-      .sort({ 'bloodBankResponse.respondedAt': -1, updatedAt: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(parsedLimit)
-      .lean(),
-    BloodRequest.countDocuments(approvedQuery)
+      ],
+      sort: { 'bloodBankResponse.respondedAt': -1, updatedAt: -1, createdAt: -1 },
+      skip,
+      limit: parsedLimit
+    }),
+    requestRepository.count(approvedQuery)
   ]);
 
   return {
@@ -154,14 +154,14 @@ export const getApprovedRequests = async (bloodBankId, query) => {
 };
 
 export const getRequestDetails = async (id) => {
-  const request = await BloodRequest.findById(id)
-    .populate([
+  const request = await requestRepository.findById(id, {
+    populate: [
       { path: 'requestedBy', select: 'name email phone bloodGroup address' },
       { path: 'requestingBloodBank', select: 'name email phone address' },
       { path: 'targetBloodBank', select: 'name email phone address' },
       { path: 'bloodBankResponse.respondedBy', select: 'name' }
-    ])
-    .lean();
+    ]
+  });
 
   if (!request) throw new ApiError(404, 'Request not found');
   return request;
@@ -177,13 +177,13 @@ export const createBankToBankRequest = async (requestingBankId, data) => {
   }
 
   const [requestingBank, targetBloodBank] = await Promise.all([
-    BloodBank.findById(requestingBankId),
-    BloodBank.findById(targetBloodBankId)
+    bloodBankRepository.findById(requestingBankId),
+    bloodBankRepository.findById(targetBloodBankId)
   ]);
 
   if (!requestingBank || !targetBloodBank) throw new ApiError(404, 'Blood bank not found');
 
-  const request = await BloodRequest.create({
+  const request = await requestRepository.create({
     requestType: 'bloodbank',
     requestingBloodBank: requestingBankId,
     targetBloodBank: targetBloodBankId,
@@ -200,7 +200,7 @@ export const createBankToBankRequest = async (requestingBankId, data) => {
     bloodBankResponse: { status: 'pending' }
   });
 
-  await request.populate([
+  await requestRepository.model.populate(request, [
     { path: 'requestingBloodBank', select: 'name email phone address' },
     { path: 'targetBloodBank', select: 'name email phone address' }
   ]);
@@ -208,7 +208,7 @@ export const createBankToBankRequest = async (requestingBankId, data) => {
 };
 
 export const approveRequest = async (requestId, responderBankId, responseNote) => {
-  const request = await BloodRequest.findById(requestId);
+  const request = await requestRepository.findById(requestId, { lean: false });
   if (!request) throw new ApiError(404, 'Request not found');
   if (request.status !== 'pending') throw new ApiError(400, 'Request is no longer pending');
 
@@ -232,6 +232,17 @@ export const approveRequest = async (requestId, responderBankId, responseNote) =
   };
 
   await request.save();
+
+  await auditService.logAction({
+    action: 'BLOOD_REQUEST_APPROVED',
+    actorId: responderBankId,
+    actorModel: 'BloodBank',
+    targetId: request._id,
+    targetModel: 'BloodRequest',
+    changes: { status: 'approved' },
+    metadata: { requestType: request.requestType, bloodGroup: request.bloodGroup, units: request.units }
+  });
+
   await request.populate([
     { path: 'requestedBy', select: 'name email phone' },
     { path: 'requestingBloodBank', select: 'name email phone address' },
@@ -243,7 +254,7 @@ export const approveRequest = async (requestId, responderBankId, responseNote) =
 };
 
 export const rejectRequest = async (requestId, bloodBankId, responseNote) => {
-  const request = await BloodRequest.findById(requestId);
+  const request = await requestRepository.findById(requestId, { lean: false });
   if (!request) throw new ApiError(404, 'Request not found');
   if (request.status !== 'pending') throw new ApiError(400, 'Request is no longer pending');
   if (request.requestType === 'bloodbank' && String(request.targetBloodBank) !== String(bloodBankId)) {
@@ -260,6 +271,16 @@ export const rejectRequest = async (requestId, bloodBankId, responseNote) => {
   };
   await request.save();
 
+  await auditService.logAction({
+    action: 'BLOOD_REQUEST_REJECTED',
+    actorId: bloodBankId,
+    actorModel: 'BloodBank',
+    targetId: request._id,
+    targetModel: 'BloodRequest',
+    changes: { status: 'rejected' },
+    metadata: { reason: responseNote }
+  });
+
   await request.populate([
     { path: 'requestedBy', select: 'name email phone' },
     { path: 'requestingBloodBank', select: 'name email phone address' },
@@ -271,7 +292,7 @@ export const rejectRequest = async (requestId, bloodBankId, responseNote) => {
 };
 
 export const getRequestStats = async (bloodBankId) => {
-  const stats = await BloodRequest.aggregate([
+  const stats = await requestRepository.model.aggregate([
     {
       $facet: {
         total: [{ $count: 'count' }],
@@ -295,30 +316,29 @@ export const getRequestStats = async (bloodBankId) => {
 };
 
 export const getAllEvents = async (bloodBankId) => {
-  const events = await Event.find({ organizedBy: bloodBankId, organizerModel: 'BloodBank' })
-    .populate('registeredDonors', 'name email phone bloodGroup')
-    .sort({ date: 1 })
-    .lean();
+  const events = await eventRepository.find({ organizedBy: bloodBankId, organizerModel: 'BloodBank' }, {
+    populate: { path: 'registeredDonors', select: 'name email phone bloodGroup' },
+    sort: { date: 1 }
+  });
   return { count: events.length, events };
 };
 
 export const createEvent = async (bloodBankId, eventData) => {
-  const bloodBank = await BloodBank.findById(bloodBankId);
+  const bloodBank = await bloodBankRepository.findById(bloodBankId);
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
-  const event = new Event({
+  const event = await eventRepository.create({
     ...eventData,
     organizer: bloodBank.name,
     organizedBy: bloodBankId,
     organizerModel: 'BloodBank',
     visibility: eventData.visibility || 'public'
   });
-  await event.save();
   return event;
 };
 
 export const updateEvent = async (eventId, bloodBankId, payload) => {
-  const event = await Event.findOne({ _id: eventId, organizedBy: bloodBankId });
+  const event = await eventRepository.findOne({ _id: eventId, organizedBy: bloodBankId }, { lean: false });
   if (!event) throw new ApiError(404, 'Event not found or unauthorized');
 
   const allowedUpdates = [
@@ -335,14 +355,15 @@ export const updateEvent = async (eventId, bloodBankId, payload) => {
 };
 
 export const deleteEvent = async (eventId, bloodBankId) => {
-  const event = await Event.findOneAndDelete({ _id: eventId, organizedBy: bloodBankId });
+  const event = await eventRepository.deleteOne({ _id: eventId, organizedBy: bloodBankId });
   if (!event) throw new ApiError(404, 'Event not found or unauthorized');
   return { success: true };
 };
 
 export const getEventRegistrations = async (eventId, bloodBankId) => {
-  const event = await Event.findOne({ _id: eventId, organizedBy: bloodBankId })
-    .populate('registeredDonors', 'name email phone bloodGroup address lastDonationDate isDonor donorInfo');
+  const event = await eventRepository.findOne({ _id: eventId, organizedBy: bloodBankId }, {
+    populate: { path: 'registeredDonors', select: 'name email phone bloodGroup address lastDonationDate isDonor donorInfo' }
+  });
 
   if (!event) throw new ApiError(404, 'Event not found or unauthorized');
 
@@ -354,10 +375,10 @@ export const getEventRegistrations = async (eventId, bloodBankId) => {
 };
 
 export const exportEventRegistrations = async (eventId, bloodBankId) => {
-  const event = await Event.findOne({ _id: eventId, organizedBy: bloodBankId })
-    .select('title registeredDonors')
-    .populate('registeredDonors', 'name email phone bloodGroup createdAt')
-    .lean();
+  const event = await eventRepository.findOne({ _id: eventId, organizedBy: bloodBankId }, {
+    select: 'title registeredDonors',
+    populate: { path: 'registeredDonors', select: 'name email phone bloodGroup createdAt' }
+  });
 
   if (!event) throw new ApiError(404, 'Event not found or unauthorized');
 
@@ -391,12 +412,12 @@ export const exportEventRegistrations = async (eventId, bloodBankId) => {
 };
 
 export const getAllCamps = async (bloodBankId) => {
-  const camps = await BloodCamp.find({ organizer: bloodBankId }).sort({ date: -1 }).lean();
+  const camps = await bloodCampRepository.find({ organizer: bloodBankId }, { sort: { date: -1 } });
   return { camps };
 };
 
 export const getCampRegistrations = async (campId, bloodBankId) => {
-  const camp = await BloodCamp.findOne({ _id: campId, organizer: bloodBankId });
+  const camp = await bloodCampRepository.findOne({ _id: campId, organizer: bloodBankId });
   if (!camp) throw new ApiError(404, 'Blood camp not found or unauthorized');
 
   return {
@@ -407,7 +428,7 @@ export const getCampRegistrations = async (campId, bloodBankId) => {
 };
 
 export const removeDonorRegistration = async (campId, bloodBankId, donorIdToRemove) => {
-  const camp = await BloodCamp.findOne({ _id: campId, organizer: bloodBankId });
+  const camp = await bloodCampRepository.findOne({ _id: campId, organizer: bloodBankId }, { lean: false });
   if (!camp) throw new ApiError(404, 'Blood camp not found or unauthorized');
 
   const initialLength = camp.registeredDonors.length;
@@ -426,8 +447,9 @@ export const removeDonorRegistration = async (campId, bloodBankId, donorIdToRemo
 };
 
 export const exportCampRegistrations = async (campId, bloodBankId) => {
-  const camp = await BloodCamp.findOne({ _id: campId, organizer: bloodBankId })
-    .populate('registeredDonors.donor', 'name email phone bloodGroup address');
+  const camp = await bloodCampRepository.findOne({ _id: campId, organizer: bloodBankId }, {
+    populate: { path: 'registeredDonors.donor', select: 'name email phone bloodGroup address' }
+  });
 
   if (!camp) throw new ApiError(404, 'Blood camp not found or unauthorized');
 
@@ -460,27 +482,22 @@ export const exportCampRegistrations = async (campId, bloodBankId) => {
   };
 };
 
-// ... (other imports)
-
 export const uploadPhoto = async (bloodBankId, localFilePath) => {
   if (!localFilePath) throw new ApiError(400, 'No file path provided');
   
-  const bloodBank = await BloodBank.findById(bloodBankId);
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, { lean: false });
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
-  // Delete old photo from Cloudinary if it exists
   if (bloodBank.profileImagePublicId) {
     await deleteFromCloudinary(bloodBank.profileImagePublicId);
   }
 
-  // Upload to Cloudinary
   const cloudinaryResponse = await uploadOnCloudinary(localFilePath, 'blood-bank/profiles');
   
   if (!cloudinaryResponse) {
     throw new ApiError(500, 'Failed to upload photo to Cloudinary');
   }
 
-  // Update blood bank profile with Cloudinary URL and Public ID
   bloodBank.profileImage = cloudinaryResponse.secure_url;
   bloodBank.profileImagePublicId = cloudinaryResponse.public_id;
   
@@ -493,10 +510,10 @@ export const uploadPhoto = async (bloodBankId, localFilePath) => {
 };
 
 export const getDashboard = async (bloodBankId) => {
-  const bloodBank = await BloodBank.findById(bloodBankId).select('name inventory').lean();
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: 'name inventory' });
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
-  const requestStats = await BloodRequest.aggregate([
+  const requestStats = await requestRepository.model.aggregate([
     {
       $facet: {
         pending: [{ $match: { status: 'pending' } }, { $count: 'count' }],
@@ -509,7 +526,7 @@ export const getDashboard = async (bloodBankId) => {
     }
   ]);
 
-  const eventStats = await Event.aggregate([
+  const eventStats = await eventRepository.model.aggregate([
     { $match: { organizedBy: bloodBankId, organizerModel: 'BloodBank' } },
     {
       $facet: {
@@ -536,13 +553,13 @@ export const getDashboard = async (bloodBankId) => {
 };
 
 export const getProfile = async (bloodBankId) => {
-  const bloodBank = await BloodBank.findById(bloodBankId).select(BLOOD_BANK_SAFE_FIELDS).lean();
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: BLOOD_BANK_SAFE_FIELDS });
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
   return sanitizeBloodBank(bloodBank);
 };
 
 export const updateProfile = async (bloodBankId, payload) => {
-  const bloodBank = await BloodBank.findById(bloodBankId);
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, { lean: false });
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
   const allowedUpdates = ['name', 'phone', 'logo', 'imageUrl', 'address', 'location', 'operatingHours', 'services', 'contactPerson', 'establishedYear'];
@@ -551,7 +568,7 @@ export const updateProfile = async (bloodBankId, payload) => {
   });
 
   await bloodBank.save();
-  const updatedBloodBank = await BloodBank.findById(bloodBank._id).select(BLOOD_BANK_SAFE_FIELDS).lean();
+  const updatedBloodBank = await bloodBankRepository.findById(bloodBank._id, { select: BLOOD_BANK_SAFE_FIELDS });
   return sanitizeBloodBank(updatedBloodBank);
 };
 
@@ -560,7 +577,7 @@ export const changePassword = async (bloodBankId, currentPassword, newPassword) 
   if (currentPassword === newPassword) throw new ApiError(400, 'New password must be different from current password');
   validationService.validatePassword(newPassword);
 
-  const bloodBank = await BloodBank.findById(bloodBankId).select('+password +tokenVersion');
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: '+password +tokenVersion', lean: false });
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
   const isMatch = await bloodBank.comparePassword(currentPassword);
@@ -575,7 +592,7 @@ export const changePassword = async (bloodBankId, currentPassword, newPassword) 
 };
 
 export const getInventory = async (bloodBankId) => {
-  const inventory = await Inventory.findOne({ bloodBank: bloodBankId }).lean();
+  const inventory = await inventoryRepository.findOne({ bloodBank: bloodBankId });
   if (!inventory) {
     const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
     return bloodGroups.map((group) => ({ bloodGroup: group, units: 0, lastUpdated: new Date() }));
@@ -592,25 +609,36 @@ export const updateInventory = async (bloodBankId, inventory) => {
     lastUpdated: new Date()
   }));
 
-  let doc = await Inventory.findOne({ bloodBank: bloodBankId });
+  let doc = await inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: false });
   if (!doc) {
-    const bloodBank = await BloodBank.findById(bloodBankId);
+    const bloodBank = await bloodBankRepository.findById(bloodBankId);
     if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
-    doc = new Inventory({ bloodBank: bloodBankId, bloodBankName: bloodBank.name, items: validatedInventory });
+    doc = await inventoryRepository.create({ bloodBank: bloodBankId, bloodBankName: bloodBank.name, items: validatedInventory });
   } else {
     doc.items = validatedInventory;
     doc.markModified('items');
   }
 
   const saved = await doc.save();
+
+  await auditService.logAction({
+    action: 'INVENTORY_UPDATED',
+    actorId: bloodBankId,
+    actorModel: 'BloodBank',
+    targetId: doc._id,
+    targetModel: 'Inventory',
+    changes: { inventoryCount: validatedInventory.length },
+    metadata: { inventory: validatedInventory }
+  });
+
   return saved.items;
 };
 
 export const updateBloodGroupUnits = async (bloodBankId, bloodGroup, units) => {
   if (units === undefined || units < 0) throw new ApiError(400, 'Please provide valid units (>=0)');
 
-  const bloodBank = await BloodBank.findById(bloodBankId);
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, { lean: false });
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
   const inventoryItem = bloodBank.inventory.find((item) => item.bloodGroup === bloodGroup);

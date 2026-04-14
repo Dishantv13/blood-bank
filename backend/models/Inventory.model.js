@@ -27,17 +27,18 @@ const InventorySchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  lastModified: {
-    type: Date,
-    default: Date.now
-  }
 }, {
   timestamps: true
 });
 
-// Update lastModified on save
-InventorySchema.pre('save', async function() {
-  this.lastModified = new Date();
+// Update items lastUpdated on save if modified
+InventorySchema.pre('save', function(next) {
+  if (this.isModified('items')) {
+    this.items.forEach(item => {
+      item.lastUpdated = new Date();
+    });
+  }
+  next();
 });
 
 InventorySchema.index({ 'items.bloodGroup': 1 });

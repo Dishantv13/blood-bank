@@ -1,42 +1,36 @@
-import Event from '../models/Event.model.js';
-import User from '../models/User.model.js';
+import eventRepository from '../repositories/EventRepository.js';
+import userRepository from '../repositories/UserRepository.js';
+import bloodBankRepository from '../repositories/BloodBankRepository.js';
+import cacheManager from '../utils/cacheManager.js';
 import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import { sendRegistrationConfirmationEmail } from '../utils/emailService.js';
 import { createNotification, broadcastNotification } from './notificationService.js';
-import BloodBank from '../models/BloodBank.model.js';
 
 const EVENT_LIST_FIELDS = '_id title description organizer eventType location date startTime endTime contactInfo expectedDonors isActive visibility maxParticipants registeredDonors';
 
-const EVENTS_CACHE_TTL_MS = 2 * 60 * 1000;
-const eventsCache = new Map();
-
-const getCachedEvents = (key) => {
-  const cached = eventsCache.get(key);
-  if (!cached) return null;
-  if (cached.expiresAt <= Date.now()) {
-    eventsCache.delete(key);
-    return null;
-  }
-  return cached.payload;
+const EVENTS_CACHE_TTL_SECONDS = 120; // 2 minutes
+const CACHE_KEYS = {
+  EVENTS: 'events'
 };
 
-const setCachedEvents = (key, payload) => {
-  eventsCache.set(key, {
-    payload,
-    expiresAt: Date.now() + EVENTS_CACHE_TTL_MS,
-  });
+const getCachedEvents = async (key) => {
+  return cacheManager.get(`${CACHE_KEYS.EVENTS}:${key}`);
 };
 
-export const invalidateEventsCache = () => {
-  eventsCache.clear();
+const setCachedEvents = async (key, payload) => {
+  return cacheManager.set(`${CACHE_KEYS.EVENTS}:${key}`, payload, EVENTS_CACHE_TTL_SECONDS);
+};
+
+export const invalidateEventsCache = async () => {
+  return cacheManager.invalidatePattern(`${CACHE_KEYS.EVENTS}:*`);
 };
 
 export const getAllEvents = async (query) => {
   const { latitude, longitude, maxDistance } = query;
   const { page, limit, skip } = getPaginationParams({ query });
   const cacheKey = JSON.stringify({ query, page, limit });
-  const cached = getCachedEvents(cacheKey);
+  const cached = await getCachedEvents(cacheKey);
   if (cached) return cached;
 
   const startOfToday = new Date();
@@ -55,41 +49,40 @@ export const getAllEvents = async (query) => {
         }
       }
     };
-    const events = await Event.find(geoFilter)
-      .select(EVENT_LIST_FIELDS)
-      .populate('organizedBy', 'name email phone')
-      .sort({ date: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean();
+    const events = await eventRepository.find(geoFilter, {
+      select: EVENT_LIST_FIELDS,
+      populate: { path: 'organizedBy', select: 'name email phone' },
+      sort: { date: 1 },
+      skip,
+      limit
+    });
     const response = buildPaginatedResponse(events, events.length, page, limit);
-    setCachedEvents(cacheKey, response);
+    await setCachedEvents(cacheKey, response);
     return response;
   }
 
   const [events, total] = await Promise.all([
-    Event.find(baseFilter)
-      .select(EVENT_LIST_FIELDS)
-      .populate('organizedBy', 'name email phone')
-      .sort({ date: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Event.countDocuments(baseFilter)
+    eventRepository.find(baseFilter, {
+      select: EVENT_LIST_FIELDS,
+      populate: { path: 'organizedBy', select: 'name email phone' },
+      sort: { date: 1 },
+      skip,
+      limit
+    }),
+    eventRepository.count(baseFilter)
   ]);
 
   const response = buildPaginatedResponse(events, total, page, limit);
-  setCachedEvents(cacheKey, response);
+  await setCachedEvents(cacheKey, response);
   return response;
 };
 
 export const createEvent = async (data) => {
-  const event = new Event(data);
-  await event.save();
-  invalidateEventsCache();
+  const event = await eventRepository.create(data);
+  await invalidateEventsCache();
 
   // Notify all users about the new event
-  const bloodBank = await BloodBank.findById(event.organizedBy).select('name').lean();
+  const bloodBank = await bloodBankRepository.findById(event.organizedBy, { select: 'name' });
   broadcastNotification({
     title: 'New Blood Donation Event',
     message: `${bloodBank?.name || 'A blood bank'} has organized a new event: ${event.title}. Check it out!`,
@@ -102,8 +95,8 @@ export const createEvent = async (data) => {
 
 export const registerEvent = async (eventId, userId) => {
   const [event, user] = await Promise.all([
-    Event.findById(eventId),
-    User.findById(userId).select('name email')
+    eventRepository.findById(eventId, { lean: false }),
+    userRepository.findById(userId, { select: 'name email' })
   ]);
   
   if (!event) throw new ApiError(404, 'Event not found');
@@ -134,10 +127,10 @@ export const registerEvent = async (eventId, userId) => {
 };
 
 export const deleteEvent = async (eventId) => {
-  const event = await Event.findById(eventId);
+  const event = await eventRepository.findById(eventId);
   if (!event) throw new ApiError(404, 'Event not found');
 
-  await Event.findByIdAndDelete(eventId);
-  invalidateEventsCache();
+  await eventRepository.deleteOne({ _id: eventId });
+  await invalidateEventsCache();
   return { success: true };
 };

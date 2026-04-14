@@ -5,7 +5,7 @@ import { ROUTE_PATH } from '../enum/routePath';
 import { withRefreshMutex } from '../enum/authMutex';
 
 // Enforce HTTPS in production - prevent insecure connections
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 if (!API_URL) {
   throw new Error('❌ VITE_API_URL environment variable is not configured. Please set it in your .env file.');

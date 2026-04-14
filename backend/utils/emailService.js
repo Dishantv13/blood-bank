@@ -22,58 +22,43 @@ const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD 
+    pass: process.env.EMAIL_PASSWORD
   }
 });
 
-// Email Queue
-const emailQueue = [];
-let isProcessing = false;
-
-const processQueue = async () => {
-  if (isProcessing || emailQueue.length === 0) return;
-  isProcessing = true;
-  
-  while (emailQueue.length > 0) {
-    const { to, subject, html } = emailQueue.shift();
-    try {
-      await transporter.sendMail({
-        from: `"RaktSarthi" <${process.env.EMAIL_USER || 'noreply@raktsarthi.com'}>`,
-        to,
-        subject,
-        html
-      });
-    } catch (error) {
-      console.error('Email queue processing error:', error);
-      // Optional: Add retry logic here
-    }
-    // Small delay between emails to respect provider limits
-    await new Promise(resolve => setTimeout(resolve, 500));
+// Sends email directly via Nodemailer (BullMQ removed).
+const sendEmail = async (to, subject, html) => {
+  try {
+    const info = await transporter.sendMail({
+      from: `"RaktSarthi" <${process.env.EMAIL_USER || 'noreply@raktsarthi.com'}>`,
+      to,
+      subject,
+      html
+    });
+    console.log(`[Email] Sent to ${to}. MessageId: ${info.messageId}`);
+    return info;
+  } catch (error) {
+    console.error(`[Email] Critical failure to send to ${to}:`, error.message);
+    // We don't throw here to prevent breaking the caller's main flow
+    return null;
   }
-  
-  isProcessing = false;
-};
-
-const queueEmail = (to, subject, html) => {
-  emailQueue.push({ to, subject, html });
-  processQueue();
 };
 
 const getTemplate = async (templateName, data) => {
   try {
     const filePath = path.join(templatesDir, `${templateName}.html`);
     let content = await fs.readFile(filePath, 'utf8');
-    
+
     // Simple template engines like replacement
     Object.keys(data).forEach(key => {
       const value = data[key];
       const regex = new RegExp(`{{${key}}}`, 'g');
       content = content.replace(regex, value);
     });
-    
+
     return content;
   } catch (error) {
-    console.error(`Error loading template ${templateName}:`, error);
+    console.error(`Error loading template ${templateName}:`, error.message);
     return null;
   }
 };
@@ -86,31 +71,29 @@ const generateUnsubscribeUrl = (email) => {
 
 // --- Email Functions ---
 
-const sendPasswordResetEmail = async (email, resetToken, userType = 'user') => {
-  const resetUrl = userType === 'bloodbank' 
+export const sendPasswordResetEmail = async (email, resetToken, userType = 'user') => {
+  const resetUrl = userType === 'bloodbank'
     ? `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-reset-password?token=${resetToken}`
     : `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-    
+
   const subject = userType === 'bloodbank' ? 'Blood Bank - Password Reset Request' : 'Password Reset Request - RaktSarthi';
-  
-  // For legacy support or critical path, keep the inline template or move it to a file
-  // Let's use the file-based approach for consistency if we created it
+
   const html = await getTemplate('passwordReset', { resetUrl, userType, subject }) || `Reset your password here: ${resetUrl}`;
-  queueEmail(email, subject, html);
+  await sendEmail(email, subject, html);
 };
 
-const sendWelcomeEmail = async (email, name) => {
+export const sendWelcomeEmail = async (email, name) => {
   const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
   const unsubscribeUrl = generateUnsubscribeUrl(email);
-  const html = await getTemplate('welcome', { 
-    name: escapeHtml(name), 
-    dashboardUrl, 
-    unsubscribeUrl 
+  const html = await getTemplate('welcome', {
+    name: escapeHtml(name),
+    dashboardUrl,
+    unsubscribeUrl
   });
-  if (html) queueEmail(email, 'Welcome to RaktSarthi! 🩸', html);
+  if (html) await sendEmail(email, 'Welcome to RaktSarthi! 🩸', html);
 };
 
-const sendRequestReceivedEmail = async (bloodBank, request) => {
+export const sendRequestReceivedEmail = async (bloodBank, request) => {
   const requestUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-requests`;
   const html = await getTemplate('requestReceived', {
     bloodBankName: escapeHtml(bloodBank.name),
@@ -121,14 +104,14 @@ const sendRequestReceivedEmail = async (bloodBank, request) => {
     contactNumber: request.contactNumber,
     requestUrl
   });
-  if (html) queueEmail(bloodBank.email, 'New Urgent Blood Request Received', html);
+  if (html) await sendEmail(bloodBank.email, 'New Urgent Blood Request Received', html);
 };
 
-const sendRequestStatusUpdateEmail = async (user, request, remarks) => {
+export const sendRequestStatusUpdateEmail = async (user, request, remarks) => {
   const requestUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
   const unsubscribeUrl = generateUnsubscribeUrl(user.email);
-  
-  let statusColor = '#10b981'; // Success green
+
+  let statusColor = '#10b981';
   if (request.status === 'rejected') statusColor = '#ef4444';
   if (request.status === 'pending') statusColor = '#f59e0b';
 
@@ -142,14 +125,14 @@ const sendRequestStatusUpdateEmail = async (user, request, remarks) => {
     requestUrl,
     unsubscribeUrl
   });
-  if (html) queueEmail(user.email, `Update on your Blood Request: ${request.status}`, html);
+  if (html) await sendEmail(user.email, `Update on your Blood Request: ${request.status}`, html);
 };
 
-const sendDonationUpdateEmail = async (user, donation, message) => {
+export const sendDonationUpdateEmail = async (user, donation, message) => {
   const historyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
   const unsubscribeUrl = generateUnsubscribeUrl(user.email);
-  
-  let headerColor = '#3b82f6'; 
+
+  let headerColor = '#3b82f6';
   let icon = '🩸';
   if (donation.status === 'completed') { headerColor = '#10b981'; icon = '✨'; }
   if (donation.status === 'rejected') { headerColor = '#ef4444'; icon = 'ℹ️'; }
@@ -167,10 +150,10 @@ const sendDonationUpdateEmail = async (user, donation, message) => {
     historyUrl,
     unsubscribeUrl
   });
-  if (html) queueEmail(user.email, 'Your Donation Record has been Updated', html);
+  if (html) await sendEmail(user.email, 'Your Donation Record has been Updated', html);
 };
 
-const sendDonationReminderEmail = async (user) => {
+export const sendDonationReminderEmail = async (user) => {
   const eventsUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/events`;
   const unsubscribeUrl = generateUnsubscribeUrl(user.email);
   const html = await getTemplate('donationReminder', {
@@ -180,14 +163,14 @@ const sendDonationReminderEmail = async (user) => {
     eventsUrl,
     unsubscribeUrl
   });
-  if (html) queueEmail(user.email, 'You are eligible to save a life again! 🦸‍♂️', html);
+  if (html) await sendEmail(user.email, 'You are eligible to save a life again! 🦸‍♂️', html);
 };
 
-const sendRegistrationConfirmationEmail = async (user, type, entity) => {
+export const sendRegistrationConfirmationEmail = async (user, type, entity) => {
   const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
   const unsubscribeUrl = generateUnsubscribeUrl(user.email);
   const templateName = type === 'camp' ? 'campRegistration' : 'eventRegistration';
-  
+
   const html = await getTemplate(templateName, {
     userName: escapeHtml(user.name),
     title: escapeHtml(entity.name || entity.title),
@@ -198,10 +181,10 @@ const sendRegistrationConfirmationEmail = async (user, type, entity) => {
     dashboardUrl,
     unsubscribeUrl
   });
-  if (html) queueEmail(user.email, `${type.charAt(0).toUpperCase() + type.slice(1)} Registration Confirmed`, html);
+  if (html) await sendEmail(user.email, `${type.charAt(0).toUpperCase() + type.slice(1)} Registration Confirmed`, html);
 };
 
-const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
+export const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
   const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-login`;
   const html = `
     <div style="font-family: Arial, sans-serif; padding: 20px;">
@@ -209,11 +192,11 @@ const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
       <p>Hello ${escapeHtml(bloodBankName)}, your registration is approved.</p>
       <a href="${loginUrl}">Login Now</a>
     </div>
-  `; // Fallback or use a template
-  queueEmail(email, 'Blood Bank Approved', html);
+  `;
+  await sendEmail(email, 'Blood Bank Approved', html);
 };
 
-const sendWeeklyInventoryDigest = async (bloodBank, stats) => {
+export const sendWeeklyInventoryDigest = async (bloodBank, stats) => {
   const inventoryUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-inventory`;
   const html = await getTemplate('weeklyDigest', {
     bloodBankName: escapeHtml(bloodBank.name),
@@ -222,51 +205,51 @@ const sendWeeklyInventoryDigest = async (bloodBank, stats) => {
     lowInventoryGroups: stats.lowInventoryGroups.join(', ') || 'None',
     inventoryUrl
   });
-  if (html) queueEmail(bloodBank.email, 'Weekly Inventory Digest - RaktSarthi', html);
+  if (html) await sendEmail(bloodBank.email, 'Weekly Inventory Digest - RaktSarthi', html);
 };
 
-const verifyEmailSetup = async () => {
+export const verifyEmailSetup = async () => {
   try {
     await transporter.verify();
     console.log('Email service is ready');
     return true;
   } catch (error) {
-    console.error('Email verification failed:', error);
+    console.error('Email verification failed:', error.message);
     return false;
   }
 };
 
-const sendBloodBankRegistrationOtpEmail = async (email, otp, options = {}) => {
-  const html = await getTemplate('bloodBankOtp', { 
-    otp, 
-    expiresInMinutes: options.expiresInMinutes || 10 
+export const sendBloodBankRegistrationOtpEmail = async (email, otp, options = {}) => {
+  const html = await getTemplate('bloodBankOtp', {
+    otp,
+    expiresInMinutes: options.expiresInMinutes || 10
   });
-  if (html) queueEmail(email, 'Blood Bank Registration - Your OTP', html);
+  if (html) await sendEmail(email, 'Blood Bank Registration - Your OTP', html);
 };
 
-const sendUserRegistrationOtpEmail = async (email, otp, options = {}) => {
-  const html = await getTemplate('userOtp', { 
-    otp, 
-    expiresInMinutes: options.expiresInMinutes || 10 
+export const sendUserRegistrationOtpEmail = async (email, otp, options = {}) => {
+  const html = await getTemplate('userOtp', {
+    otp,
+    expiresInMinutes: options.expiresInMinutes || 10
   });
-  if (html) queueEmail(email, 'Verify your email - RaktSarthi Registration', html);
+  if (html) await sendEmail(email, 'Verify your email - RaktSarthi Registration', html);
 };
 
-const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason) => {
+export const sendBloodBankRejectionEmail = async (email, bloodBankName, rejectionReason) => {
   const html = await getTemplate('bloodBankRejection', {
     bloodBankName: escapeHtml(bloodBankName),
     rejectionReason: escapeHtml(rejectionReason)
   });
-  if (html) queueEmail(email, 'Update on your Blood Bank Registration', html);
+  if (html) await sendEmail(email, 'Update on your Blood Bank Registration', html);
 };
 
-const sendVerificationEmail = async (email, token) => {
+export const sendVerificationEmail = async (email, token) => {
   const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email/${token}`;
   const html = await getTemplate('verifyEmail', { verifyUrl });
-  if (html) queueEmail(email, 'Verify your email - RaktSarthi', html);
+  if (html) await sendEmail(email, 'Verify your email - RaktSarthi', html);
 };
 
-const sendCertificateNotificationEmail = async (user, donation) => {
+export const sendCertificateNotificationEmail = async (user, donation) => {
   const historyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/donation-history`;
   const unsubscribeUrl = generateUnsubscribeUrl(user.email);
   const html = await getTemplate('donationCertificate', {
@@ -276,10 +259,10 @@ const sendCertificateNotificationEmail = async (user, donation) => {
     historyUrl,
     unsubscribeUrl
   });
-  if (html) queueEmail(user.email, 'Your Donation Certificate is Ready! 📜', html);
+  if (html) await sendEmail(user.email, 'Your Donation Certificate is Ready! 📜', html);
 };
 
-const broadcastNotificationEmail = async (user, notification) => {
+export const broadcastNotificationEmail = async (user, notification) => {
   const unsubscribeUrl = generateUnsubscribeUrl(user.email);
   const html = await getTemplate('broadcastNotification', {
     name: escapeHtml(user.name),
@@ -287,24 +270,5 @@ const broadcastNotificationEmail = async (user, notification) => {
     message: escapeHtml(notification.message),
     unsubscribeUrl
   });
-  if (html) queueEmail(user.email, notification.title, html);
-};
-
-export {
-  sendPasswordResetEmail,
-  sendWelcomeEmail,
-  sendVerificationEmail,
-  sendCertificateNotificationEmail,
-  sendRequestReceivedEmail,
-  sendRequestStatusUpdateEmail,
-  sendDonationUpdateEmail,
-  sendDonationReminderEmail,
-  sendRegistrationConfirmationEmail,
-  sendBloodBankApprovalEmail,
-  sendBloodBankRejectionEmail,
-  sendBloodBankRegistrationOtpEmail,
-  sendUserRegistrationOtpEmail,
-  sendWeeklyInventoryDigest,
-  broadcastNotificationEmail,
-  verifyEmailSetup
+  if (html) await sendEmail(user.email, notification.title, html);
 };

@@ -2,65 +2,98 @@ import "./config/env.js";
 import app from "./app.js";
 import mongoose from "mongoose";
 import { validateSecurityConfig } from "./config/security.js";
-import { closeRedisClient } from "./config/redis.js";
+import { createServer } from "http";
+import { initSocket } from "./utils/socket.js";
+import { closeRedisClient, getRedisClient } from "./config/redis.js";
 
 // ==================== DATABASE CONNECTION ====================
 try {
   validateSecurityConfig();
 } catch (error) {
-  console.error(` ⛔CRITICAL SECURITY CONFIG ERROR: ${error.message}`);
+  console.error("❌ CRITICAL SECURITY CONFIG ERROR:", error.message);
   process.exit(1);
 }
 
 if (!process.env.MONGODB_URI) {
-  console.error(" ⛔CRITICAL ERROR: MONGODB_URI is not defined in environment variables!");
+  console.error("❌ MONGODB_URI is not defined in environment variables!");
   process.exit(1);
 }
 
-console.log("🔌 Attempting to connect to MongoDB...");
-mongoose
-  .connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000, // Timeout after 10s
-  })
-  .then(() => {
-    console.log("✅ MongoDB Atlas connected successfully");
-    console.log("📊 Database: rtbms");
-    console.log("🏥 RaktSarthi Backend is ready!");
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
-    process.exit(1);
-  });
+console.log("🔌 Attempting to connect to infrastructure...");
 
-// Handle MongoDB connection errors after initial connection
+// Initialize core services on startup
+const initServices = async () => {
+  try {
+    // 1. Connect to MongoDB
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      maxPoolSize: 50,
+      minPoolSize: 5,
+      socketTimeoutMS: 45000,
+      heartbeatFrequencyMS: 10000,
+      maxIdleTimeMS: 30000,
+    });
+    console.log("✅ MongoDB Atlas: Connected successfully");
+    console.log("📊 Database: rtbms");
+
+    // 2. Connect to Redis
+    await getRedisClient();
+
+    // 3. Initialize HTTP & Socket.io (Only if not in serverless mode)
+    if (process.env.SERVERLESS !== 'true') {
+      const httpServer = createServer(app);
+      
+      // Initialize Socket.io with Redis Adapter Scaling
+      await initSocket(httpServer);
+
+      const PORT = process.env.PORT || 5000;
+      httpServer.listen(PORT, () => {
+        console.log(`\n🚀 RaktSarthi Server Status:`);
+        console.log(`📍 Port: ${PORT}`);
+        console.log(`🏗️  Mode: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`✨ System: Real-time Pub/Sub Scalability Enabled`);
+        console.log(`✅ Build Success: Ready to accept requests\n`);
+      });
+    } else {
+      console.log("🏥 RaktSarthi Backend is ready (Serverless Mode)!");
+    }
+  } catch (err) {
+    console.error("❌ Infrastructure connection critical error:", err.message);
+    process.exit(1);
+  }
+};
+
+initServices();
+
+// Handle MongoDB connection events
 mongoose.connection.on("error", (err) => {
-  console.error("MongoDB error:", err);
+  console.error("❌ MongoDB runtime error:", err.message);
 });
 
 mongoose.connection.on("disconnected", () => {
-  console.log("⚠️  MongoDB disconnected");
+  console.log("⚠️  MongoDB status: Disconnected");
 });
 
 // ==================== GRACEFUL SHUTDOWN ====================
-process.on("SIGINT", async () => {
-  await mongoose.connection.close();
-  await closeRedisClient();
-  console.log("MongoDB connection closed due to app termination");
-  process.exit(0);
-});
+const handleShutdown = async (signal) => {
+  console.log(`\n🛑 ${signal} received. Shutting down gracefully...`);
+  try {
+    await mongoose.connection.close();
+    console.log("📁 MongoDB connection closed.");
+    
+    await closeRedisClient();
+    console.log("💾 Redis connection closed.");
+    
+    console.log("👋 App termination successful.");
+    process.exit(0);
+  } catch (error) {
+    console.error("⚠️ Error during graceful shutdown:", error.message);
+    process.exit(1);
+  }
+};
 
-// ==================== START SERVER ====================
-const PORT = process.env.PORT || 5000;
-// Export app for serverless runtimes (Vercel, AWS Lambda, etc.)
+process.on("SIGINT", () => handleShutdown("SIGINT"));
+process.on("SIGTERM", () => handleShutdown("SIGTERM"));
+
+// Export app for serverless runtimes
 export default app;
-
-// Only start the HTTP server when running as a standalone Node.js process.
-// Set SERVERLESS=true in your serverless platform environment to skip this.
-if (process.env.SERVERLESS !== 'true') {
-  app.listen(PORT, () => {
-    console.log(`🏥 RaktSarthi Server Status:`);
-    console.log(`📍 Port: ${PORT}`);
-    console.log(`🏗️  Mode: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`✅ Build Success: Ready to accept requests`);
-  });
-}

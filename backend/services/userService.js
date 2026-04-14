@@ -10,6 +10,7 @@ import { ApiError } from '../utils/apiError.js';
 import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 import { sanitizeUser, USER_DONOR_FIELDS, USER_PROFILE_FIELDS } from '../utils/serializers.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
+import userRepository from '../repositories/UserRepository.js';
 
 import { getRedisClient } from '../config/redis.js';
 
@@ -53,10 +54,10 @@ const invalidateDashboardStatsCache = async (userId) => {
 
 // Get user profile
 export const getUserProfile = async (userId) => {
-  const user = await User.findById(userId)
-    .select(USER_PROFILE_FIELDS)
-    .populate('healthForm')
-    .lean();
+  const user = await userRepository.findById(userId, {
+    select: USER_PROFILE_FIELDS,
+    populate: 'healthForm'
+  });
 
   if (!user) {
     throw new ApiError(404, 'User not found');
@@ -74,7 +75,7 @@ export const getUserProfile = async (userId) => {
 export const updateProfilePhoto = async (userId, localFilePath) => {
   if (!localFilePath) throw new ApiError(400, 'No file path provided');
   
-  const user = await User.findById(userId);
+  const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
     throw new ApiError(404, 'User not found');
   }
@@ -122,11 +123,11 @@ export const updateUserProfile = async (userId, updateData) => {
   if (isAvailable !== undefined) updateFields.isAvailable = isAvailable;
   if (location) updateFields.location = location;
 
-  const user = await User.findByIdAndUpdate(
-    userId,
+  const user = await userRepository.updateOne(
+    { _id: userId },
     { $set: updateFields },
-    { returnDocument: 'after', runValidators: true }
-  ).select(USER_PROFILE_FIELDS).lean();
+    { returnDocument: 'after', runValidators: true, select: USER_PROFILE_FIELDS }
+  );
 
   if (!user) {
     throw new ApiError(404, 'User not found');
@@ -141,7 +142,7 @@ export const updateUserProfile = async (userId, updateData) => {
 export const updateDonorInfo = async (userId, incomingDonorInfo) => {
   const { location, ...donorData } = incomingDonorInfo;
 
-  const user = await User.findById(userId);
+  const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
     throw new ApiError(404, 'User not found');
   }
@@ -281,33 +282,21 @@ export const getAvailableDonors = async (query) => {
   let total;
 
   if (latitude && longitude) {
-    donors = await User.find({
-      ...filterQuery,
-      location: {
-        $near: {
-          $geometry: {
-            type: 'Point',
-            coordinates: [parseFloat(longitude), parseFloat(latitude)]
-          },
-          $maxDistance: maxDistance ? parseInt(maxDistance) : 10000
-        }
-      }
-    })
-    .select(USER_DONOR_FIELDS)
-    .skip(skip)
-    .limit(limit)
-    .lean();
+    donors = await userRepository.findNearbyDonors(
+      [parseFloat(longitude), parseFloat(latitude)],
+      maxDistance ? parseInt(maxDistance) : 10000,
+      bloodGroup
+    );
     
-    // countDocuments for geospatial needs a match but not necessarily $near
-    total = await User.countDocuments(filterQuery);
+    total = await userRepository.count(filterQuery);
   } else {
     const [donorDocs, donorCount] = await Promise.all([
-      User.find(filterQuery)
-        .select(USER_DONOR_FIELDS)
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      User.countDocuments(filterQuery)
+      userRepository.find(filterQuery, {
+        select: USER_DONOR_FIELDS,
+        skip,
+        limit
+      }),
+      userRepository.count(filterQuery)
     ]);
     donors = donorDocs;
     total = donorCount;
@@ -323,7 +312,7 @@ export const toggleMode = async (userId, mode) => {
     throw new ApiError(400, 'Invalid mode. Must be donor or patient');
   }
 
-  const user = await User.findById(userId);
+  const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
     throw new ApiError(404, 'User not found');
   }

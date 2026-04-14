@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
-import BloodCamp from '../models/BloodCamp.model.js';
-import User from '../models/User.model.js';
-import Donation from '../models/Donation.model.js';
+import bloodCampRepository from '../repositories/BloodCampRepository.js';
+import userRepository from '../repositories/UserRepository.js';
+import donationRepository from '../repositories/DonationRepository.js';
 import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import { sendRegistrationConfirmationEmail } from '../utils/emailService.js';
@@ -24,38 +24,36 @@ export const getAllCamps = async (query) => {
   }
 
   const [camps, total] = await Promise.all([
-    BloodCamp.find(filter)
-      .select(CAMP_LIST_FIELDS)
-      .populate('organizer', 'name email phone')
-      .sort({ date: 1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    BloodCamp.countDocuments(filter)
+    bloodCampRepository.find(filter, {
+      select: CAMP_LIST_FIELDS,
+      populate: { path: 'organizer', select: 'name email phone' },
+      sort: { date: 1 },
+      skip,
+      limit
+    }),
+    bloodCampRepository.count(filter)
   ]);
 
   return buildPaginatedResponse(camps, total, page, limit);
 };
 
 export const getCampById = async (campId) => {
-  const camp = await BloodCamp.findById(campId)
-    .populate('organizer', 'name email phone address')
-    .lean();
+  const camp = await bloodCampRepository.findById(campId, {
+    populate: { path: 'organizer', select: 'name email phone address' }
+  });
 
   if (!camp) throw new ApiError(404, 'Blood camp not found');
   return camp;
 };
 
 export const createCamp = async (bloodBank, data) => {
-  const camp = new BloodCamp({
+  const camp = await bloodCampRepository.create({
     ...data,
     organizer: bloodBank._id,
     organizerName: bloodBank.name,
     contactPhone: data.contactPhone || bloodBank.phone,
     contactEmail: data.contactEmail || bloodBank.email
   });
-
-  await camp.save();
 
   // Notify all users about the new camp
   broadcastNotification({
@@ -69,7 +67,7 @@ export const createCamp = async (bloodBank, data) => {
 };
 
 export const updateCamp = async (campId, bloodBankId, data) => {
-  const camp = await BloodCamp.findById(campId);
+  const camp = await bloodCampRepository.findById(campId, { lean: false });
   if (!camp) throw new ApiError(404, 'Blood camp not found');
 
   if (camp.organizer.toString() !== bloodBankId.toString()) {
@@ -90,22 +88,24 @@ export const updateCamp = async (campId, bloodBankId, data) => {
 };
 
 export const deleteCamp = async (campId, bloodBankId) => {
-  const camp = await BloodCamp.findById(campId);
+  const camp = await bloodCampRepository.findById(campId);
   if (!camp) throw new ApiError(404, 'Blood camp not found');
 
   if (camp.organizer.toString() !== bloodBankId.toString()) {
     throw new ApiError(403, 'Not authorized to delete this camp');
   }
 
-  await BloodCamp.findByIdAndDelete(campId);
+  await bloodCampRepository.deleteOne({ _id: campId });
   return { success: true };
 };
 
 export const registerCamp = async (campId, userId) => {
-  const camp = await BloodCamp.findById(campId);
+  const camp = await bloodCampRepository.findById(campId, { lean: false });
   if (!camp) throw new ApiError(404, 'Blood camp not found');
 
-  const user = await User.findById(userId).select('name email phone bloodGroup donorInfo');
+  const user = await userRepository.findById(userId, {
+    select: 'name email phone bloodGroup donorInfo'
+  });
   if (!user) throw new ApiError(404, 'User not found');
 
   const alreadyRegistered = camp.registeredDonors.some(
@@ -130,7 +130,7 @@ export const registerCamp = async (campId, userId) => {
     registeredAt: new Date()
   });
 
-  const donation = new Donation({
+  const donation = await donationRepository.create({
     donor: userId,
     bloodBank: camp.organizer,
     camp: camp._id,
@@ -167,11 +167,11 @@ export const registerCamp = async (campId, userId) => {
 };
 
 export const getMyCamps = async (bloodBankId) => {
-  return BloodCamp.find({ organizer: bloodBankId }).sort({ date: -1 }).lean();
+  return bloodCampRepository.find({ organizer: bloodBankId }, { sort: { date: -1 } });
 };
 
 export const updateCollectedUnits = async (campId, bloodBankId, collectedUnits) => {
-  const camp = await BloodCamp.findById(campId);
+  const camp = await bloodCampRepository.findById(campId, { lean: false });
   if (!camp) throw new ApiError(404, 'Blood camp not found');
   if (camp.organizer.toString() !== bloodBankId.toString()) throw new ApiError(403, 'Not authorized');
 
@@ -181,7 +181,7 @@ export const updateCollectedUnits = async (campId, bloodBankId, collectedUnits) 
 };
 
 export const cleanupRegistrations = async () => {
-  const camps = await BloodCamp.find({ 'registeredDonors.0': { $exists: true } });
+  const camps = await bloodCampRepository.find({ 'registeredDonors.0': { $exists: true } }, { lean: false });
   let removed = 0;
 
   for (const camp of camps) {
@@ -202,17 +202,16 @@ export const cleanupRegistrations = async () => {
 };
 
 export const fixRegistrations = async () => {
-  const camps = await BloodCamp.find({ 'registeredDonors.0': { $exists: true } });
+  const camps = await bloodCampRepository.find({ 'registeredDonors.0': { $exists: true } }, { lean: false });
   let fixed = 0;
   let errors = 0;
 
   for (const camp of camps) {
     let updated = false;
     for (let i = 0; i < camp.registeredDonors.length; i += 1) {
-      const donor = camp.registeredDonors[i];
       if (!donor.name || !donor.phone || !donor.bloodGroup || donor.name === 'Unknown' || donor.phone === 'Not provided') {
         try {
-          const user = await User.findById(donor.donor).select('name phone bloodGroup');
+          const user = await userRepository.findById(donor.donor, { select: 'name phone bloodGroup' });
           if (user) {
             camp.registeredDonors[i].name = user.name || 'Unknown';
             camp.registeredDonors[i].phone = user.phone || 'Not provided';
@@ -234,9 +233,9 @@ export const fixRegistrations = async () => {
 };
 
 export const exportRegistrations = async (campId, bloodBankId) => {
-  const camp = await BloodCamp.findById(campId)
-    .populate('registeredUsers', 'name email phone bloodGroup city state age gender address')
-    .lean();
+  const camp = await bloodCampRepository.findById(campId, {
+    populate: { path: 'registeredUsers', select: 'name email phone bloodGroup city state age gender address' }
+  });
 
   if (!camp) throw new ApiError(404, 'Blood camp not found');
   if (camp.organizer.toString() !== bloodBankId.toString()) throw new ApiError(403, 'Not authorized to export this camp\'s data');

@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useGetNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutation, useDeleteNotificationMutation } from '../store/notificationApi';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import EmptyState from './EmptyState';
-import { NOTIFICATION_API_URLS } from '../enum/apiUrl';
+import { useSocket } from '../context/SocketContext';
 
 const NotificationCenter = ({ isOpen, onClose }) => {
   const { isAuthenticated } = useAuth();
+  const { socket } = useSocket();
   const { data: notificationsRes, isLoading, refetch } = useGetNotificationsQuery(undefined, {
     skip: !isAuthenticated,
-    pollingInterval: 30000 // Fallback polling
+    pollingInterval: 60000 // Reduced polling as we now have sockets
   });
 
   const [markAsRead] = useMarkAsReadMutation();
@@ -18,28 +19,21 @@ const NotificationCenter = ({ isOpen, onClose }) => {
 
   const notifications = notificationsRes?.data || [];
 
-  // SSE setup
+  // Socket.io Real-time Listener (Production Grade)
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!socket || !isAuthenticated) return;
 
-    const streamUrl = `/api${NOTIFICATION_API_URLS.STREAM}`;
-    const eventSource = new EventSource(streamUrl, { withCredentials: true });
-
-    eventSource.addEventListener('notification', (event) => {
-      const newNotification = JSON.parse(event.data);
-      console.log('New notification received:', newNotification);
-      refetch(); // Use RTK Query refetch to update list
-    });
-
-    eventSource.onerror = (err) => {
-      console.error('SSE connection error:', err);
-      eventSource.close();
+    const handleNewNotification = (data) => {
+      console.log('📢 Real-time: Notification received for UI update', data);
+      refetch(); // Instantly refresh the list from server
     };
+
+    socket.on('notification', handleNewNotification);
 
     return () => {
-      eventSource.close();
+      socket.off('notification', handleNewNotification);
     };
-  }, [isAuthenticated, refetch]);
+  }, [socket, isAuthenticated, refetch]);
 
   if (!isOpen) return null;
 

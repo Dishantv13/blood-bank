@@ -1,12 +1,12 @@
-import Donation from '../models/Donation.model.js';
-import User from '../models/User.model.js';
+import donationRepository from '../repositories/DonationRepository.js';
+import userRepository from '../repositories/UserRepository.js';
 import mongoose from 'mongoose';
 import { validateDonation, validateBloodGroup } from './validationService.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import { ApiError } from '../utils/apiError.js';
 import { sendDonationUpdateEmail, sendCertificateNotificationEmail } from '../utils/emailService.js';
 import { createNotification } from './notificationService.js';
-import { generateVerificationCode } from './certificateService.js';
+import { generateVerificationCode, generateDonationCertificate } from './certificateService.js';
 
 const DONATION_ELIGIBILITY_PERIOD = 90 * 24 * 60 * 60 * 1000; // 90 days in ms
 
@@ -15,9 +15,9 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
   validateDonation({ bloodBankId, date: data.date });
 
   // Get user with optimized query
-  const user = await User.findById(donorId)
-    .select('_id name bloodGroup isDonor donorInfo')
-    .lean();
+  const user = await userRepository.findById(donorId, {
+    select: '_id name bloodGroup isDonor donorInfo'
+  });
   
   if (!user || !user.isDonor) {
     throw new ApiError(403, 'Only registered donors can request to donate');
@@ -34,7 +34,7 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
   }
 
   // Create donation request
-  const donation = new Donation({
+  const donation = await donationRepository.create({
     donor: donorId,
     bloodBank: bloodBankId,
     type: 'request',
@@ -43,8 +43,6 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
     notes: data.notes || '',
     status: 'pending'
   });
-
-  await donation.save();
 
   return donation;
 };
@@ -55,15 +53,17 @@ export const getUserDonations = async (donorId, query) => {
 
   // Optimized queries - parallel execution
   const [donations, total] = await Promise.all([
-    Donation.find({ donor: donorId })
-      .select('_id bloodGroup status volumeDonated donationDate type createdAt certificateCode certificateIssuedAt')
-      .populate('bloodBank', 'name phone')
-      .populate('camp', 'name date')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Donation.countDocuments({ donor: donorId })
+    donationRepository.find({ donor: donorId }, {
+      select: '_id bloodGroup status volumeDonated donationDate type createdAt certificateCode certificateIssuedAt',
+      populate: [
+        { path: 'bloodBank', select: 'name phone' },
+        { path: 'camp', select: 'name date' }
+      ],
+      sort: { createdAt: -1 },
+      skip,
+      limit
+    }),
+    donationRepository.count({ donor: donorId })
   ]);
 
   return buildPaginatedResponse(donations, total, page, limit);
@@ -75,15 +75,17 @@ export const getBloodBankDonations = async (bloodBankId, query) => {
 
   // Optimized queries - parallel execution
   const [donations, total] = await Promise.all([
-    Donation.find({ bloodBank: bloodBankId })
-      .select('_id donor bloodGroup status volumeDonated donationDate type createdAt')
-      .populate('donor', 'name phone email bloodGroup')
-      .populate('camp', 'name date')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-    Donation.countDocuments({ bloodBank: bloodBankId })
+    donationRepository.find({ bloodBank: bloodBankId }, {
+      select: '_id donor bloodGroup status volumeDonated donationDate type createdAt',
+      populate: [
+        { path: 'donor', select: 'name phone email bloodGroup' },
+        { path: 'camp', select: 'name date' }
+      ],
+      sort: { createdAt: -1 },
+      skip,
+      limit
+    }),
+    donationRepository.count({ bloodBank: bloodBankId })
   ]);
 
   return buildPaginatedResponse(donations, total, page, limit);
@@ -96,9 +98,9 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
   }
 
   // Get donation with optimized query
-  const donation = await Donation.findById(donationId)
-    .select('_id bloodBank status donor')
-    .lean();
+  const donation = await donationRepository.findById(donationId, {
+    select: '_id bloodBank status donor'
+  });
   
   if (!donation) {
     throw new ApiError(404, 'Donation record not found');
@@ -112,8 +114,8 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
     throw new ApiError(400, 'This donation has already been recorded');
   }
 
-  const updatedDonation = await Donation.findByIdAndUpdate(
-    donationId,
+  const updatedDonation = await donationRepository.updateOne(
+    { _id: donationId },
     {
       $set: {
         status: 'completed',
@@ -123,8 +125,8 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
         certificateIssuedAt: new Date()
       }
     },
-    { returnDocument: 'after', runValidators: true }
-  ).populate('donor', 'name email').populate('bloodBank', 'name');
+    { returnDocument: 'after', runValidators: true, populate: [{ path: 'donor', select: 'name email' }, { path: 'bloodBank', select: 'name' }] }
+  );
 
   // Send donation completion email (async)
   if (updatedDonation && updatedDonation.donor) {
@@ -151,8 +153,8 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
 
   // Update donor info — awaited via Promise.allSettled to prevent silent data loss
   const [donorUpdateResult] = await Promise.allSettled([
-    User.findByIdAndUpdate(
-      donation.donor,
+    userRepository.updateOne(
+      { _id: donation.donor },
       {
         $set: { 'donorInfo.lastDonationDate': new Date() },
         $inc: {
@@ -177,9 +179,9 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
     throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
-  const donation = await Donation.findById(donationId)
-    .select('bloodBank status')
-    .lean();
+  const donation = await donationRepository.findById(donationId, {
+    select: 'bloodBank status'
+  });
   
   if (!donation) {
     throw new ApiError(404, 'Donation record not found');
@@ -190,11 +192,11 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
   }
 
   // Atomic update
-  const updatedDonation = await Donation.findByIdAndUpdate(
-    donationId,
+  const updatedDonation = await donationRepository.updateOne(
+    { _id: donationId },
     { $set: { status, updatedAt: new Date() } },
-    { returnDocument: 'after', runValidators: true }
-  ).populate('donor', 'name email').populate('bloodBank', 'name');
+    { returnDocument: 'after', runValidators: true, populate: [{ path: 'donor', select: 'name email' }, { path: 'bloodBank', select: 'name' }] }
+  );
 
   // Send status update email (async)
   if (updatedDonation && updatedDonation.donor && updatedDonation.status !== 'completed') {
@@ -221,9 +223,9 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
 
 // Check donor eligibility
 export const checkDonorEligibility = async (donorId) => {
-  const user = await User.findById(donorId)
-    .select('donorInfo isDonor')
-    .lean();
+  const user = await userRepository.findById(donorId, {
+    select: 'donorInfo isDonor'
+  });
   
   if (!user || !user.isDonor) {
     throw new ApiError(403, 'User is not a registered donor');
@@ -278,4 +280,38 @@ export const getDonationStats = async (bloodBankId, query) => {
   });
 
   return formattedStats;
+};
+
+// Get donation certificate (for download)
+export const getDonationCertificate = async (donationId, user) => {
+  const donation = await donationRepository.findById(donationId, {
+    populate: [
+      { path: 'donor', select: 'name' },
+      { path: 'bloodBank', select: 'name address' },
+      { path: 'camp', select: 'name address' }
+    ],
+    lean: false
+  });
+
+  if (!donation) {
+    throw new ApiError(404, 'Donation record not found');
+  }
+
+  const userId = user.userId || user._id || user.id;
+
+  // Security check: Only the donor or an admin can download the certificate
+  if (donation.donor._id.toString() !== userId.toString() && user.role !== 'admin') {
+    throw new ApiError(403, 'Unauthorized to download this certificate');
+  }
+
+  if (donation.status !== 'completed') {
+    throw new ApiError(400, 'Donation is not completed yet. Certificate not available.');
+  }
+
+  const pdfBuffer = await generateDonationCertificate(donation);
+
+  return {
+    pdfBuffer,
+    certificateCode: donation.certificateCode,
+  };
 };

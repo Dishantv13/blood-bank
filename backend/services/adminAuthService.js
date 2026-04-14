@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { ApiError } from '../utils/apiError.js';
-import AdminAuthState from '../models/AdminAuthState.model.js';
+import adminAuthStateRepository from '../repositories/AdminAuthStateRepository.js';
 import {
   clearAuthCookies,
   generateCsrfToken,
@@ -40,16 +40,15 @@ const getAdminConfig = () => {
 
 const getOrCreateAdminAuthState = async () => {
   const { adminEmail } = getAdminConfig();
-  let state = await AdminAuthState.findOne({ email: adminEmail }).lean();
+  let state = await adminAuthStateRepository.findOne({ email: adminEmail });
   if (!state) {
-    state = await AdminAuthState.create({ email: adminEmail });
-    return state.toObject();
+    state = await adminAuthStateRepository.create({ email: adminEmail });
   }
   return state;
 };
 
 const incrementAdminLoginAttempts = async (adminEmail) => {
-  const attempts = await AdminAuthState.findOneAndUpdate(
+  const attempts = await adminAuthStateRepository.updateOne(
     { email: adminEmail },
     [
       {
@@ -66,16 +65,16 @@ const incrementAdminLoginAttempts = async (adminEmail) => {
         },
       },
     ],
-    { new: true, upsert: true }
-  ).lean();
+    { returnDocument: 'after', upsert: true }
+  );
   return attempts;
 };
 
 const clearAdminLoginAttempts = async (adminEmail) => {
-  await AdminAuthState.findOneAndUpdate(
+  await adminAuthStateRepository.updateOne(
     { email: adminEmail },
     { $set: { loginAttempts: 0, lockUntil: null, updatedAt: new Date() } }
-  ).lean();
+  );
 };
 
 const createAdminSession = async (req, res, admin) => {
@@ -109,14 +108,14 @@ const createAdminSession = async (req, res, admin) => {
 
 const incrementAdminTokenVersion = async (reason = 'security_event') => {
   const { adminEmail } = getAdminConfig();
-  const state = await AdminAuthState.findOneAndUpdate(
+  const state = await adminAuthStateRepository.updateOne(
     { email: adminEmail },
     {
       $inc: { tokenVersion: 1 },
       $set: { passwordChangedAt: new Date(), updatedAt: new Date() },
     },
-    { new: true, upsert: true }
-  ).lean();
+    { returnDocument: 'after', upsert: true }
+  );
 
   await revokeAllPrincipalSessions({ role: 'admin', adminEmail, reason });
   return state;

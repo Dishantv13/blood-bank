@@ -79,8 +79,8 @@ const getOtpHashSecret = () => {
   return secret;
 };
 
-const hashOtp = (otp) =>
-  crypto.createHash('sha256').update(`${String(otp)}:${getOtpHashSecret()}`).digest('hex');
+const hashOtp = async (otp) => await bcrypt.hash(String(otp), 10);
+const verifyOtp = async (otp, hashedOtp) => await bcrypt.compare(String(otp), hashedOtp);
 
 const generateOtp = () => String(crypto.randomInt(100000, 1000000));
 
@@ -118,10 +118,14 @@ const buildOtpMeta = (record) => {
 
 const timingSafeEqual = (left, right) => {
   if (!left || !right) return false;
-  const leftBuffer = Buffer.from(String(left));
-  const rightBuffer = Buffer.from(String(right));
-  if (leftBuffer.length !== rightBuffer.length) return false;
-  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+  try {
+    const leftBuffer = Buffer.from(String(left));
+    const rightBuffer = Buffer.from(String(right));
+    if (leftBuffer.length !== rightBuffer.length) return false;
+    return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+  } catch (err) {
+    return false;
+  }
 };
 
 const getGoogleOAuthConfig = () => {
@@ -698,7 +702,7 @@ export const initiateUserRegistration = async (req, registrationData) => {
   }
 
   const otp = generateOtp();
-  const otpHash = hashOtp(otp);
+  const otpHash = await hashOtp(otp);
   const now = new Date();
   const otpExpiresAt = new Date(now.getTime() + USER_OTP_EXPIRY_MINUTES * 60 * 1000);
   const recordExpiresAt = new Date(now.getTime() + USER_PENDING_REGISTRATION_TTL_MINUTES * 60 * 1000);
@@ -790,7 +794,7 @@ export const verifyUserRegistrationOtp = async (req, res, verificationId, otp) =
     throw new ApiError(429, 'Maximum OTP attempts reached. Please restart registration.');
   }
 
-  const isOtpValid = pendingRegistration.otpHash === hashOtp(String(otp).trim());
+  const isOtpValid = await verifyOtp(String(otp).trim(), pendingRegistration.otpHash);
   if (!isOtpValid) {
     pendingRegistration.verifyAttemptsUsed += 1;
     if (pendingRegistration.verifyAttemptsUsed >= USER_OTP_MAX_VERIFY_ATTEMPTS) {
@@ -881,7 +885,7 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
   }
 
   const otp = generateOtp();
-  const otpHash = hashOtp(otp);
+  const otpHash = await hashOtp(otp);
   
   pendingRegistration.otpHash = otpHash;
   pendingRegistration.otpExpiresAt = new Date(now.getTime() + USER_OTP_EXPIRY_MINUTES * 60 * 1000);

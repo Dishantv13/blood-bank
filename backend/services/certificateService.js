@@ -1,7 +1,7 @@
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { ApiError } from '../utils/apiError.js';
-import Donation from '../models/Donation.model.js';
+import donationRepository from '../repositories/DonationRepository.js';
 import crypto from 'crypto';
 
 export const generateVerificationCode = () => {
@@ -131,11 +131,13 @@ export const generateDonationCertificate = async (donation) => {
 export const verifyCertificate = async (code) => {
   if (!code) throw new ApiError(400, 'Verification code is required');
 
-  const donation = await Donation.findOne({ certificateCode: code, status: 'completed' })
-    .populate('donor', 'name bloodGroup')
-    .populate('bloodBank', 'name address')
-    .populate('camp', 'name address')
-    .lean();
+  const donation = await donationRepository.findOne({ certificateCode: code, status: 'completed' }, {
+    populate: [
+      { path: 'donor', select: 'name bloodGroup' },
+      { path: 'bloodBank', select: 'name address' },
+      { path: 'camp', select: 'name address' }
+    ]
+  });
 
   if (!donation) {
     throw new ApiError(404, 'Invalid certificate or donation record not found');

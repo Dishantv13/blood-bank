@@ -15,5 +15,6 @@ router.route('/:id').get(requestControllers.getRequestById);
 router.route('/:id').put(auth, requestControllers.updateRequest);
 router.route('/:id/status').patch(authOrBloodBank, requestControllers.updateRequestStatus);
 router.route('/:id/fulfill').post(authOrBloodBank, requestControllers.fulfillRequest);
+router.route('/:id/broadcast').post(auth, requestControllers.broadcastRequest);
 
 export default router;

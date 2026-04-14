@@ -3,7 +3,7 @@ import { successResponse } from '../utils/response.js';
 import * as bloodBankPortalService from '../services/bloodBankPortalService.js';
 import { ApiError } from '../utils/apiError.js';
 
-const getBloodBankId = (req) => req.bloodBank.bloodBankId || req.bloodBank._id;
+const getBloodBankId = (req) => req.bloodBank.bloodBankId || req.bloodBank.id;
 
 export const getAllRequests = asyncHandler(async (req, res) => {
   const result = await bloodBankPortalService.getAllRequests(getBloodBankId(req), req.query);

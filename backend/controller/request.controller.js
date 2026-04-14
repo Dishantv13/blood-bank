@@ -2,6 +2,7 @@ import { validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import * as requestService from '../services/requestService.js';
+import * as broadcastService from '../services/broadcastService.js';
 
 // Get all blood requests
 export const getAllRequests = asyncHandler(async (req, res) => {
@@ -77,5 +78,13 @@ export const getBloodBankRequests = asyncHandler(async (req, res) => {
     const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank._id || req.bloodBank.id;
     const result = await requestService.getBloodBankRequests(bloodBankId, req.query);
     successResponse(res, result, 200, 'Requests fetched for blood bank successfully');
+});
+
+// Broadcast high urgency request to nearby donors
+export const broadcastRequest = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { radius } = req.query;
+    const result = await broadcastService.broadcastEmergencyRequest(id, radius);
+    successResponse(res, result, 200, result.message);
 });
 

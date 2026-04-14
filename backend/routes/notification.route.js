@@ -2,20 +2,10 @@ import express from 'express';
 import * as notificationService from '../services/notificationService.js';
 import { auth as authenticateUser } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asynchandler.js';
-import { registerClient } from '../utils/sse.js';
-
 const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateUser);
-
-/**
- * @route GET /api/notifications/stream
- * @desc SSE stream for real-time notifications
- */
-router.get('/stream', (req, res) => {
-  registerClient(req.user.id, res);
-});
 
 /**
  * @route GET /api/notifications

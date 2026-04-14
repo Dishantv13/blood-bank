@@ -1,8 +1,10 @@
-import { getRedisClient } from '../config/redis.js';
+// In-Memory API Response Cache.
+// Removed Redis and pino dependency for infrastructure simplification.
+// Uses native Map with LRU eviction and deduping logic.
 
 const pendingResponses = new Map();
 const memoryCacheStore = new Map();
-const CACHE_PREFIX = 'api-cache:';
+const MAX_MEMORY_CACHE_SIZE = 500; // Prevent OOM in memory-only mode
 
 const normalizeQueryParams = (searchParams) => {
   const entries = [];
@@ -24,13 +26,10 @@ const normalizeQueryParams = (searchParams) => {
 
 const buildCacheKey = (originalUrl = '') => {
   const [rawPath = '/', rawQuery = ''] = originalUrl.split('?');
-  // Canonicalize aliases so /api/bloodbanks and /api/blood-banks share one cache entry.
   const normalizedPath = rawPath.replace('/api/blood-banks', '/api/bloodbanks');
   const normalizedQuery = normalizeQueryParams(new URLSearchParams(rawQuery));
   return normalizedQuery ? `${normalizedPath}?${normalizedQuery}` : normalizedPath;
 };
-
-const toRedisKey = (key) => `${CACHE_PREFIX}${key}`;
 
 const getMemoryCache = (key) => {
   const cached = memoryCacheStore.get(key);
@@ -43,28 +42,15 @@ const getMemoryCache = (key) => {
 };
 
 const setMemoryCache = (key, payload, ttlSeconds) => {
+  if (memoryCacheStore.size >= MAX_MEMORY_CACHE_SIZE) {
+    const firstKey = memoryCacheStore.keys().next().value;
+    memoryCacheStore.delete(firstKey);
+  }
+
   memoryCacheStore.set(key, {
     payload,
     expiresAt: Date.now() + ttlSeconds * 1000,
   });
-};
-
-const deleteKeysByPrefix = async (prefix) => {
-  const client = await getRedisClient();
-  if (!client) return;
-
-  const normalizedPrefix = buildCacheKey(prefix || '/');
-  let cursor = '0';
-  do {
-    const result = await client.scan(cursor, {
-      MATCH: `${toRedisKey(normalizedPrefix)}*`,
-      COUNT: 100,
-    });
-    cursor = result.cursor;
-    if (result.keys.length) {
-      await client.del(...result.keys);
-    }
-  } while (cursor !== '0');
 };
 
 export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
@@ -73,12 +59,7 @@ export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
   const key = buildCacheKey(req.originalUrl);
 
   const run = async () => {
-    const client = await getRedisClient();
-    const usingRedis = Boolean(client);
-
-    const cached = usingRedis
-      ? await client.get(toRedisKey(key)).then((value) => (value ? JSON.parse(value) : null))
-      : getMemoryCache(key);
+    const cached = getMemoryCache(key);
 
     if (cached) {
       res.set('X-Cache', 'HIT');
@@ -111,16 +92,7 @@ export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
     const originalJson = res.json.bind(res);
     res.json = (body) => {
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        if (usingRedis) {
-          client
-            .setEx(toRedisKey(key), ttlSeconds, JSON.stringify(body))
-            .catch((error) => {
-              console.warn('Redis cache write failed:', error.message);
-            });
-        } else {
-          setMemoryCache(key, body, ttlSeconds);
-        }
-
+        setMemoryCache(key, body, ttlSeconds);
         res.set('X-Cache', 'MISS');
         res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
         resolvePending(body);
@@ -143,7 +115,7 @@ export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
   };
 
   run().catch((error) => {
-    console.warn('Redis cache middleware fallback:', error.message);
+    console.error(`[Cache] Middleware error for ${req.originalUrl}:`, error);
     res.set('X-Cache', 'BYPASS');
     next();
   });
@@ -156,16 +128,9 @@ export const clearCacheByPrefix = (prefix) => {
       memoryCacheStore.delete(key);
     }
   }
-
-  deleteKeysByPrefix(prefix).catch((error) => {
-    console.warn('Redis cache clear by prefix failed:', error.message);
-  });
 };
 
 export const clearAllCache = () => {
   memoryCacheStore.clear();
-  deleteKeysByPrefix('/').catch((error) => {
-    console.warn('Redis cache clear all failed:', error.message);
-  });
   pendingResponses.clear();
 };

@@ -124,14 +124,6 @@ const BloodRequestSchema = new mongoose.Schema({
     },
     responseNote: String
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
   isFake: {
     type: Boolean,
     default: false
@@ -141,7 +133,7 @@ const BloodRequestSchema = new mongoose.Schema({
 });
 
 // Automatically add initial "pending" timeline entry on creation
-BloodRequestSchema.pre('save', async function() {
+BloodRequestSchema.pre('save', async function () {
   if (this.isNew && (!this.timeline || this.timeline.length === 0)) {
     this.timeline.push({
       status: 'pending',

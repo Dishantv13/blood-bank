@@ -1,13 +1,13 @@
 import ExcelJS from 'exceljs';
 import { Parser } from 'json2csv';
 import mongoose from 'mongoose';
-import User from '../models/User.model.js';
-import BloodRequest from '../models/BloodRequest.model.js';
-import BloodBank from '../models/BloodBank.model.js';
-import BloodCamp from '../models/BloodCamp.model.js';
-import Event from '../models/Event.model.js';
-import Donation from '../models/Donation.model.js';
-import Inventory from '../models/Inventory.model.js';
+import userRepository from '../repositories/UserRepository.js';
+import requestRepository from '../repositories/RequestRepository.js';
+import bloodBankRepository from '../repositories/BloodBankRepository.js';
+import bloodCampRepository from '../repositories/BloodCampRepository.js';
+import eventRepository from '../repositories/EventRepository.js';
+import donationRepository from '../repositories/DonationRepository.js';
+import inventoryRepository from '../repositories/InventoryRepository.js';
 import { ApiError } from '../utils/apiError.js';
 import { ensureValidObjectId } from '../utils/dbGuards.js';
 import {
@@ -15,6 +15,8 @@ import {
   sendBloodBankRegistrationRejectedEmail,
   invalidatePublicBloodBanksCache
 } from './bloodBankService.js';
+import * as auditService from './auditService.js';
+// import logger from '../utils/logger.js';
 import { BLOOD_BANK_SAFE_FIELDS, USER_SAFE_FIELDS, sanitizeBloodBank, sanitizeUser } from '../utils/serializers.js';
 
 // Maximum rows returned by any single export to prevent memory exhaustion.
@@ -51,7 +53,7 @@ const buildWorkbookBuffer = async (sheetName, rows) => {
 };
 
 export const exportUsers = async () => {
-  const users = await User.find().select(USER_SAFE_FIELDS).limit(MAX_EXPORT_ROWS).lean();
+  const users = await userRepository.find({}, { select: USER_SAFE_FIELDS, limit: MAX_EXPORT_ROWS });
   const rowsLimited = users.length === MAX_EXPORT_ROWS;
   const rows = users.map((user) => ({
     Name: csvSafe(user.name),
@@ -66,11 +68,13 @@ export const exportUsers = async () => {
 };
 
 export const exportRequests = async () => {
-  const requests = await BloodRequest.find()
-    .populate('requestedBy', 'name email phone')
-    .populate('bloodBank', 'name phone')
-    .limit(MAX_EXPORT_ROWS)
-    .lean();
+  const requests = await requestRepository.find({}, {
+    populate: [
+      { path: 'requestedBy', select: 'name email phone' },
+      { path: 'bloodBank', select: 'name phone' }
+    ],
+    limit: MAX_EXPORT_ROWS
+  });
 
   const rowsLimited = requests.length === MAX_EXPORT_ROWS;
   const rows = requests.map((req) => ({
@@ -88,7 +92,7 @@ export const exportRequests = async () => {
 };
 
 export const exportBloodBanks = async () => {
-  const banks = await BloodBank.find().select(BLOOD_BANK_SAFE_FIELDS).limit(MAX_EXPORT_ROWS).lean();
+  const banks = await bloodBankRepository.find({}, { select: BLOOD_BANK_SAFE_FIELDS, limit: MAX_EXPORT_ROWS });
   const rowsLimited = banks.length === MAX_EXPORT_ROWS;
   const rows = banks.map((bank) => ({
     Name: csvSafe(bank.name),
@@ -105,7 +109,7 @@ export const exportBloodBanks = async () => {
 };
 
 export const exportCamps = async () => {
-  const camps = await BloodCamp.find().populate('organizer', 'name email phone').limit(MAX_EXPORT_ROWS).lean();
+  const camps = await bloodCampRepository.find({}, { populate: { path: 'organizer', select: 'name email phone' }, limit: MAX_EXPORT_ROWS });
   const rowsLimited = camps.length === MAX_EXPORT_ROWS;
   const rows = camps.map((camp) => ({
     CampName: csvSafe(camp.name),
@@ -120,7 +124,7 @@ export const exportCamps = async () => {
 };
 
 export const exportEvents = async () => {
-  const events = await Event.find().limit(MAX_EXPORT_ROWS).lean();
+  const events = await eventRepository.find({}, { limit: MAX_EXPORT_ROWS });
   const rowsLimited = events.length === MAX_EXPORT_ROWS;
   const rows = events.map((event) => ({
     Title: csvSafe(event.title),
@@ -136,25 +140,34 @@ export const exportEvents = async () => {
 
 // ===================== EXPORT FORMAT UPGRADE (CSV + Module-wise/All-in-One) =====================
 
-const buildCsvBuffer = (rows) => {
-  if (!rows || rows.length === 0) {
-    return '';
+const pipelineCursorToCsv = async (cursor, transformer) => {
+  const parser = new Parser();
+  let csv = '';
+  let first = true;
+  
+  for await (const doc of cursor) {
+    const row = transformer(doc);
+    if (first) {
+      csv += parser.parse([row]);
+      first = false;
+    } else {
+      // json2csv Parser.parse normally includes headers; 
+      // for streaming we'd ideally use a real stream parser
+      // but for this scale, we'll append rows manually or use a simpler trick.
+      const rowCsv = parser.parse([row]).split('\n')[1]; // Skip header
+      if (rowCsv) csv += '\n' + rowCsv;
+    }
   }
-  try {
-    const parser = new Parser();
-    return parser.parse(rows);
-  } catch (error) {
-    return '';
-  }
+  return csv;
 };
 
 export const exportUsersCsv = async () => {
-  const users = await User.find()
+  const cursor = userRepository.model.find()
     .select('name email phone bloodGroup isAvailable isDonor lastDonationDate createdAt')
     .limit(MAX_EXPORT_ROWS)
-    .lean();
-  const rowsLimited = users.length === MAX_EXPORT_ROWS;
-  const rows = users.map((user) => ({
+    .cursor();
+    
+  const transformer = (user) => ({
     Name: csvSafe(user.name),
     Email: csvSafe(user.email),
     Phone: user.phone || 'N/A',
@@ -163,17 +176,17 @@ export const exportUsersCsv = async () => {
     IsDonor: user.isDonor ? 'Yes' : 'No',
     LastDonationDate: user.lastDonationDate ? new Date(user.lastDonationDate).toLocaleDateString() : 'N/A',
     CreatedAt: new Date(user.createdAt).toLocaleDateString(),
-  }));
+  });
 
-  const csv = buildCsvBuffer(rows);
-  return { buffer: Buffer.from(csv), filename: `users_${new Date().toISOString().split('T')[0]}.csv`, rowsLimited };
+  const csv = await pipelineCursorToCsv(cursor, transformer);
+  return { buffer: Buffer.from(csv), filename: `users_${new Date().toISOString().split('T')[0]}.csv`, rowsLimited: false };
 };
 
 export const exportRequestsCsv = async () => {
-  const requests = await BloodRequest.find()
-    .select('patientName bloodGroup units hospital status urgency createdAt')
-    .limit(MAX_EXPORT_ROWS)
-    .lean();
+  const requests = await requestRepository.find({}, {
+    select: 'patientName bloodGroup units hospital status urgency createdAt',
+    limit: MAX_EXPORT_ROWS
+  });
   const rowsLimited = requests.length === MAX_EXPORT_ROWS;
   const rows = requests.map((req) => ({
     PatientName: csvSafe(req.patientName),
@@ -190,10 +203,10 @@ export const exportRequestsCsv = async () => {
 };
 
 export const exportBloodBanksCsv = async () => {
-  const banks = await BloodBank.find()
-    .select('name email phone licenseNumber address approvalStatus createdAt')
-    .limit(MAX_EXPORT_ROWS)
-    .lean();
+  const banks = await bloodBankRepository.find({}, {
+    select: 'name email phone licenseNumber address approvalStatus createdAt',
+    limit: MAX_EXPORT_ROWS
+  });
   const rowsLimited = banks.length === MAX_EXPORT_ROWS;
   const rows = banks.map((bank) => ({
     Name: csvSafe(bank.name),
@@ -211,10 +224,10 @@ export const exportBloodBanksCsv = async () => {
 };
 
 export const exportCampsCsv = async () => {
-  const camps = await BloodCamp.find()
-    .select('name organizerName venue city date status createdAt')
-    .limit(MAX_EXPORT_ROWS)
-    .lean();
+  const camps = await bloodCampRepository.find({}, {
+    select: 'name organizerName venue city date status createdAt',
+    limit: MAX_EXPORT_ROWS
+  });
   const rowsLimited = camps.length === MAX_EXPORT_ROWS;
   const rows = camps.map((camp) => ({
     Name: csvSafe(camp.name),
@@ -230,10 +243,10 @@ export const exportCampsCsv = async () => {
 };
 
 export const exportEventsCsv = async () => {
-  const events = await Event.find()
-    .select('title eventType date location isActive createdAt')
-    .limit(MAX_EXPORT_ROWS)
-    .lean();
+  const events = await eventRepository.find({}, {
+    select: 'title eventType date location isActive createdAt',
+    limit: MAX_EXPORT_ROWS
+  });
   const rowsLimited = events.length === MAX_EXPORT_ROWS;
   const rows = events.map((event) => ({
     Title: csvSafe(event.title),
@@ -252,11 +265,11 @@ export const exportAllData = async (format = 'xlsx') => {
   const timestamp = new Date().toISOString().split('T')[0];
 
   const [usersData, requestsData, banksData, campsData, eventsData] = await Promise.all([
-    User.find().select('name email phone bloodGroup isAvailable isDonor createdAt').limit(MAX_EXPORT_ROWS).lean(),
-    BloodRequest.find().select('patientName bloodGroup units hospital status urgency createdAt').limit(MAX_EXPORT_ROWS).lean(),
-    BloodBank.find().select('name email phone licenseNumber address approvalStatus createdAt').limit(MAX_EXPORT_ROWS).lean(),
-    BloodCamp.find().select('name organizerName venue city date status createdAt').limit(MAX_EXPORT_ROWS).lean(),
-    Event.find().select('title eventType date location isActive createdAt').limit(MAX_EXPORT_ROWS).lean(),
+    userRepository.find({}, { select: 'name email phone bloodGroup isAvailable isDonor createdAt', limit: MAX_EXPORT_ROWS }),
+    requestRepository.find({}, { select: 'patientName bloodGroup units hospital status urgency createdAt', limit: MAX_EXPORT_ROWS }),
+    bloodBankRepository.find({}, { select: 'name email phone licenseNumber address approvalStatus createdAt', limit: MAX_EXPORT_ROWS }),
+    bloodCampRepository.find({}, { select: 'name organizerName venue city date status createdAt', limit: MAX_EXPORT_ROWS }),
+    eventRepository.find({}, { select: 'title eventType date location isActive createdAt', limit: MAX_EXPORT_ROWS }),
   ]);
 
   const rowsLimited =
@@ -364,23 +377,23 @@ export const getAllUsers = async (page = 1, limit = 10, filters = {}) => {
 
   // Run find + countDocuments in parallel (countDocuments does not depend on userIds)
   const [users, total] = await Promise.all([
-    User.find(query)
-      .select('_id name email phone bloodGroup isAvailable donorInfo lastDonationDate createdAt')
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 })
-      .lean(),
-    User.countDocuments(query),
+    userRepository.find(query, {
+      select: '_id name email phone bloodGroup isAvailable donorInfo lastDonationDate createdAt',
+      skip,
+      limit,
+      sort: { createdAt: -1 }
+    }),
+    userRepository.count(query),
   ]);
 
   const userIds = users.map((user) => user._id);
 
   const [requestCounts, donationCounts] = await Promise.all([
-    BloodRequest.aggregate([
+    requestRepository.model.aggregate([
       { $match: { requestedBy: { $in: userIds } } },
       { $group: { _id: '$requestedBy', count: { $sum: 1 } } },
     ]),
-    Donation.aggregate([
+    donationRepository.model.aggregate([
       { $match: { donor: { $in: userIds } } },
       { $group: { _id: '$donor', count: { $sum: 1 } } },
     ]),
@@ -413,9 +426,7 @@ export const getAllUsers = async (page = 1, limit = 10, filters = {}) => {
 };
 
 export const getUserById = async (userId) => {
-  const user = await User.findById(userId)
-    .select(USER_SAFE_FIELDS)
-    .lean();
+  const user = await userRepository.findById(userId, { select: USER_SAFE_FIELDS, lean: true });
 
   if (!user) {
     throw new ApiError(404, 'User not found');
@@ -433,11 +444,11 @@ export const updateUserStatus = async (userId, status) => {
 
   const isAvailable = status === 'active';
 
-  const user = await User.findByIdAndUpdate(
-    userId,
+  const user = await userRepository.updateOne(
+    { _id: userId },
     { isAvailable, updatedAt: new Date() },
     { returnDocument: 'after' }
-  ).lean();
+  );
 
   if (!user) {
     throw new ApiError(404, 'User not found');
@@ -467,13 +478,13 @@ export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
   if (searchFilter) Object.assign(query, searchFilter);
 
   const [banks, total] = await Promise.all([
-    BloodBank.find(query)
-      .select('_id name email phone address isActive isVerified approvalStatus registrationNumber licenseNumber rejectionReason reviewedAt reviewedBy createdAt')
-      .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 })
-      .lean(),
-    BloodBank.countDocuments(query),
+    bloodBankRepository.find(query, {
+      select: '_id name email phone address isActive isVerified approvalStatus registrationNumber licenseNumber rejectionReason reviewedAt reviewedBy createdAt',
+      skip,
+      limit,
+      sort: { createdAt: -1 }
+    }),
+    bloodBankRepository.count(query),
   ]);
   const normalizedBanks = banks.map((bank) => ({
     _id: bank._id,
@@ -504,7 +515,7 @@ export const getAllBloodBanks = async (page = 1, limit = 10, filters = {}) => {
 };
 
 export const getBloodBankById = async (bankId) => {
-  const bank = await BloodBank.findById(bankId).select(BLOOD_BANK_SAFE_FIELDS).lean();
+  const bank = await bloodBankRepository.findById(bankId, { select: BLOOD_BANK_SAFE_FIELDS, lean: true });
 
   if (!bank) {
     throw new ApiError(404, 'Blood bank not found');
@@ -519,7 +530,7 @@ export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) 
     throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
-  const bank = await BloodBank.findById(bankId);
+  const bank = await bloodBankRepository.findById(bankId, { lean: false });
 
   if (!bank) {
     throw new ApiError(404, 'Blood bank not found');
@@ -545,6 +556,16 @@ export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) 
     bank.reviewedBy = reviewer;
     await bank.save();
 
+    await auditService.logAction({
+      action: 'BLOOD_BANK_REJECTED',
+      actorId: reviewContext.adminId, // Will fallback to ctx if req provided
+      actorModel: 'Admin',
+      targetId: bank._id,
+      targetModel: 'BloodBank',
+      changes: { approvalStatus: 'rejected', rejectionReason },
+      metadata: { reviewer }
+    });
+
     await sendBloodBankRegistrationRejectedEmail(bank, rejectionReason);
     invalidatePublicBloodBanksCache();
     return bank.toObject();
@@ -558,6 +579,16 @@ export const updateBloodBankStatus = async (bankId, status, reviewContext = {}) 
     bank.reviewedAt = new Date();
     bank.reviewedBy = reviewer;
     await bank.save();
+
+    await auditService.logAction({
+      action: 'BLOOD_BANK_APPROVED',
+      actorId: reviewContext.adminId,
+      actorModel: 'Admin',
+      targetId: bank._id,
+      targetModel: 'BloodBank',
+      changes: { approvalStatus: 'approved' },
+      metadata: { reviewer }
+    });
 
     await sendBloodBankRegistrationApprovedEmail(bank);
     invalidatePublicBloodBanksCache();
@@ -588,13 +619,13 @@ export const getAllCamps = async (page = 1, limit = 10, filters = {}) => {
   if (searchFilter) Object.assign(query, searchFilter);
 
   const [camps, total] = await Promise.all([
-    BloodCamp.find(query)
-      .select('_id name organizer organizerName venue city address date status createdAt')
-      .skip(skip)
-      .limit(limit)
-      .sort({ date: -1 })
-      .lean(),
-    BloodCamp.countDocuments(query),
+    bloodCampRepository.find(query, {
+      select: '_id name organizer organizerName venue city address date status createdAt',
+      skip,
+      limit,
+      sort: { date: -1 }
+    }),
+    bloodCampRepository.count(query),
   ]);
   const normalizedCamps = camps.map((camp) => ({
     _id: camp._id,
@@ -628,13 +659,13 @@ export const getCampsByBloodBank = async (bankId, page = 1, limit = 10, filters 
   if (searchFilter) Object.assign(query, searchFilter);
 
   const [camps, total] = await Promise.all([
-    BloodCamp.find(query)
-      .select('_id name organizer organizerName venue city address date status createdAt')
-      .skip(skip)
-      .limit(limit)
-      .sort({ date: -1 })
-      .lean(),
-    BloodCamp.countDocuments(query),
+    bloodCampRepository.find(query, {
+      select: '_id name organizer organizerName venue city address date status createdAt',
+      skip,
+      limit,
+      sort: { date: -1 }
+    }),
+    bloodCampRepository.count(query),
   ]);
   const normalizedCamps = camps.map((camp) => ({
     _id: camp._id,
@@ -660,7 +691,7 @@ export const getCampsByBloodBank = async (bankId, page = 1, limit = 10, filters 
 };
 
 export const getCampById = async (campId) => {
-  const camp = await BloodCamp.findById(campId).lean();
+  const camp = await bloodCampRepository.findById(campId, { lean: true });
 
   if (!camp) {
     throw new ApiError(404, 'Blood camp not found');
@@ -675,11 +706,11 @@ export const updateCampStatus = async (campId, status) => {
     throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
-  const camp = await BloodCamp.findByIdAndUpdate(
-    campId,
+  const camp = await bloodCampRepository.updateOne(
+    { _id: campId },
     { status, updatedAt: new Date() },
     { returnDocument: 'after' }
-  ).lean();
+  );
 
   if (!camp) {
     throw new ApiError(404, 'Blood camp not found');
@@ -722,14 +753,14 @@ export const getAllEvents = async (page = 1, limit = 10, filters = {}) => {
   if (eventsSearchFilter) Object.assign(query, eventsSearchFilter);
 
   const [events, total] = await Promise.all([
-    Event.find(query)
-      .populate('organizedBy', 'name')
-      .select('_id title description date location isActive organizer organizerModel organizedBy createdAt')
-      .skip(skip)
-      .limit(limit)
-      .sort({ date: -1 })
-      .lean(),
-    Event.countDocuments(query),
+    eventRepository.find(query, {
+      populate: { path: 'organizedBy', select: 'name' },
+      select: '_id title description date location isActive organizer organizerModel organizedBy createdAt',
+      skip,
+      limit,
+      sort: { date: -1 }
+    }),
+    eventRepository.count(query),
   ]);
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);

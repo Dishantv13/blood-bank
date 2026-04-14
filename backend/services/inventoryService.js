@@ -1,10 +1,10 @@
-import BloodBank from '../models/BloodBank.model.js';
-import Inventory from '../models/Inventory.model.js';
+import bloodBankRepository from '../repositories/BloodBankRepository.js';
+import inventoryRepository from '../repositories/InventoryRepository.js';
 import { validateInventoryUpdate, validateBloodGroup } from './validationService.js';
 import { ApiError } from '../utils/apiError.js';
 
 const syncBloodBankInventoryItem = async (bloodBankId, bloodGroup, units) => {
-  await BloodBank.findOneAndUpdate(
+  await bloodBankRepository.updateOne(
     { _id: bloodBankId, 'inventory.bloodGroup': bloodGroup },
     {
       $set: {
@@ -18,9 +18,9 @@ const syncBloodBankInventoryItem = async (bloodBankId, bloodGroup, units) => {
 // Get blood bank inventory
 export const getInventory = async (bloodBankId) => {
   // Optimized query - only fetch needed fields
-  const inventory = await BloodBank.findById(bloodBankId)
-    .select('inventory name')
-    .lean();
+  const inventory = await bloodBankRepository.findById(bloodBankId, {
+    select: 'inventory name'
+  });
   
   if (!inventory) {
     throw new Error('Blood bank not found');
@@ -34,7 +34,7 @@ export const updateInventoryUnits = async (bloodBankId, bloodGroup, units, opera
   validateBloodGroup(bloodGroup);
   validateInventoryUpdate({ bloodGroup, units });
 
-  const inventoryDoc = await Inventory.findOne({ bloodBank: bloodBankId });
+  const inventoryDoc = await inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: false });
   if (!inventoryDoc) {
     throw new ApiError(404, 'Inventory record not found for this blood bank');
   }
@@ -64,7 +64,7 @@ export const updateInventoryUnits = async (bloodBankId, bloodGroup, units, opera
     throw new ApiError(400, `Unsupported inventory operation: ${operation}`);
   }
 
-  const updatedInventory = await Inventory.findOneAndUpdate(
+  const updatedInventory = await inventoryRepository.model.findOneAndUpdate(
     { bloodBank: bloodBankId, 'items.bloodGroup': bloodGroup },
     updateOps,
     { new: true, runValidators: true }
@@ -110,9 +110,9 @@ export const subtractInventoryUnits = async (bloodBankId, bloodGroup, units) => 
 
 // Get inventory from Inventory collection (backup)
 export const getInventoryFromCollection = async (bloodBankId) => {
-  const inventory = await Inventory.findOne({ bloodBank: bloodBankId })
-    .select('items bloodBankName')
-    .lean();
+  const inventory = await inventoryRepository.findOne({ bloodBank: bloodBankId }, {
+    select: 'items bloodBankName'
+  });
   
   if (!inventory) {
     throw new ApiError(404, 'Inventory record not found');
@@ -138,7 +138,7 @@ export const updateInventoryInCollection = async (bloodBankId, bloodGroup, units
     updateOps.$set['items.$.units'] = units;
   }
 
-  const updatedInventory = await Inventory.findOneAndUpdate(
+  const updatedInventory = await inventoryRepository.model.findOneAndUpdate(
     { bloodBank: bloodBankId, 'items.bloodGroup': bloodGroup },
     updateOps,
     { new: true, runValidators: true }
@@ -162,7 +162,7 @@ export const checkInventoryAvailability = async (bloodBankId, bloodGroup, requir
   validateBloodGroup(bloodGroup);
   validateInventoryUpdate({ bloodGroup, units: requiredUnits });
 
-  const inventory = await Inventory.findOne({ bloodBank: bloodBankId }).select('items').lean();
+  const inventory = await inventoryRepository.findOne({ bloodBank: bloodBankId }, { select: 'items' });
   if (!inventory) {
     throw new ApiError(404, 'Inventory record not found');
   }
@@ -180,7 +180,7 @@ export const checkInventoryAvailability = async (bloodBankId, bloodGroup, requir
 export const getAvailableUnits = async (bloodBankId, bloodGroup) => {
   validateBloodGroup(bloodGroup);
 
-  const inventory = await Inventory.findOne({ bloodBank: bloodBankId }).select('items').lean();
+  const inventory = await inventoryRepository.findOne({ bloodBank: bloodBankId }, { select: 'items' });
   if (!inventory) {
     throw new ApiError(404, 'Inventory record not found');
   }
