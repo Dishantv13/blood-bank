@@ -17,7 +17,7 @@ const BloodBankSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    minlength: 12,
+    minlength: 8,
     select: false
   },
   phone: {
@@ -187,17 +187,16 @@ BloodBankSchema.index({ isActive: 1, approvalStatus: 1, isVerified: 1 });
 BloodBankSchema.index({ createdAt: -1 });
 
 // Hash password before saving
-BloodBankSchema.pre('save', async function(next) {
+BloodBankSchema.pre('save', async function() {
   if (!this.isModified('password')) {
-    return next();
+    return;
   }
   // Allow pre-hashed bcrypt passwords from secure migration/verification flows.
   if (/^\$2[aby]\$\d{2}\$/.test(this.password)) {
-    return next();
+    return;
   }
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
-  next();
 });
 
 // Compare password method

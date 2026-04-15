@@ -33,9 +33,37 @@ export const getRedisClient = async () => {
       }
     });
 
-    _client.on('ready', () => {
+    _client.on('ready', async () => {
       console.log('✅ Redis: Connected and ready.');
-      _lastErrorLoggedAt = 0; // Reset logging timer
+      _lastErrorLoggedAt = 0;
+
+      // SAFETY CHECK & AUTO-FIX: Verify Eviction Policy for BullMQ
+      try {
+        const info = await _client.info('memory');
+        const match = info.match(/maxmemory_policy:(.+)/);
+        let currentPolicy = match ? match[1].trim() : 'unknown';
+
+        if (currentPolicy !== 'noeviction') {
+          // Attempt Auto-Fix
+          try {
+            await _client.configSet('maxmemory-policy', 'noeviction');
+            console.log('✨ Redis: Policy auto-fixed to "noeviction"');
+            currentPolicy = 'noeviction';
+          } catch (fixErr) {
+            console.warn('\n⚠️  REDIS ARCHITECTURE WARNING:');
+            console.warn(`   Current Policy: "${currentPolicy}"`);
+            console.warn('   Required Policy: "noeviction"');
+            console.warn('   Status: Auto-fix failed (Permission denied).');
+            console.warn('   Fix: Change this in your Redis Cloud Dashboard -> Configuration.\n');
+          }
+        }
+
+        if (currentPolicy === 'noeviction') {
+          console.log(`✅ Redis: Eviction policy verified as "${currentPolicy}"`);
+        }
+      } catch (err) {
+        // Silently fail if INFO command is restricted
+      }
     });
 
     _client.on('reconnecting', () => {

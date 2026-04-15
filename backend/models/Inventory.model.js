@@ -32,13 +32,12 @@ const InventorySchema = new mongoose.Schema({
 });
 
 // Update items lastUpdated on save if modified
-InventorySchema.pre('save', function(next) {
+InventorySchema.pre('save', function() {
   if (this.isModified('items')) {
     this.items.forEach(item => {
       item.lastUpdated = new Date();
     });
   }
-  next();
 });
 
 InventorySchema.index({ 'items.bloodGroup': 1 });

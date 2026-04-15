@@ -2,15 +2,11 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import { getRedisClient } from '../config/redis.js';
 
-/**
- * Creates a Production-Grade Redis Store with unique prefix
- * @param {string} prefix 
- */
 const createRedisStore = async (prefix) => {
   try {
     const client = await getRedisClient();
     if (!client?.isReady) return undefined;
-    
+
     return new RedisStore({
       sendCommand: (...args) => client.sendCommand(args),
       prefix: `rl:${prefix}:`, // Ensure isolation in Redis
@@ -21,12 +17,9 @@ const createRedisStore = async (prefix) => {
   }
 };
 
-/**
- * Wrapper to handle async Store initialization for express-rate-limit
- */
 const createRateLimiter = (name, options) => {
   let middleware;
-  
+
   return async (req, res, next) => {
     if (!middleware) {
       const store = await createRedisStore(name);
@@ -45,7 +38,7 @@ const getClientIpKey = (req) => ipKeyGenerator(req.ip);
 
 // Global API rate limiter
 export const globalApiLimiter = createRateLimiter('global', {
-  windowMs: 15 * 60 * 1000, 
+  windowMs: 15 * 60 * 1000,
   max: 500,
   legacyHeaders: true,
   message: { success: false, message: 'Too many requests from this IP address, please try again later.' },
@@ -108,7 +101,7 @@ export const bloodBankOtpResendLimiter = createRateLimiter('bb-otp-resend', {
 });
 
 export const passwordResetLimiter = createRateLimiter('pwd-reset', {
-  windowMs: 60 * 60 * 1000, 
+  windowMs: 60 * 60 * 1000,
   max: 3,
   message: { success: false, message: 'Too many password reset attempts. Please try again after 1 hour.' },
   standardHeaders: true,
@@ -120,7 +113,7 @@ export const passwordResetLimiter = createRateLimiter('pwd-reset', {
 });
 
 export const requestCreationLimiter = createRateLimiter('req-create', {
-  windowMs: 60 * 60 * 1000, 
+  windowMs: 60 * 60 * 1000,
   max: 5,
   message: { success: false, message: 'Too many blood requests created. Please try again later.' },
   standardHeaders: true,
@@ -128,7 +121,7 @@ export const requestCreationLimiter = createRateLimiter('req-create', {
 });
 
 export const donationCreationLimiter = createRateLimiter('donation-create', {
-  windowMs: 24 * 60 * 60 * 1000, 
+  windowMs: 24 * 60 * 60 * 1000,
   max: 1,
   message: { success: false, message: 'Donation request limit reached for today. Please try again tomorrow.' },
   standardHeaders: true,

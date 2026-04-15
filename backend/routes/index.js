@@ -13,6 +13,7 @@ import donationsRoutes from "./donations.route.js";
 import uploadRoutes from "./upload.route.js";
 import notificationRoutes from "./notification.route.js";
 import searchRoutes from "./search.route.js";
+import bloodUnitRoutes from "./bloodUnit.route.js";
 
 const v1Router = Router();
 
@@ -31,5 +32,6 @@ v1Router.use("/donations", donationsRoutes);
 v1Router.use("/upload", uploadRoutes);
 v1Router.use("/notifications", notificationRoutes);
 v1Router.use("/search", searchRoutes);
+v1Router.use("/blood-unit", bloodUnitRoutes);
 
 export default v1Router;

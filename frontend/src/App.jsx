@@ -71,6 +71,7 @@ const BloodBankDirectoryDetails = lazy(() => import('./pages/BloodBankDirectoryD
 const BloodBankPublicDetails = lazy(() => import('./pages/BloodBankPublicDetails'));
 const DonationHistory = lazy(() => import('./pages/DonationHistory'));
 const VerifyCertificate = lazy(() => import('./pages/VerifyCertificate'));
+const BloodBankUnitTracking = lazy(() => import('./pages/BloodBankUnitTracking'));
 
 // ADMIN PAGE
 const AdminLogin = lazy(() => import('./adminPage/AdminLogin'));
@@ -155,6 +156,14 @@ function App() {
                         element={
                           <PrivateRoute requireBloodBank>
                             <BloodBankChangePassword />
+                          </PrivateRoute>
+                        }
+                      />
+                      <Route
+                        path={ROUTE_PATH.BLOOD_BANK_UNIT_TRACKING}
+                        element={
+                          <PrivateRoute requireBloodBank>
+                            <BloodBankUnitTracking />
                           </PrivateRoute>
                         }
                       />

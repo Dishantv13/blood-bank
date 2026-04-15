@@ -46,6 +46,12 @@ const initServices = async () => {
       // Initialize Socket.io with Redis Adapter Scaling
       await initSocket(httpServer);
 
+      // 4. Initialize Background Workers (BullMQ)
+      if (process.env.DASHBOARD_MODE !== 'true') {
+        await import('./workers/certificateWorker.js');
+        console.log('👷 Background Workers: Initialized');
+      }
+
       const PORT = process.env.PORT || 5000;
       httpServer.listen(PORT, () => {
         console.log(`\n🚀 RaktSarthi Server Status:`);

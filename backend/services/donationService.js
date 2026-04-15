@@ -7,6 +7,7 @@ import { ApiError } from '../utils/apiError.js';
 import { sendDonationUpdateEmail, sendCertificateNotificationEmail } from '../utils/emailService.js';
 import { createNotification } from './notificationService.js';
 import { generateVerificationCode, generateDonationCertificate } from './certificateService.js';
+import { createBloodUnit } from './bloodUnitService.js';
 
 const DONATION_ELIGIBILITY_PERIOD = 90 * 24 * 60 * 60 * 1000; // 90 days in ms
 
@@ -166,6 +167,15 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
   ]);
   if (donorUpdateResult.status === 'rejected') {
     console.error('Failed to update donor info:', donorUpdateResult.reason);
+  }
+
+  // NEW: Create Individual Blood Unit tracking record
+  try {
+    await createBloodUnit(updatedDonation);
+  } catch (err) {
+    console.error('Failed to create individual blood unit:', err);
+    // Don't throw here to avoid failing the whole donation record, 
+    // but in a strict system we might want atomic transactions.
   }
 
   return updatedDonation;

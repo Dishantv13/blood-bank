@@ -12,6 +12,7 @@ import {
   phoneValidator,
   emailValidator,
   pincodeValidator,
+  passwordValidator,
 } from "../validation/validation";
 import { BLOOD_GROUPS, MIN_PASSWORD_LENGTH } from "../enum/constants";
 
@@ -36,6 +37,7 @@ const SignupModal = ({ isOpen, onClose }) => {
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors },
   } = useForm({
     mode: 'onBlur'
@@ -102,7 +104,18 @@ const SignupModal = ({ isOpen, onClose }) => {
           navigate(ROUTE_PATH.DASHBOARD);
         }
       } else {
-        toast.error(result.message || 'Registration failed');
+        // Map backend validation errors to form fields
+        if (result.errors && Array.isArray(result.errors)) {
+          result.errors.forEach((err) => {
+            const field = err.path || err.param;
+            if (field) {
+              setError(field, { type: 'server', message: err.msg });
+            }
+          });
+          toast.error('Please fix the errors in the form.');
+        } else {
+          toast.error(result.message || 'Registration failed');
+        }
       }
     } catch (error) {
       toast.error('An unexpected error occurred during registration.');
@@ -311,11 +324,9 @@ const SignupModal = ({ isOpen, onClose }) => {
           <div className="password-input-wrapper">
             <input
               type={showPassword ? "password" : "text"}
-              className="form-control"
-              placeholder="Minimum 6 characters"
+              placeholder="At least 8 characters (A-Z, a-z, 0-9, @$!%*?&)"
               {...register("password", {
-                required: "Password required",
-                minLength: { value: 6, message: "Minimum 6 characters" },
+                validate: passwordValidator,
               })}
             />
             <button

@@ -30,6 +30,7 @@ export const ROUTE_PATH = {
   BLOOD_BANK_RESET_PASSWORD: "/blood-bank/reset-password",
   BLOOD_BANK_CHANGE_PASSWORD: "/blood-bank/change-password",
   BLOOD_BANK_DETAILS: "/blood-bank/banks/:bankId",
+  BLOOD_BANK_UNIT_TRACKING: "/blood-bank/inventory/units",
 
   // Admin section
   ADMIN_LOGIN: "/admin/login",

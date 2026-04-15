@@ -213,3 +213,12 @@ export const ADMIN_URLS = {
 export const NOTIFICATION_API_URLS = {
   STREAM: '/notifications/stream',
 };
+
+export const BLOOD_UNIT_API_URLS = {
+    GET_INVENTORY: '/blood-unit/units',
+    GET_EXPIRING: '/blood-unit/units/expiring',
+    UPDATE_SCREENING: (unitId) => `/blood-unit/units/${unitId}/screening`,
+    REFINE_UNIT: (unitId) => `/blood-unit/units/${unitId}/refine`,
+    ADD_COLD_CHAIN: (unitId) => `/blood-unit/units/${unitId}/cold-chain`,
+    SPLIT_UNIT: (unitId) => `/blood-unit/units/${unitId}/split`,
+};

@@ -434,9 +434,18 @@ export const AuthProvider = ({ children }) => {
       // Ensure we return everything from the response to catch verification metadata
       return { success: true, ...response, ...(response.data || {}) };
     } catch (error) {
+      // Extract validation errors from express-validator if present
+      const validationErrors = error.data?.errors;
+      let message = error.data?.message || 'Registration failed';
+      
+      if (validationErrors && Array.isArray(validationErrors)) {
+        message = validationErrors.map(err => err.msg).join('. ');
+      }
+
       return {
         success: false,
-        message: error.data?.message || 'Registration failed',
+        message,
+        errors: validationErrors,
       };
     }
   }, [registerMutation]);

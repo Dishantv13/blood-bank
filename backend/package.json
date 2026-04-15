@@ -20,6 +20,7 @@
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
     "axios": "^1.15.0",
+    "bullmq": "^5.41.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
     "compression": "^1.8.1",

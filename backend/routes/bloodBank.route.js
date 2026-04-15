@@ -7,7 +7,7 @@ import {
   bloodBankOtpVerifyLimiter,
   bloodBankOtpResendLimiter
 } from '../middleware/rateLimiter.js';
-import * as bloodBankController  from '../controller/bloodBank.controller.js';
+import * as bloodBankController from '../controller/bloodBank.controller.js';
 import { upload } from '../middleware/multer.js';
 
 const router = Router();
