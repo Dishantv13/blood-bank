@@ -34,7 +34,7 @@ const isBloodBankPortalRoute = (path = '') => {
          currentPath.includes('/bloodbank/') || 
          currentPath === '/blood-bank' || 
          currentPath === '/bloodbank';
-};
+};  
 
 const isBloodBankPublicAuthRoute = (path = '') => {
   const currentPath = String(path || '').toLowerCase();
@@ -477,7 +477,8 @@ export const AuthProvider = ({ children }) => {
   const loginWithGoogle = useCallback(async ({ mode = 'login' } = {}) => {
     const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
     const normalizedMode = mode === 'signup' ? 'signup' : 'login';
-    const startUrl = `${apiBaseUrl}${AUTH_API_URLS.GOOGLE_OAUTH_START}?mode=${encodeURIComponent(normalizedMode)}`;
+    const baseUrl = apiBaseUrl.endsWith('/v1') ? apiBaseUrl : `${apiBaseUrl}/v1`;
+    const startUrl = `${baseUrl}${AUTH_API_URLS.GOOGLE_OAUTH_START}?mode=${encodeURIComponent(normalizedMode)}`;
     window.location.assign(startUrl);
     return { success: true };
   }, []);

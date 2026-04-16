@@ -156,7 +156,7 @@ const getGoogleRedirectUri = (req) => {
   const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
   const protocol = forwardedProto || req.protocol || 'http';
   const host = req.get('host');
-  return `${protocol}://${host}/api/auth/google/callback`;
+  return `${protocol}://${host}/api/v1/auth/google/callback`;
 };
 
 const getPrivateCookieOptions = () => ({
@@ -569,7 +569,7 @@ export const googleLoginWithClaims = async ({ email, name, googleId, photoURL, e
     throw new ApiError(400, 'Missing required Google user data');
   }
 
-  let user = await User.findOne({ email: normalizedEmail });
+  let user = await User.findOne({ email: normalizedEmail }).select('+tokenVersion +role +activeMode');
 
   if (!user) {
     const newUser = new User({
@@ -580,7 +580,9 @@ export const googleLoginWithClaims = async ({ email, name, googleId, photoURL, e
       password: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
       phone: '',
       isDonor: false,
-      address: { street: '', city: '', state: '', pincode: '' }
+      address: { street: '', city: '', state: '', pincode: '' },
+      tokenVersion: 0,
+      isEmailVerified: true
     });
 
     await newUser.save();

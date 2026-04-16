@@ -219,7 +219,8 @@ app.use("/api", (req, res, next) => {
 
   // Clean path to prevent double slashes
   const cleanPath = req.path.startsWith("/") ? req.path : `/${req.path}`;
-  const nextPath = `/api/v1${cleanPath}`;
+  const queryPart = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+  const nextPath = `/api/v1${cleanPath}${queryPart}`;
   
   res.redirect(307, nextPath);
 });

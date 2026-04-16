@@ -125,11 +125,13 @@ const getRoleConfig = (role) => {
 };
 
 const resolveSameSite = () => {
-  const defaultSameSite = process.env.NODE_ENV === 'production' ? 'none' : 'lax';
+  const isProd = process.env.NODE_ENV === 'production';
+  // Production requires 'none' for cross-domain auth redirects to work in modern browsers
+  const defaultSameSite = isProd ? 'none' : 'lax';
   const raw = String(process.env.AUTH_COOKIE_SAME_SITE || defaultSameSite).toLowerCase();
-  if (raw === 'none') return 'none';
-  if (raw === 'strict') return 'strict';
-  return 'lax';
+  
+  if (['none', 'strict', 'lax'].includes(raw)) return raw;
+  return defaultSameSite;
 };
 
 const resolveSecure = () => {
@@ -176,8 +178,13 @@ const resolveCookieDomain = () => {
 };
 
 const cookieBaseOptions = () => {
+  const isProd = process.env.NODE_ENV === 'production';
   const sameSite = resolveSameSite();
-  const secure = resolveSecure() || sameSite === 'none';
+  
+  // SECURE REQUIRED: If sameSite is 'none', browser REQUIRES secure: true
+  // Otherwise, only force secure if explicitly in production (not localhost)
+  const secure = sameSite === 'none' ? true : resolveSecure(); 
+  
   const domain = resolveCookieDomain();
 
   return {
@@ -185,7 +192,7 @@ const cookieBaseOptions = () => {
     secure,
     sameSite,
     path: '/',
-    ...(domain ? { domain } : {}),
+    ...(domain && isProd ? { domain } : {}),
   };
 };
 

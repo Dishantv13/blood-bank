@@ -164,12 +164,12 @@ const baseQuery = fetchBaseQuery({
       headers.set('Content-Type', 'application/json');
     }
 
-    if (isStateChangingMethod(method)) {
-      const role = getRoleFromUrl(url, method);
-      const csrfToken = parseCookie(getCsrfCookieName(role));
-      if (csrfToken) {
-        headers.set('x-csrf-token', csrfToken);
-      }
+    // SECURE: Always attempt to attach the CSRF token from cookies if it exists.
+    // This is critical for the initial /session check and /refresh after a Google OAuth redirect.
+    const role = getRoleFromUrl(url, method);
+    const csrfToken = parseCookie(getCsrfCookieName(role));
+    if (csrfToken) {
+      headers.set('x-csrf-token', csrfToken);
     }
 
     return headers;

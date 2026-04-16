@@ -37,7 +37,7 @@ export const initSocket = async (server) => {
     transports: ['websocket', 'polling']
   });
 
-  // Scale Socket.io across multiple instances using Redis
+
   try {
     const pubClient = await getRedisClient();
     const subClient = pubClient.duplicate();
@@ -57,16 +57,12 @@ export const initSocket = async (server) => {
         return next(new Error('Authentication error: No cookies found'));
       }
 
-      // 2. Simple cookie parser
       const cookies = Object.fromEntries(
         cookieHeader.split('; ').map(c => {
           const [key, ...v] = c.split('=');
           return [key, v.join('=')];
         })
       );
-
-      // 3. Extract and verify token based on priority (Admin -> Bank -> User)
-      // We check each role independently to ensure token matches secret
       let token = null;
       let secret = null;
       let roleType = null;
