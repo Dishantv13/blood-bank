@@ -29,20 +29,11 @@ const EXPIRY_CHECK_ON_FOCUS_MS = 3 * 60 * 1000;
 
 const isBloodBankPortalRoute = (path = '') => {
   const currentPath = String(path || '').toLowerCase();
-  return (
-    currentPath === '/blood-bank/login' ||
-    currentPath === '/bloodbank/login' ||
-    currentPath === '/blood-bank/register' ||
-    currentPath === '/bloodbank/register' ||
-    currentPath === '/blood-bank/forgot-password' ||
-    currentPath === '/bloodbank/forgot-password' ||
-    currentPath.startsWith('/blood-bank/reset-password') ||
-    currentPath.startsWith('/bloodbank/reset-password') ||
-    currentPath === '/blood-bank/dashboard' ||
-    currentPath === '/bloodbank/dashboard' ||
-    currentPath === '/blood-bank/change-password' ||
-    currentPath === '/bloodbank/change-password'
-  );
+  // Check if it's a blood bank portal route (starts with /blood-bank or /bloodbank)
+  return currentPath.includes('/blood-bank/') || 
+         currentPath.includes('/bloodbank/') || 
+         currentPath === '/blood-bank' || 
+         currentPath === '/bloodbank';
 };
 
 const isBloodBankPublicAuthRoute = (path = '') => {
