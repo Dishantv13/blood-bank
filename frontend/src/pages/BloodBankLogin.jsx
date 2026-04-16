@@ -11,7 +11,7 @@ const BloodBankLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { setBloodBank } = useAuth();
+  const { setBloodBank, isBloodBankAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -20,6 +20,13 @@ const BloodBankLogin = () => {
   const [showPassword, setShowPassword] = useState(true);
 
   const [loginBloodBank, { isLoading: loading }] = useLoginBloodBankMutation();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isBloodBankAuthenticated) {
+      navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD);
+    }
+  }, [isBloodBankAuthenticated, navigate]);
 
   useEffect(() => {
     if (location.state?.message) {

@@ -803,8 +803,8 @@ export const getBloodBankById = async (bloodBankId) => {
 export const getBloodBankProfile = async (bloodBankId) => {
   ensureValidObjectId(bloodBankId, 'blood bank id');
   const [bloodBank, inventory] = await Promise.all([
-    BloodBank.findById(bloodBankId).select(BLOOD_BANK_SAFE_FIELDS).lean(),
-    Inventory.findOne({ bloodBank: bloodBankId }).lean()
+    bloodBankRepository.findById(bloodBankId, { select: BLOOD_BANK_SAFE_FIELDS, lean: true }),
+    inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: true })
   ]);
 
   if (!bloodBank) {
@@ -819,7 +819,7 @@ export const getBloodBankProfile = async (bloodBankId) => {
 
 export const getSessionBloodBank = async (bloodBankId) => {
   ensureValidObjectId(bloodBankId, 'blood bank id');
-  const bloodBank = await BloodBank.findById(bloodBankId).select(BLOOD_BANK_SAFE_FIELDS).lean();
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: BLOOD_BANK_SAFE_FIELDS, lean: true });
   if (!bloodBank) {
     throw new ApiError(401, 'Blood bank session is invalid');
   }
@@ -842,8 +842,8 @@ export const updateBloodBankProfile = async (bloodBankId, updateData) => {
   const { name, phone, address, city, state, pincode, operatingHours, services, logo } = updateData;
 
   const [bloodBank, inventory] = await Promise.all([
-    BloodBank.findByIdAndUpdate(
-      bloodBankId,
+    bloodBankRepository.updateOne(
+      { _id: bloodBankId },
       {
         name,
         phone,
@@ -853,9 +853,9 @@ export const updateBloodBankProfile = async (bloodBankId, updateData) => {
         logo,
         imageUrl: logo
       },
-      { returnDocument: 'after', runValidators: true }
-    ).select(BLOOD_BANK_SAFE_FIELDS).lean(),
-    Inventory.findOne({ bloodBank: bloodBankId }).lean()
+      { new: true, lean: true, select: BLOOD_BANK_SAFE_FIELDS }
+    ),
+    inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: true })
   ]);
 
   if (!bloodBank) {
@@ -881,12 +881,12 @@ export const createBloodBank = async (data) => {
   validationService.validateEmail(email);
   validationService.validatePhone(phone);
 
-  const existingBloodBank = await BloodBank.findOne({ email }).lean();
+  const existingBloodBank = await bloodBankRepository.findOne({ email }, { lean: true });
   if (existingBloodBank) {
     throw new ApiError(400, 'Blood bank with this email already exists');
   }
 
-  const bloodBank = new BloodBank({
+  const bloodBank = await bloodBankRepository.create({
     name,
     email,
     phone,
@@ -900,8 +900,6 @@ export const createBloodBank = async (data) => {
     reviewedAt: new Date(),
     reviewedBy: 'admin'
   });
-
-  await bloodBank.save();
   invalidatePublicBloodBanksCache();
   return sanitizeBloodBank(bloodBank);
 };
@@ -912,7 +910,7 @@ export const updateBloodBankInventory = async (bloodBankId, bloodGroup, units) =
   validationService.validateBloodGroup(bloodGroup);
   validationService.validateUnits(units);
 
-  const inventory = await Inventory.findOneAndUpdate(
+  const inventory = await inventoryRepository.updateOne(
     { bloodBank: bloodBankId, 'items.bloodGroup': bloodGroup },
     {
       $set: {
@@ -920,14 +918,14 @@ export const updateBloodBankInventory = async (bloodBankId, bloodGroup, units) =
         'items.$.lastUpdated': new Date()
       }
     },
-    { new: true }
+    { new: true, lean: true }
   );
 
   if (!inventory) {
     throw new ApiError(404, 'Blood bank inventory not found');
   }
 
-  await BloodBank.findOneAndUpdate(
+  await bloodBankRepository.updateOne(
     { _id: bloodBankId, 'inventory.bloodGroup': bloodGroup },
     {
       $set: {
@@ -943,7 +941,7 @@ export const updateBloodBankInventory = async (bloodBankId, bloodGroup, units) =
 
 // Request password reset
 export const requestPasswordReset = async (email) => {
-  const bloodBank = await BloodBank.findOne({ email });
+  const bloodBank = await bloodBankRepository.findOne({ email }, { lean: false });
   if (!bloodBank) {
     // Don't reveal if email exists or not for security
     return { success: true };
@@ -984,10 +982,10 @@ export const resetPassword = async (token, password) => {
   const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
   // Find blood bank with valid reset token
-  const bloodBank = await BloodBank.findOne({
+  const bloodBank = await bloodBankRepository.findOne({
     'passwordReset.token': resetTokenHash,
     'passwordReset.expiresAt': { $gt: new Date() }
-  });
+  }, { lean: false });
 
   if (!bloodBank) {
     throw new ApiError(400, 'Invalid or expired reset token');
@@ -1019,10 +1017,10 @@ export const verifyResetToken = async (token) => {
   const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
   // Check if token exists and is not expired
-  const bloodBank = await BloodBank.findOne({
+  const bloodBank = await bloodBankRepository.findOne({
     'passwordReset.token': resetTokenHash,
     'passwordReset.expiresAt': { $gt: new Date() }
-  });
+  }, { lean: true });
 
   if (!bloodBank) {
     throw new ApiError(400, 'Invalid or expired reset token');

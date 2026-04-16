@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { 
-  useGetBloodUnitInventoryQuery, 
-  useUpdateScreeningStatusMutation, 
-  useAddColdChainLogMutation 
+import {
+  useGetBloodUnitInventoryQuery,
+  useUpdateScreeningStatusMutation,
+  useAddColdChainLogMutation,
+  useRefineBloodUnitMutation
 } from '../store/bloodUnitApi';
 import { useToast } from '../components/ToastContainer';
 import SkeletonLoader from '../components/SkeletonLoader';
 import '../pages.css/BloodBankInventoryDetail.css';
 
 const BloodBankUnitTracking = () => {
-  const { showToast } = useToast();
+  const toast = useToast();
   const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' or 'raw'
   const [filter, setFilter] = useState({
     status: '',
@@ -34,11 +35,11 @@ const BloodBankUnitTracking = () => {
   const [showScreeningModal, setShowScreeningModal] = useState(false);
   const [showColdChainModal, setShowColdChainModal] = useState(false);
   const [showRefineModal, setShowRefineModal] = useState(false);
-  
+
   const [screeningResults, setScreeningResults] = useState({
     hiv: 'pending', hbv: 'pending', hcv: 'pending', syphilis: 'pending', malaria: 'pending'
   });
-  
+
   const [coldChainLog, setColdChainLog] = useState({
     temperature: '', location: '', remarks: ''
   });
@@ -46,37 +47,37 @@ const BloodBankUnitTracking = () => {
   const handleRefine = async (method) => {
     try {
       await refineUnit({ unitId: selectedUnit.unitId, method }).unwrap();
-      showToast('success', `Unit refined via ${method.replace('_', ' ')}`);
+      toast.success(`Unit refined via ${method.replace('_', ' ')}`);
       setShowRefineModal(false);
     } catch (error) {
-      showToast('error', error.data?.message || 'Refining failed');
+      toast.error(error.data?.message || 'Refining failed');
     }
   };
 
   const handleScreeningUpdate = async () => {
     try {
-      await updateScreening({ 
-        unitId: selectedUnit.unitId, 
-        results: screeningResults 
+      await updateScreening({
+        unitId: selectedUnit.unitId,
+        results: screeningResults
       }).unwrap();
-      showToast('success', 'Screening results updated');
+      toast.success('Screening results updated');
       setShowScreeningModal(false);
     } catch (error) {
-      showToast('error', error.data?.message || 'Update failed');
+      toast.error(error.data?.message || 'Update failed');
     }
   };
 
   const handleColdChainLog = async () => {
     try {
-      await addColdChain({ 
-        unitId: selectedUnit.unitId, 
-        logData: coldChainLog 
+      await addColdChain({
+        unitId: selectedUnit.unitId,
+        logData: coldChainLog
       }).unwrap();
-      showToast('success', 'Cold chain log added');
+      toast.success('Cold chain log added');
       setShowColdChainModal(false);
       setColdChainLog({ temperature: '', location: '', remarks: '' });
     } catch (error) {
-      showToast('error', error.data?.message || 'Failed to log');
+      toast.error(error.data?.message || 'Failed to log');
     }
   };
 
@@ -108,15 +109,15 @@ const BloodBankUnitTracking = () => {
         <h1>Individual Unit Tracking</h1>
         <p>Monitor individual blood bags, medical screening, and storage logs.</p>
         <div className="sub-tabs">
-          <button 
+          <button
             className={`sub-tab ${activeSubTab === 'inventory' ? 'active' : ''}`}
-            onClick={() => { setActiveSubTab('inventory'); setFilter({...filter, status: ''}); }}
+            onClick={() => { setActiveSubTab('inventory'); setFilter({ ...filter, status: '' }); }}
           >
             Refined Inventory
           </button>
-          <button 
+          <button
             className={`sub-tab ${activeSubTab === 'raw' ? 'active' : ''}`}
-            onClick={() => { setActiveSubTab('raw'); setFilter({...filter, status: 'raw'}); }}
+            onClick={() => { setActiveSubTab('raw'); setFilter({ ...filter, status: 'raw' }); }}
           >
             Raw Collections
           </button>
@@ -124,7 +125,7 @@ const BloodBankUnitTracking = () => {
       </div>
 
       <div className="filter-bar">
-        <select onChange={(e) => setFilter({...filter, bloodGroup: e.target.value})} value={filter.bloodGroup}>
+        <select onChange={(e) => setFilter({ ...filter, bloodGroup: e.target.value })} value={filter.bloodGroup}>
           <option value="">All Blood Groups</option>
           {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
             <option key={bg} value={bg}>{bg}</option>
@@ -132,7 +133,7 @@ const BloodBankUnitTracking = () => {
         </select>
 
         {activeSubTab === 'inventory' && (
-          <select onChange={(e) => setFilter({...filter, status: e.target.value})} value={filter.status}>
+          <select onChange={(e) => setFilter({ ...filter, status: e.target.value })} value={filter.status}>
             <option value="">All Statuses</option>
             <option value="quarantine">Quarantine</option>
             <option value="available">Available</option>
@@ -141,7 +142,7 @@ const BloodBankUnitTracking = () => {
           </select>
         )}
 
-        <select onChange={(e) => setFilter({...filter, componentType: e.target.value})} value={filter.componentType}>
+        <select onChange={(e) => setFilter({ ...filter, componentType: e.target.value })} value={filter.componentType}>
           <option value="">All Components</option>
           <option value="Whole Blood">Whole Blood</option>
           <option value="RBC">RBC</option>
@@ -208,15 +209,15 @@ const BloodBankUnitTracking = () => {
                       {unit.screeningStatus.toUpperCase()}
                     </td>
                     <td>
-                      {unit.coldChain?.length > 0 
-                        ? `${unit.coldChain[unit.coldChain.length - 1].temperature}°C` 
+                      {unit.coldChain?.length > 0
+                        ? `${unit.coldChain[unit.coldChain.length - 1].temperature}°C`
                         : 'N/A'
                       }
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button 
-                          className="btn-sm btn-outline" 
+                        <button
+                          className="btn-sm btn-outline"
                           onClick={() => {
                             setSelectedUnit(unit);
                             setScreeningResults(unit.screeningResults);
@@ -225,7 +226,7 @@ const BloodBankUnitTracking = () => {
                         >
                           Screening
                         </button>
-                        <button 
+                        <button
                           className="btn-sm btn-outline"
                           onClick={() => {
                             setSelectedUnit(unit);
@@ -256,9 +257,9 @@ const BloodBankUnitTracking = () => {
               {['hiv', 'hbv', 'hcv', 'syphilis', 'malaria'].map(test => (
                 <div key={test} className="test-row">
                   <label>{test.toUpperCase()}</label>
-                  <select 
-                    value={screeningResults[test]} 
-                    onChange={(e) => setScreeningResults({...screeningResults, [test]: e.target.value})}
+                  <select
+                    value={screeningResults[test]}
+                    onChange={(e) => setScreeningResults({ ...screeningResults, [test]: e.target.value })}
                   >
                     <option value="pending">Pending</option>
                     <option value="negative">Negative</option>
@@ -283,27 +284,27 @@ const BloodBankUnitTracking = () => {
             <div className="cold-chain-form">
               <div className="form-group">
                 <label>Temperature (°C)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   step="0.1"
                   value={coldChainLog.temperature}
-                  onChange={(e) => setColdChainLog({...coldChainLog, temperature: e.target.value})}
+                  onChange={(e) => setColdChainLog({ ...coldChainLog, temperature: e.target.value })}
                 />
               </div>
               <div className="form-group">
                 <label>Storage Location</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="Fridge 02, Shelf A"
                   value={coldChainLog.location}
-                  onChange={(e) => setColdChainLog({...coldChainLog, location: e.target.value})}
+                  onChange={(e) => setColdChainLog({ ...coldChainLog, location: e.target.value })}
                 />
               </div>
               <div className="form-group">
                 <label>Remarks</label>
-                <textarea 
+                <textarea
                   value={coldChainLog.remarks}
-                  onChange={(e) => setColdChainLog({...coldChainLog, remarks: e.target.value})}
+                  onChange={(e) => setColdChainLog({ ...coldChainLog, remarks: e.target.value })}
                 ></textarea>
               </div>
             </div>
@@ -320,28 +321,28 @@ const BloodBankUnitTracking = () => {
           <div className="modal-content refine-modal">
             <h2>Process Raw Blood Unit</h2>
             <p>Unit ID: {selectedUnit?.unitId} | Volume: {selectedUnit?.volume}ml</p>
-            
+
             <div className="refine-options">
-               <div className="refine-card" onClick={() => handleRefine('keep_whole')}>
-                  <h3>Keep as Whole Blood</h3>
-                  <p>Standard unit size. Best for emergency transfusions.</p>
-                  <div className="yield-estimate">Yield: 1 Unit (450ml)</div>
-               </div>
-               
-               <div className="refine-card primary" onClick={() => handleRefine('separate')}>
-                  <h3>Separate into Components</h3>
-                  <p>Maximize utility. Produces RBC, Plasma, and Platelets.</p>
-                  <div className="yield-estimate">Yield: 3 Units (~550ml combined)</div>
-                  <div className="theoretical-yield">
-                    <h4>Component Breakdown (Estimates)</h4>
-                    <ul>
-                      <li><strong>RBC (55%):</strong> {(selectedUnit?.volume * 0.55).toFixed(1)} ml</li>
-                      <li><strong>Plasma (40%):</strong> {(selectedUnit?.volume * 0.40).toFixed(1)} ml</li>
-                      <li><strong>Platelets (5%):</strong> {(selectedUnit?.volume * 0.05).toFixed(1)} ml</li>
-                    </ul>
-                  </div>
-                  <small className="wastage-note">Includes preservation additive volume.</small>
-               </div>
+              <div className="refine-card" onClick={() => handleRefine('keep_whole')}>
+                <h3>Keep as Whole Blood</h3>
+                <p>Standard unit size. Best for emergency transfusions.</p>
+                <div className="yield-estimate">Yield: 1 Unit (450ml)</div>
+              </div>
+
+              <div className="refine-card primary" onClick={() => handleRefine('separate')}>
+                <h3>Separate into Components</h3>
+                <p>Maximize utility. Produces RBC, Plasma, and Platelets.</p>
+                <div className="yield-estimate">Yield: 3 Units (~550ml combined)</div>
+                <div className="theoretical-yield">
+                  <h4>Component Breakdown (Estimates)</h4>
+                  <ul>
+                    <li><strong>RBC (55%):</strong> {(selectedUnit?.volume * 0.55).toFixed(1)} ml</li>
+                    <li><strong>Plasma (40%):</strong> {(selectedUnit?.volume * 0.40).toFixed(1)} ml</li>
+                    <li><strong>Platelets (5%):</strong> {(selectedUnit?.volume * 0.05).toFixed(1)} ml</li>
+                  </ul>
+                </div>
+                <small className="wastage-note">Includes preservation additive volume.</small>
+              </div>
             </div>
 
             <div className="modal-actions">

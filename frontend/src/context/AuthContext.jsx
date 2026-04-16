@@ -244,70 +244,33 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const bootstrapSessions = async () => {
       const currentPath = window.location.pathname.toLowerCase();
+      
+      // We check for existing sessions even on public routes to enable automatic redirects
       const isBloodBankRoute = isBloodBankPortalRoute(currentPath);
-      const isAdminPublicAuthPath =
-        currentPath === '/admin/login' ||
-        currentPath === '/admin/forgot-password' ||
-        currentPath.startsWith('/admin/reset-password');
-      const isBloodBankPublicAuthPath = isBloodBankPublicAuthRoute(currentPath);
-      const isPublicAuthPath = (
-        currentPath === '/login' ||
-        currentPath === '/forgot-password' ||
-        currentPath.startsWith('/reset-password') ||
-        currentPath === '/admin/login' ||
-        currentPath === '/admin/forgot-password' ||
-        currentPath.startsWith('/admin/reset-password') ||
-        isBloodBankPublicAuthPath
-      );
-      const shouldCheckAdminSession =
-        currentPath.startsWith('/admin') &&
-        !isAdminPublicAuthPath;
-      const shouldCheckBloodBankSession =
-        isBloodBankRoute &&
-        !isBloodBankPublicAuthPath;
-      const shouldCheckUserSession =
-        !isPublicAuthPath &&
-        !currentPath.startsWith('/admin') &&
-        !isBloodBankRoute;
-
-      if (!shouldCheckUserSession && !shouldCheckAdminSession && !shouldCheckBloodBankSession) {
-        clearRoleSession('user');
-        clearRoleSession('admin');
-        clearRoleSession('bloodbank');
-        setLoading(false);
-        return;
-      }
+      const isAdminPath = currentPath.startsWith('/admin');
+      
+      // Determine what to check based on what we don't have yet in memory
+      const checkUser = !user;
+      const checkAdmin = !adminUser && isAdminPath;
+      const checkBloodBank = !bloodBank && isBloodBankRoute;
 
       try {
-        const [userSession, adminSession, bloodBankSession] = await Promise.allSettled([
-          shouldCheckUserSession
-            ? triggerUserSession().unwrap()
-            : Promise.resolve(null),
-          shouldCheckAdminSession
-            ? triggerAdminSession().unwrap()
-            : Promise.resolve(null),
-          shouldCheckBloodBankSession
-            ? triggerBloodBankSession().unwrap()
-            : Promise.resolve(null),
-        ]);
+        const promises = [];
+        if (checkUser) promises.push(triggerUserSession().unwrap().catch(() => null));
+        if (checkAdmin) promises.push(triggerAdminSession().unwrap().catch(() => null));
+        if (checkBloodBank) promises.push(triggerBloodBankSession().unwrap().catch(() => null));
 
-        if (shouldCheckUserSession && userSession.status === 'fulfilled') {
-          applyUserSession(userSession.value);
-        } else if (shouldCheckUserSession) {
-          clearRoleSession('user');
-        }
-
-        if (shouldCheckAdminSession && adminSession.status === 'fulfilled') {
-          applyAdminSession(adminSession.value);
-        } else if (shouldCheckAdminSession) {
-          clearRoleSession('admin');
-        }
-
-        if (shouldCheckBloodBankSession && bloodBankSession.status === 'fulfilled') {
-          applyBloodBankSession(bloodBankSession.value);
-        } else if (shouldCheckBloodBankSession) {
-          clearRoleSession('bloodbank');
-        }
+        const results = await Promise.all(promises);
+        
+        // Apply whatever sessions we found
+        results.forEach(session => {
+          if (!session) return;
+          if (session.user || (session.data?.user)) applyUserSession(session);
+          else if (session.admin || (session.data?.admin)) applyAdminSession(session);
+          else if (session.bloodBank || (session.data?.bloodBank)) applyBloodBankSession(session);
+        });
+      } catch (error) {
+        console.error('[Auth] Bootstrap failed:', error);
       } finally {
         setLoading(false);
       }

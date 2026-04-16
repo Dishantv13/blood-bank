@@ -1068,7 +1068,7 @@ export const getAllDonations = async (page = 1, limit = 10, filters = {}) => {
 };
 
 export const getDonationById = async (donationId) => {
-  const donation = await Donation.findById(donationId).lean();
+  const donation = await donationRepository.findById(donationId, { lean: true });
 
   if (!donation) {
     throw new ApiError(404, 'Donation record not found');
@@ -1083,11 +1083,11 @@ export const updateDonationStatus = async (donationId, status) => {
     throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
-  const donation = await Donation.findByIdAndUpdate(
-    donationId,
+  const donation = await donationRepository.updateOne(
+    { _id: donationId },
     { status, updatedAt: new Date() },
-    { returnDocument: 'after' }
-  ).lean();
+    { returnDocument: 'after', lean: true }
+  );
 
   if (!donation) {
     throw new ApiError(404, 'Donation record not found');
@@ -1105,10 +1105,11 @@ export const getInventoryOverview = async (page = 1, limit = 10, filters = {}) =
     query.bloodBankName = { $regex: escapeRegex(filters.search), $options: 'i' };
   }
 
-  const inventoryDocs = await Inventory.find(query)
-    .select('_id bloodBank bloodBankName items lastModified updatedAt')
-    .sort({ updatedAt: -1 })
-    .lean();
+  const inventoryDocs = await inventoryRepository.find(query, {
+    select: '_id bloodBank bloodBankName items lastModified updatedAt',
+    sort: { updatedAt: -1 },
+    lean: true
+  });
 
   const bankRows = inventoryDocs.map((doc) => {
     const filteredItems = (doc.items || []).filter((item) => {
@@ -1178,9 +1179,10 @@ export const getInventoryOverview = async (page = 1, limit = 10, filters = {}) =
 export const getInventoryById = async (inventoryId) => {
   ensureValidObjectId(inventoryId, 'inventoryId');
 
-  const inventoryDoc = await Inventory.findById(inventoryId)
-    .select('_id bloodBank bloodBankName items lastModified updatedAt')
-    .lean();
+  const inventoryDoc = await inventoryRepository.findById(inventoryId, {
+    select: '_id bloodBank bloodBankName items lastModified updatedAt',
+    lean: true
+  });
 
   if (!inventoryDoc) {
     throw new ApiError(404, 'Inventory record not found');
@@ -1217,13 +1219,13 @@ export const getDashboardStats = async () => {
     totalDonations,
     inventoryStats,
   ] = await Promise.all([
-    User.countDocuments({ isAvailable: true }),
-    BloodBank.countDocuments({ isActive: true, approvalStatus: 'approved' }),
-    BloodCamp.countDocuments({ status: { $ne: 'cancelled' } }),
-    Event.countDocuments({ isActive: true }),
-    BloodRequest.countDocuments({ status: 'pending' }),
-    Donation.countDocuments({ status: 'completed' }),
-    Inventory.aggregate([
+    userRepository.count({ isAvailable: true }),
+    bloodBankRepository.count({ isActive: true, approvalStatus: 'approved' }),
+    bloodCampRepository.count({ status: { $ne: 'cancelled' } }),
+    eventRepository.count({ isActive: true }),
+    requestRepository.count({ status: 'pending' }),
+    donationRepository.count({ status: 'completed' }),
+    inventoryRepository.model.aggregate([
       { $unwind: '$items' },
       {
         $group: {

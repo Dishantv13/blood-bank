@@ -14,7 +14,7 @@ import userRepository from '../repositories/UserRepository.js';
 
 import { getRedisClient } from '../config/redis.js';
 
-const DISHBOARD_STATS_TTL = 30; // 30 seconds
+const DASHBOARD_STATS_TTL = 60; // 60 seconds (increased from 30)
 
 const getDashboardStatsFromCache = async (userId) => {
   try {
@@ -35,7 +35,7 @@ const setDashboardStatsCache = async (userId, payload) => {
     if (!redis) return;
 
     await redis.set(`cache:dashboard:${userId}`, JSON.stringify(payload), {
-      EX: DISHBOARD_STATS_TTL
+      EX: DASHBOARD_STATS_TTL
     });
   } catch (err) {
     console.error('[Cache] Redis set error:', err.message);
@@ -434,22 +434,6 @@ export const getDashboardStats = async (userId) => {
   const realTotalVolume = donationFacet.summary?.[0]?.totalVolume || user?.donorInfo?.totalDonatedVolume || 0;
   const realLastDonationDate = donationFacet.latest?.[0]?.donationDate || user?.donorInfo?.lastDonationDate || user?.lastDonationDate;
 
-  // Sync back to user model if there's a disconnect
-  if (user.donorInfo && (
-    user.donorInfo.totalDonations !== realTotalDonations ||
-    user.donorInfo.totalDonatedVolume !== realTotalVolume ||
-    (realLastDonationDate && user.donorInfo.lastDonationDate?.toString() !== realLastDonationDate.toString())
-  )) {
-    const updateData = { donorInfo: user.donorInfo };
-    updateData.donorInfo.totalDonations = realTotalDonations;
-    updateData.donorInfo.totalDonatedVolume = realTotalVolume;
-    if (realLastDonationDate) {
-      updateData.donorInfo.lastDonationDate = realLastDonationDate;
-      updateData.lastDonationDate = realLastDonationDate;
-    }
-    await User.findByIdAndUpdate(userId, updateData);
-  }
-
   const result = {
     stats: {
       myRequests: requestFacet.myRequests || [],
@@ -469,6 +453,25 @@ export const getDashboardStats = async (userId) => {
       }
     }
   };
+
+  // Sync back to user model if there's a disconnect (Perform in background to keep API fast)
+  if (user.donorInfo && (
+    user.donorInfo.totalDonations !== realTotalDonations ||
+    user.donorInfo.totalDonatedVolume !== realTotalVolume ||
+    (realLastDonationDate && user.donorInfo.lastDonationDate?.toString() !== realLastDonationDate.toString())
+  )) {
+    User.findById(userId).then(async (userDoc) => {
+      if (!userDoc) return;
+      userDoc.donorInfo.totalDonations = realTotalDonations;
+      userDoc.donorInfo.totalDonatedVolume = realTotalVolume;
+      if (realLastDonationDate) {
+        userDoc.donorInfo.lastDonationDate = realLastDonationDate;
+        userDoc.lastDonationDate = realLastDonationDate;
+      }
+      await userDoc.save();
+      console.log(`[Dashboard] Personal stats synced for user ${userId}`);
+    }).catch(err => console.error(`[Dashboard] Sync error for user ${userId}:`, err.message));
+  }
 
   await setDashboardStatsCache(userId, result);
   return result;

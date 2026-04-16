@@ -7,11 +7,18 @@ import '../adminPage.css/AdminPremium.css';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const { loginAdmin } = useAuth();
+  const { loginAdmin, isAdminAuthenticated } = useAuth();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Redirect if already logged in
+  React.useEffect(() => {
+    if (isAdminAuthenticated) {
+      navigate(ROUTE_PATH.ADMIN_DASHBOARD);
+    }
+  }, [isAdminAuthenticated, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

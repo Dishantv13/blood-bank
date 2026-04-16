@@ -65,25 +65,40 @@ export const initSocket = async (server) => {
         })
       );
 
-      // 3. Extract the correct token based on availability (priority: User -> Bank -> Admin)
-      let token = cookies.bb_user_at || cookies.bb_bank_at || cookies.bb_admin_at;
-      let secret = process.env.USER_ACCESS_TOKEN_SECRET; // Default to user secret
+      // 3. Extract and verify token based on priority (Admin -> Bank -> User)
+      // We check each role independently to ensure token matches secret
+      let token = null;
+      let secret = null;
+      let roleType = null;
 
-      if (cookies.bb_bank_at) secret = process.env.BLOODBANK_ACCESS_TOKEN_SECRET;
-      if (cookies.bb_admin_at) secret = process.env.ADMIN_ACCESS_TOKEN_SECRET;
+      if (cookies.bb_admin_at) {
+        token = cookies.bb_admin_at;
+        secret = process.env.ADMIN_ACCESS_TOKEN_SECRET;
+        roleType = 'admin';
+      } else if (cookies.bb_bank_at) {
+        token = cookies.bb_bank_at;
+        secret = process.env.BLOODBANK_ACCESS_TOKEN_SECRET;
+        roleType = 'bloodbank';
+      } else if (cookies.bb_user_at) {
+        token = cookies.bb_user_at;
+        secret = process.env.USER_ACCESS_TOKEN_SECRET;
+        roleType = 'user';
+      }
 
-      if (!token) {
+      if (!token || !secret) {
+        console.warn(`[WS Auth] Unauthorized attempt: Access Token missing (Cookies present: ${Object.keys(cookies).join(', ')})`);
         return next(new Error('Authentication error: Access Token missing'));
       }
 
       // 4. Verify against the correct secret
       jwt.verify(token, secret, (err, decoded) => {
         if (err) {
-          console.warn(`[WS Auth] Unauthorized attempt: ${err.message}`);
+          console.warn(`[WS Auth] Unauthorized attempt (${roleType}): ${err.message}`);
           return next(new Error('Authentication error: Invalid session'));
         }
         
         socket.user = decoded;
+        socket.roleType = roleType; // Track which auth method was used
         next();
       });
     } catch (error) {
@@ -94,8 +109,16 @@ export const initSocket = async (server) => {
 
   // Client Connection Logic
   io.on('connection', (socket) => {
-    const userId = (socket.user.userId || socket.user._id || socket.user.id).toString();
-    console.log(`[WS] Client connected: ${userId} (${socket.id})`);
+    // Robust identifier extraction (Support for User, BloodBank, and Admin roles)
+    const rawId = socket.user.userId || socket.user.bloodBankId || socket.user.adminEmail || socket.user._id || socket.user.id;
+    
+    if (!rawId) {
+      console.error('[WS] Connection rejected: No unique identifier found in token payload', socket.user);
+      return socket.disconnect();
+    }
+
+    const userId = rawId.toString();
+    console.log(`[WS] Client connected: ${userId} (${socket.id}) [Role: ${socket.roleType || 'unknown'}]`);
 
     // Organize rooms for targeted broadcasts
     socket.join(`user:${userId}`);

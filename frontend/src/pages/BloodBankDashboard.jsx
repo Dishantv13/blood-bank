@@ -1092,7 +1092,7 @@ const BloodBankDashboard = () => {
             </svg>
             Inventory
           </button>
-          
+
           <Link
             to={ROUTE_PATH.BLOOD_BANK_UNIT_TRACKING}
             className={`nav-item ${activeTab === 'unit_tracking' ? 'active' : ''}`}
