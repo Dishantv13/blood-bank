@@ -3051,7 +3051,7 @@
   }
 
   .dashboard-sidebar {
-    display: none;
+    transform: translateX(-100%);
   }
 
   .dashboard-main {

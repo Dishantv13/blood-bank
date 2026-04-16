@@ -6,11 +6,15 @@ import {
   useRefineBloodUnitMutation
 } from '../store/bloodUnitApi';
 import { useToast } from '../components/ToastContainer';
+import { useAuth } from '../context/AuthContext';
+import BloodBankSidebar from '../components/BloodBankSidebar';
 import SkeletonLoader from '../components/SkeletonLoader';
 import '../pages.css/BloodBankInventoryDetail.css';
 
 const BloodBankUnitTracking = () => {
   const toast = useToast();
+  const { logoutBloodBank } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' or 'raw'
   const [filter, setFilter] = useState({
     status: '',
@@ -104,8 +108,37 @@ const BloodBankUnitTracking = () => {
   if (isLoading && units.length === 0) return <SkeletonLoader />;
 
   return (
-    <div className="unit-tracking-container">
+    <div className="blood-bank-dashboard">
+      {mobileMenuOpen && (
+        <div
+          className="mobile-menu-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      <BloodBankSidebar
+        variant="panel"
+        mobileMenuOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+        onLogout={logoutBloodBank}
+      />
+
+      <main className="dashboard-main">
+        <div className="blood-bank-unit-tracking-shell" style={{ flex: 1, overflowY: 'auto' }}>
+          <div className="unit-tracking-container">
       <div className="header-section">
+        <button
+          type="button"
+          className="mobile-menu-btn"
+          onClick={() => setMobileMenuOpen((prev) => !prev)}
+          aria-label="Toggle menu"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
         <h1>Individual Unit Tracking</h1>
         <p>Monitor individual blood bags, medical screening, and storage logs.</p>
         <div className="sub-tabs">
@@ -373,6 +406,9 @@ const BloodBankUnitTracking = () => {
         .theoretical-yield ul { list-style: none; padding: 0; margin: 0; }
         .theoretical-yield li { font-size: 0.85rem; display: flex; justify-content: space-between; margin-bottom: 0.2rem; }
       `}</style>
+          </div>
+        </div>
+      </main>
     </div>
   );
 };
