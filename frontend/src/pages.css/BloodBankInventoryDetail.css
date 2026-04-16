@@ -3,24 +3,25 @@
   max-width: 1400px;
   margin: 0 auto;
   color: var(--text-primary);
+  font-size: 0.95rem;
 }
 
 .header-section {
   margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.header-section h1 {
-  font-size: 2.2rem;
+.header-section h2 {
+  font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-main);
   margin-bottom: 0.5rem;
 }
 
 .header-section p {
   color: var(--text-secondary);
-  font-size: 1.1rem;
+  font-size: 1rem;
 }
 
 /* Filter Bar */
@@ -55,36 +56,86 @@
 .table-responsive {
   background: var(--bg-secondary);
   border-radius: 20px;
-  overflow: hidden;
+  overflow-x: scroll;
+  overflow-y: hidden;
   border: 1px solid var(--border-color);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  scrollbar-gutter: stable both-edges;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: rgba(230, 57, 70, 0.35);
+  border-radius: 999px;
 }
 
 .unit-table {
   width: 100%;
+  min-width: 1080px;
   border-collapse: collapse;
   text-align: left;
 }
 
 .unit-table th {
   padding: 1.25rem 1.5rem;
-  background: rgba(225, 29, 72, 0.05);
+  background: #2b141c;
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   letter-spacing: 0.05em;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
 }
 
 .unit-table td {
   padding: 1.25rem 1.5rem;
+  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
   vertical-align: middle;
+  font-size: 0.9rem;
+}
+
+.unit-table th:last-child,
+.unit-table td:last-child {
+  border-right: none;
 }
 
 .unit-table tr:hover {
-  background: rgba(225, 29, 72, 0.02);
+  background: transparent;
+}
+
+.unit-table tr:hover td {
+  background: #161a22;
+}
+
+.unit-table-empty-row:hover {
+  background: transparent;
+}
+
+.unit-table-empty-row td {
+  padding: 2.5rem 1.5rem;
+}
+
+.unit-table-empty-content {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+.unit-table-empty-content h3 {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 1.35rem;
+}
+
+.unit-table-empty-content p {
+  margin-top: 0.6rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
 }
 
 .unit-id {
@@ -169,6 +220,41 @@
 .action-buttons {
   display: flex;
   gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+.col-actions,
+.col-actions-cell {
+  white-space: nowrap;
+  text-align: center;
+  position: sticky;
+  border-left: 1px solid var(--border-color);
+}
+
+.col-actions,
+.col-actions-cell {
+  min-width: 180px;
+  right: 0;
+}
+
+.col-actions {
+  background: #2b141c;
+  z-index: 6;
+  box-shadow: -10px 0 16px rgba(0, 0, 0, 0.22);
+}
+
+.col-actions-cell {
+  background: var(--bg-secondary);
+  z-index: 5;
+}
+
+.unit-table tr:hover .col-actions-cell {
+  background: #161a22;
+}
+
+.col-actions-cell .btn-refine {
+  min-width: 120px;
 }
 
 .btn-sm {
@@ -178,6 +264,7 @@
   cursor: pointer;
   transition: all 0.2s;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .btn-outline {
@@ -298,6 +385,11 @@
 @media (max-width: 1024px) {
   .filter-bar {
     flex-wrap: wrap;
+  }
+
+  .unit-table th,
+  .unit-table td {
+    white-space: nowrap;
   }
 }
 

@@ -8,12 +8,13 @@ import {
 import { useToast } from '../components/ToastContainer';
 import { useAuth } from '../context/AuthContext';
 import BloodBankSidebar from '../components/BloodBankSidebar';
+import ThemeToggle from '../components/ThemeToggle';
 import SkeletonLoader from '../components/SkeletonLoader';
 import '../pages.css/BloodBankInventoryDetail.css';
 
 const BloodBankUnitTracking = () => {
   const toast = useToast();
-  const { logoutBloodBank } = useAuth();
+  const { logoutBloodBank, bloodBank } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('inventory'); // 'inventory' or 'raw'
   const [filter, setFilter] = useState({
@@ -34,6 +35,7 @@ const BloodBankUnitTracking = () => {
 
   const units = inventoryData?.units || [];
   const pagination = inventoryData?.pagination || {};
+  const tableColumnCount = activeSubTab === 'raw' ? 6 : 8;
 
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [showScreeningModal, setShowScreeningModal] = useState(false);
@@ -125,37 +127,54 @@ const BloodBankUnitTracking = () => {
 
       <main className="dashboard-main">
         <div className="blood-bank-unit-tracking-shell" style={{ flex: 1, overflowY: 'auto' }}>
+          <header className="dashboard-header">
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <div className="header-left">
+              <h1>Blood Unit Tracking</h1>
+              <p>Welcome back, {bloodBank?.name || 'Blood Bank'}</p>
+            </div>
+            <div className="header-right">
+              <ThemeToggle />
+              <div className="notification-wrapper">
+                <button className="notification-btn" type="button" aria-label="Notifications">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 01-3.46 0" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </header>
+
           <div className="unit-tracking-container">
-      <div className="header-section">
-        <button
-          type="button"
-          className="mobile-menu-btn"
-          onClick={() => setMobileMenuOpen((prev) => !prev)}
-          aria-label="Toggle menu"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
-        <h1>Individual Unit Tracking</h1>
-        <p>Monitor individual blood bags, medical screening, and storage logs.</p>
-        <div className="sub-tabs">
-          <button
-            className={`sub-tab ${activeSubTab === 'inventory' ? 'active' : ''}`}
-            onClick={() => { setActiveSubTab('inventory'); setFilter({ ...filter, status: '' }); }}
-          >
-            Refined Inventory
-          </button>
-          <button
-            className={`sub-tab ${activeSubTab === 'raw' ? 'active' : ''}`}
-            onClick={() => { setActiveSubTab('raw'); setFilter({ ...filter, status: 'raw' }); }}
-          >
-            Raw Collections
-          </button>
-        </div>
-      </div>
+            <div className="header-section">
+              <h2>Individual Unit Tracking</h2>
+              <p>Monitor individual blood bags, medical screening, and storage logs.</p>
+              <div className="sub-tabs">
+                <button
+                  className={`sub-tab ${activeSubTab === 'inventory' ? 'active' : ''}`}
+                  onClick={() => { setActiveSubTab('inventory'); setFilter({ ...filter, status: '' }); }}
+                >
+                  Refined Inventory
+                </button>
+                <button
+                  className={`sub-tab ${activeSubTab === 'raw' ? 'active' : ''}`}
+                  onClick={() => { setActiveSubTab('raw'); setFilter({ ...filter, status: 'raw' }); }}
+                >
+                  Raw Collections
+                </button>
+              </div>
+            </div>
 
       <div className="filter-bar">
         <select onChange={(e) => setFilter({ ...filter, bloodGroup: e.target.value })} value={filter.bloodGroup}>
@@ -193,87 +212,98 @@ const BloodBankUnitTracking = () => {
               <th>{activeSubTab === 'raw' ? 'Initial Volume' : 'Component'}</th>
               <th>Status</th>
               <th>{activeSubTab === 'raw' ? 'Collection Date' : 'Expiry'}</th>
-              <th>{activeSubTab === 'raw' ? 'Actions' : 'Screening'}</th>
+              <th className={activeSubTab === 'raw' ? 'col-actions' : undefined}>{activeSubTab === 'raw' ? 'Actions' : 'Screening'}</th>
               {activeSubTab === 'inventory' && <th>Last Temp</th>}
-              {activeSubTab === 'inventory' && <th>Actions</th>}
+              {activeSubTab === 'inventory' && <th className="col-actions">Actions</th>}
             </tr>
           </thead>
           <tbody>
-            {units.map(unit => (
-              <tr key={unit._id}>
-                <td>
-                  <span className="unit-id">{unit.unitId}</span>
-                  <div className="batch-no">Batch: {unit.batchNumber}</div>
+            {units.length === 0 ? (
+              <tr className="unit-table-empty-row">
+                <td colSpan={tableColumnCount}>
+                  <div className="unit-table-empty-content">
+                    <h3>No Units Found</h3>
+                    <p>No blood units available for the selected filters.</p>
+                  </div>
                 </td>
-                <td><span className="blood-group-tag">{unit.bloodGroup}</span></td>
-                <td>
-                  {activeSubTab === 'raw' ? `${unit.volume}ml` : (
-                    <div className="comp-vol-box">
-                      <span>{unit.componentType}</span>
-                      <small>{unit.volume}ml</small>
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <span className={`badge ${getStatusBadgeClass(unit.status)}`}>
-                    {unit.status.toUpperCase()}
-                  </span>
-                </td>
-                <td>
-                  {activeSubTab === 'raw' ? (
-                    new Date(unit.collectionDate).toLocaleDateString()
-                  ) : (
-                    <div className={getTimeRemaining(unit.expiryDate) === 'Expired' ? 'text-danger' : ''}>
-                      {new Date(unit.expiryDate).toLocaleDateString()}
-                      <small className="d-block">{getTimeRemaining(unit.expiryDate)}</small>
-                    </div>
-                  )}
-                </td>
-                {activeSubTab === 'raw' ? (
-                  <td>
-                    <button className="btn-refine" onClick={() => { setSelectedUnit(unit); setShowRefineModal(true); }}>
-                      Refine Unit
-                    </button>
-                  </td>
-                ) : (
-                  <>
-                    <td>
-                      <span className={`screening-dot dot-${unit.screeningStatus}`}></span>
-                      {unit.screeningStatus.toUpperCase()}
-                    </td>
-                    <td>
-                      {unit.coldChain?.length > 0
-                        ? `${unit.coldChain[unit.coldChain.length - 1].temperature}°C`
-                        : 'N/A'
-                      }
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button
-                          className="btn-sm btn-outline"
-                          onClick={() => {
-                            setSelectedUnit(unit);
-                            setScreeningResults(unit.screeningResults);
-                            setShowScreeningModal(true);
-                          }}
-                        >
-                          Screening
-                        </button>
-                        <button
-                          className="btn-sm btn-outline"
-                          onClick={() => {
-                            setSelectedUnit(unit);
-                            setShowColdChainModal(true);
-                          }}
-                        >
-                          Log Temp
-                        </button>
-                      </div>
-                    </td>
-                  </>
-                )}
               </tr>
-            ))}
+            ) : (
+              units.map(unit => (
+                <tr key={unit._id}>
+                  <td>
+                    <span className="unit-id">{unit.unitId}</span>
+                    <div className="batch-no">Batch: {unit.batchNumber}</div>
+                  </td>
+                  <td><span className="blood-group-tag">{unit.bloodGroup}</span></td>
+                  <td>
+                    {activeSubTab === 'raw' ? `${unit.volume}ml` : (
+                      <div className="comp-vol-box">
+                        <span>{unit.componentType}</span>
+                        <small>{unit.volume}ml</small>
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <span className={`badge ${getStatusBadgeClass(unit.status)}`}>
+                      {unit.status.toUpperCase()}
+                    </span>
+                  </td>
+                  <td>
+                    {activeSubTab === 'raw' ? (
+                      new Date(unit.collectionDate).toLocaleDateString()
+                    ) : (
+                      <div className={getTimeRemaining(unit.expiryDate) === 'Expired' ? 'text-danger' : ''}>
+                        {new Date(unit.expiryDate).toLocaleDateString()}
+                        <small className="d-block">{getTimeRemaining(unit.expiryDate)}</small>
+                      </div>
+                    )}
+                  </td>
+                  {activeSubTab === 'raw' ? (
+                    <td className="col-actions-cell">
+                      <button className="btn-refine" onClick={() => { setSelectedUnit(unit); setShowRefineModal(true); }}>
+                        Refine Unit
+                      </button>
+                    </td>
+                  ) : (
+                    <>
+                      <td>
+                        <span className={`screening-dot dot-${unit.screeningStatus}`}></span>
+                        {unit.screeningStatus.toUpperCase()}
+                      </td>
+                      <td>
+                        {unit.coldChain?.length > 0
+                          ? `${unit.coldChain[unit.coldChain.length - 1].temperature}°C`
+                          : 'N/A'
+                        }
+                      </td>
+                      <td className="col-actions-cell">
+                        <div className="action-buttons">
+                          <button
+                            className="btn-sm btn-outline"
+                            onClick={() => {
+                              setSelectedUnit(unit);
+                              setScreeningResults(unit.screeningResults);
+                              setShowScreeningModal(true);
+                            }}
+                          >
+                            Screening
+                          </button>
+                          <button
+                            className="btn-sm btn-outline"
+                            onClick={() => {
+                              setSelectedUnit(unit);
+                              setShowColdChainModal(true);
+                            }}
+                          >
+                            Log Temp
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -387,9 +417,25 @@ const BloodBankUnitTracking = () => {
 
       {/* CSS for components */}
       <style>{`
-        .sub-tabs { display: flex; gap: 1rem; margin-top: 1rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
-        .sub-tab { padding: 0.5rem 1.5rem; border: none; background: none; cursor: pointer; color: #666; font-weight: 500; font-size: 0.95rem; }
-        .sub-tab.active { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); }
+        .sub-tabs { display: flex; gap: 0.75rem; margin-top: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
+        .sub-tab {
+          padding: 0.7rem 1.5rem;
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+          cursor: pointer;
+          color: var(--text-muted);
+          font-weight: 700;
+          font-size: 0.9rem;
+          transition: all 0.2s ease;
+        }
+        .sub-tab:hover { border-color: rgba(230, 57, 70, 0.5); color: var(--text-main); }
+        .sub-tab.active {
+          color: #fff;
+          border-color: transparent;
+          background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
+          box-shadow: 0 8px 18px rgba(230, 57, 70, 0.35);
+        }
         .comp-vol-box { display: flex; flex-direction: column; line-height: 1.2; }
         .comp-vol-box small { color: #888; font-size: 0.75rem; }
         .btn-refine { background: #6366f1; color: white; border: none; padding: 0.4rem 1rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
