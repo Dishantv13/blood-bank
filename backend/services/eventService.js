@@ -4,7 +4,6 @@ import bloodBankRepository from '../repositories/BloodBankRepository.js';
 import cacheManager from '../utils/cacheManager.js';
 import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
-import { sendRegistrationConfirmationEmail } from '../utils/emailService.js';
 import { createNotification, broadcastNotification } from './notificationService.js';
 
 const EVENT_LIST_FIELDS = '_id title description organizer eventType location date startTime endTime contactInfo expectedDonors isActive visibility maxParticipants registeredDonors';
@@ -108,10 +107,6 @@ export const registerEvent = async (eventId, userId) => {
 
   event.registeredDonors.push(userId);
   await event.save();
-
-  // Send confirmation email (async)
-  sendRegistrationConfirmationEmail(user, 'event', event)
-    .catch(err => console.error('Event registration email failed:', err));
 
   // Create in-app notification
   createNotification({

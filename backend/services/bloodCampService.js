@@ -4,7 +4,6 @@ import userRepository from '../repositories/UserRepository.js';
 import donationRepository from '../repositories/DonationRepository.js';
 import { ApiError } from '../utils/apiError.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
-import { sendRegistrationConfirmationEmail } from '../utils/emailService.js';
 import { createNotification, broadcastNotification } from './notificationService.js';
 
 const CAMP_LIST_FIELDS = '_id name organizer organizerName date startTime endTime venue address city state targetUnits collectedUnits description contactPhone status registeredDonors.donor';
@@ -142,10 +141,6 @@ export const registerCamp = async (campId, userId) => {
   });
 
   await Promise.all([camp.save(), donation.save()]);
-
-  // Send confirmation email (async)
-  sendRegistrationConfirmationEmail(user, 'camp', camp)
-    .catch(err => console.error('Camp registration email failed:', err));
 
   // Create in-app notification
   createNotification({

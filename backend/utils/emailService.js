@@ -166,23 +166,6 @@ export const sendDonationReminderEmail = async (user) => {
   if (html) await sendEmail(user.email, 'You are eligible to save a life again! 🦸‍♂️', html);
 };
 
-export const sendRegistrationConfirmationEmail = async (user, type, entity) => {
-  const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
-  const unsubscribeUrl = generateUnsubscribeUrl(user.email);
-  const templateName = type === 'camp' ? 'campRegistration' : 'eventRegistration';
-
-  const html = await getTemplate(templateName, {
-    userName: escapeHtml(user.name),
-    title: escapeHtml(entity.name || entity.title),
-    date: new Date(entity.date).toLocaleDateString(),
-    time: `${entity.startTime} - ${entity.endTime}`,
-    venue: escapeHtml(entity.venue || entity.location?.name || 'TBD'),
-    organizer: escapeHtml(entity.organizerName || entity.organizer || 'Blood Bank'),
-    dashboardUrl,
-    unsubscribeUrl
-  });
-  if (html) await sendEmail(user.email, `${type.charAt(0).toUpperCase() + type.slice(1)} Registration Confirmed`, html);
-};
 
 export const sendBloodBankApprovalEmail = async (email, bloodBankName) => {
   const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/blood-bank-login`;
