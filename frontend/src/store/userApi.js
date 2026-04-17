@@ -1,5 +1,5 @@
 import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
+import { TAGS, tagList, tagListWithIds } from '../enum/tagType';
 import { USER_API_URLS } from '../enum/apiUrl';
 
 export const userApi = apiSlice.injectEndpoints({
@@ -25,7 +25,7 @@ export const userApi = apiSlice.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
-      invalidatesTags: tagList(TAGS.USER), // forces dashboard to re-verify profile/donor completion
+      invalidatesTags: tagList(TAGS.USER), 
     }),
     
     getDonors: builder.query({
@@ -86,6 +86,13 @@ export const userApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: tagList(TAGS.USER),
     }),
+    verifyAadhar: builder.mutation({
+      query: (data) => ({
+        url: USER_API_URLS.VERIFY_AADHAAR,
+        method: 'POST',
+        body: data,
+      }),
+    }),
   }),
   overrideExisting: false,
 });
@@ -102,4 +109,5 @@ export const {
   useVerifyResetTokenMutation,
   useChangeUserPasswordMutation,
   useUploadPhotoMutation,
+  useVerifyAadharMutation,
 } = userApi;

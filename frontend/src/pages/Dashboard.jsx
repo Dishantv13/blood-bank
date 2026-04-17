@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
@@ -16,7 +16,7 @@ import { useGetAllCampsQuery } from '../store/bloodCampApi';
 import { useGetMyDonationsQuery } from '../store/donationApi';
 import DonateBloodModal from '../components/DonateBloodModal';
 import { ROUTE_PATH } from '../enum/routePath';
-import { FaCheckCircle, FaAward, FaHistory, FaTint, FaArrowRight } from 'react-icons/fa';
+import { FaTint, FaArrowRight } from 'react-icons/fa';
 import '../pages.css/Dashboard.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 import EmptyState from '../components/EmptyState';

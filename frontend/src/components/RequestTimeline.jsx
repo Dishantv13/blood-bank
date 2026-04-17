@@ -1,4 +1,3 @@
-import React from 'react';
 import { FiCheckCircle, FiCircle, FiClock, FiAlertCircle, FiPackage } from "react-icons/fi";
 
 const RequestTimeline = ({ timeline }) => {

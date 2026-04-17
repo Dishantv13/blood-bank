@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useGetInventoryOverviewQuery } from '../store/adminApi.js';

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useGetNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutation, useDeleteNotificationMutation } from '../store/notificationApi';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useForgotBloodBankPasswordMutation, useResetBloodBankPasswordMutation, useVerifyBloodBankResetTokenMutation } from '../store/bloodBankApi';
+import { useState, useEffect } from 'react';
+import { useResetBloodBankPasswordMutation, useVerifyBloodBankResetTokenMutation } from '../store/bloodBankApi';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { MIN_PASSWORD_LENGTH } from '../enum/constants';

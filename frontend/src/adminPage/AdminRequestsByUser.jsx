@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllRequestsQuery, useGetUserByIdQuery } from '../store/adminApi.js';
 import AdminTable from './AdminTable.jsx';
 const AdminRequestsByUser = () => {

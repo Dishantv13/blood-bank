@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
-import { useUpdateDonorInfoMutation } from '../store/userApi';
-import axios from 'axios';
+import { useUpdateDonorInfoMutation, useVerifyAadharMutation } from '../store/userApi';
 import { ROUTE_PATH } from '../enum/routePath';
-import { USER_API_URLS } from '../enum/apiUrl';
 import { FaShieldAlt, FaCheck, FaSatelliteDish, FaMapMarkerAlt, FaFileAlt, FaUndo, FaCheckCircle } from 'react-icons/fa';
 import '../pages.css/DonorHealthForm.css';
 
@@ -80,6 +78,7 @@ const DonorHealthForm = () => {
   const [error, setError] = useState('');
 
   const [updateDonorInfo, { isLoading }] = useUpdateDonorInfoMutation();
+  const [verifyAadhar] = useVerifyAadharMutation();
 
   const {
     register,
@@ -152,12 +151,6 @@ const DonorHealthForm = () => {
   const handleAadharVerification = async (file) => {
     if (!file) return;
 
-    // Helper to get CSRF token from cookies (Standard in this project)
-    const getCsrfToken = () => {
-      const match = document.cookie.match(/(?:^|; )bb_user_csrf=([^;]*)/);
-      return match ? decodeURIComponent(match[1]) : null;
-    };
-
     setIsScanning(true);
     setAadharVerified(false);
     setError('');
@@ -178,27 +171,20 @@ const DonorHealthForm = () => {
     formData.append('document', file);
 
     try {
-      const response = await axios.post(USER_API_URLS.VERIFY_AADHAAR, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'x-csrf-token': getCsrfToken()
-        },
-        withCredentials: true
-      });
-
-      if (response.data.success) {
-        // Accessing Nested Data from the Backend's Standard Response Wrapper
-        const extractedDob = response.data.data?.dob || response.data.dob;
+      const response = await verifyAadhar(formData).unwrap();
+      
+      const extractedDob = response?.dob || response?.data?.dob;
+      if (extractedDob) {
         setValue('dateOfBirth', extractedDob);
         setAadharVerified(true);
         toast.success('Security Match: Verified by Secure ID Server.');
       } else {
-        throw new Error(response.data.message || 'Verification Failed');
+        throw new Error('Verification Failed - No DOB extracted');
       }
 
     } catch (err) {
-      console.error('[Identity] Connection failed:', err.response?.data || err.message);
-      setError(`Security Failure: ${err.response?.data?.message || 'Server connection interrupted.'}`);
+      console.error('[Identity] Connection failed:', err);
+      setError(`Security Failure: ${err.message || 'Server connection interrupted.'}`);
       toast.error('Identity Verification Failed.');
     } finally {
       setIsScanning(false);

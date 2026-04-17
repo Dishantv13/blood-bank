@@ -1,4 +1,3 @@
-import React from 'react';
 import { FaGlobe, FaUsers, FaHospital } from 'react-icons/fa';
 import '../components.css/EventCard.css';
 

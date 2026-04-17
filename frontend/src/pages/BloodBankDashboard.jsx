@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { useGetBloodBankRequestsQuery, useUpdateRequestStatusMutation } from '../store/requestApi';
@@ -12,7 +12,6 @@ import BloodBankSidebar from '../components/BloodBankSidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { ROUTE_PATH } from '../enum/routePath';
-import { FaCalendarAlt, FaChartBar } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import '../pages.css/BloodBankDashboard.css';
 

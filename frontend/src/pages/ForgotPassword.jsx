@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useForgotPasswordMutation } from '../store/userApi';
 import { Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';

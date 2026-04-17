@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer';
 import { useAuth } from '../context/AuthContext';
-import { FaLock, FaExclamationTriangle } from 'react-icons/fa';
 import { useCreateRequestMutation } from '../store/requestApi';
 import { ROUTE_PATH } from '../enum/routePath';
 import { BLOOD_GROUPS } from '../enum/constants';

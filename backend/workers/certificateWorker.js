@@ -7,8 +7,7 @@ const certificateWorker = new Worker(
   'certificate-generation',
   async (job) => {
     const { donationId } = job.data;
-    console.log(`[Worker] Generating certificate for donation: ${donationId}`);
-
+    
     try {
       // 1. Fetch donation details
       const donation = await donationRepository.findById(donationId, {
@@ -19,18 +18,20 @@ const certificateWorker = new Worker(
         ],
       });
 
-      if (!donation) throw new Error('Donation record not found');
+      if (!donation) {
+        throw new Error('Donation record not found');
+      }
 
       const pdfBuffer = await certificateService.generateDonationCertificate(donation);
 
-      console.log(`[Worker] Successfully generated certificate for ${donationId}`);
-      
       return { 
         success: true, 
         donationId,
+        size: pdfBuffer.length
       };
     } catch (error) {
-      console.error(`[Worker] Failed for donation ${donationId}:`, error.message);
+      console.error(`[Worker] ❌ ERROR in Job ${job.id} (Donation: ${donationId}):`);
+      console.error(`[Worker] Message: ${error.message}`);
       throw error; 
     }
   },
@@ -41,11 +42,11 @@ const certificateWorker = new Worker(
 );
 
 certificateWorker.on('completed', (job) => {
-  console.log(`[Worker] Job ${job.id} completed. Data cleaned from Redis.`);
+  // Silent success
 });
 
 certificateWorker.on('failed', (job, err) => {
-  console.error(`[Worker] Job ${job.id} failed after retries:`, err.message);
+  console.error(`[Worker] 💥 Job ${job.id} FAILED permanently: ${err.message}`);
 });
 
 export default certificateWorker;

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useGetAllRequestsQuery } from '../store/requestApi';
 import RequestStatusBadge from './RequestStatusBadge';
 import { FiMapPin, FiDroplet, FiArrowRight } from "react-icons/fi";

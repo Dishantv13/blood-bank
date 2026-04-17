@@ -1,4 +1,3 @@
-import React from 'react';
 import { FaAward, FaHeart, FaMedal, FaStar, FaShieldAlt } from 'react-icons/fa';
 
 const DonorBadges = ({ donorInfo }) => {

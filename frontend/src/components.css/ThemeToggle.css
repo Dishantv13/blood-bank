@@ -1,50 +1,71 @@
-.theme-toggle {
+.theme-toggle-premium {
   background: transparent;
-  border: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  padding: 8px;
+  border-radius: 12px;
   cursor: pointer;
-  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 0.3s;
-}
-
-.theme-toggle:hover {
-  opacity: 0.8;
-}
-
-.toggle-track {
-  width: 50px;
-  height: 26px;
-  background-color: var(--border-color, #e0e0e0);
-  border-radius: 30px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #ffffff;
   position: relative;
-  transition: background-color 0.3s ease;
-  display: flex;
-  align-items: center;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+  width: 42px;
+  height: 42px;
 }
 
-.theme-toggle.dark .toggle-track {
-  background-color: #2c3e50;
+.theme-toggle-premium:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.toggle-thumb {
-  width: 22px;
-  height: 22px;
-  background-color: white;
-  border-radius: 50%;
-  position: absolute;
-  left: 2px;
+.theme-toggle-premium:active {
+  transform: translateY(0);
+}
+
+.icon-wrapper {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  color: #f59e0b; /* Sun color */
+  width: 100%;
+  height: 100%;
 }
 
-.theme-toggle.dark .toggle-thumb {
-  transform: translateX(24px);
-  color: #6366f1; /* Moon color */
+.theme-icon {
+  width: 20px;
+  height: 20px;
+  transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.theme-icon.moon {
+  color: #6366f1; /* Indigo moon */
+}
+
+.theme-icon.sun {
+  color: #f59e0b; /* Amber sun */
+}
+
+/* Navbar specific override */
+.navbar .theme-toggle-premium {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+}
+
+.navbar .theme-toggle-premium:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Dark mode specific adjustments */
+[data-theme='dark'] .theme-toggle-premium {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme='dark'] .theme-toggle-premium:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #ffffff;
 }

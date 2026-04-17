@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useGetBloodBankEventsQuery, useGetEventRegistrationsQuery, useCreateEventMutation, useUpdateEventMutation, useDeleteEventMutation, useExportEventRegistrationsMutation } from '../store/eventApi';
 import EventCard from './EventCard';
 import EventFormModal from './EventFormModal';

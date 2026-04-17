@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useGetBloodBankEventsQuery, useUpdateEventMutation, useDeleteEventMutation, useExportEventRegistrationsMutation } from '../store/eventApi';
 import '../pages.css/BloodBankEvents.css';
 import SkeletonLoader from '../components/SkeletonLoader';

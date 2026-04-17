@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useGetMyDonationsQuery } from '../store/donationApi';
 import DonationTimeline from '../components/DonationTimeline';
 import DonorBadges from '../components/DonorBadges';
@@ -11,7 +11,7 @@ import { ROUTE_PATH } from '../enum/routePath';
 import '../pages.css/DonationHistory.css';
 
 const DonationHistory = () => {
-  const { user } = useAuth();
+  const { user } = useAuth(); 
   const { data, isLoading, isError } = useGetMyDonationsQuery();
   
   const [activeTab, setActiveTab] = useState('timeline');

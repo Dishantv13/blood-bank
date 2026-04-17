@@ -1,6 +1,4 @@
-import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ROUTE_PATH } from "../enum/routePath";
 import { useGetInventoryByIdQuery } from "../store/adminApi.js";
 import "../adminPage.css/AdminInventory.css";
 

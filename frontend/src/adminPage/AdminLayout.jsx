@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -6,8 +6,9 @@ import { ROUTE_PATH } from '../enum/routePath';
 import { 
   FiHome, FiUsers, FiActivity, FiMapPin, FiCalendar, 
   FiClipboard, FiPackage, FiBarChart2, FiLogOut, 
-  FiMenu, FiX, FiBell, FiSettings, FiMoon, FiSun, FiHeart, FiArrowLeft
+  FiMenu, FiX, FiBell, FiSettings, FiHeart, FiArrowLeft
 } from 'react-icons/fi';
+import ThemeToggle from '../components/ThemeToggle';
 import '../adminPage.css/AdminPremium.css';
 
 const AdminLayout = () => {
@@ -18,7 +19,6 @@ const AdminLayout = () => {
   const [isMobileView, setIsMobileView] = useState(isInitialMobile);
   const [isCompactView, setIsCompactView] = useState(isInitialCompact);
   const { adminUser, logoutAdmin } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -156,13 +156,7 @@ const AdminLayout = () => {
           
           <div className="top-bar-right">
             <div className="admin-actions">
-              <button 
-                className="icon-btn tooltip" 
-                data-tooltip={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-                onClick={toggleTheme}
-              >
-                {theme === 'light' ? <FiMoon /> : <FiSun />}
-              </button>
+              <ThemeToggle />
               <button className="icon-btn tooltip" data-tooltip="Notifications">
                 <FiBell />
                 <span className="notification-dot"></span>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useGetBloodBankByIdQuery } from '../store/bloodBankApi';
 import { useCreateInterBankRequestMutation } from '../store/requestApi';

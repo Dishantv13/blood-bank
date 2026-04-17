@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useChangeUserPasswordMutation } from '../store/userApi';
 import { MIN_PASSWORD_LENGTH } from '../enum/constants';
 import { FaCheckCircle, FaEye, FaEyeSlash } from 'react-icons/fa';

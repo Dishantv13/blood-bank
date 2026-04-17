@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useGetBloodBankByIdQuery } from '../store/adminApi.js';
 import MapModal from '../components/MapModal';

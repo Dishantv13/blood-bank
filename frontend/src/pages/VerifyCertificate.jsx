@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useVerifyCertificateQuery } from '../store/donationApi';
 import { FaCheckCircle, FaTimesCircle, FaHeart, FaSpinner, FaHospital, FaCalendarAlt, FaTint } from 'react-icons/fa';

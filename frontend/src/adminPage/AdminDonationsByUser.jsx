@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllDonationsQuery, useGetUserByIdQuery } from '../store/adminApi.js';
 import AdminTable from './AdminTable.jsx';
 
@@ -14,7 +13,7 @@ const AdminDonationsByUser = () => {
   const { data: userData } = useGetUserByIdQuery(userId, { skip: !userId });
   const { data: donationsData, isLoading } = useGetAllDonationsQuery(
     {
-      userId,
+      userId, 
       page,
       limit: 10,
       ...filters,

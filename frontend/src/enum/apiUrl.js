@@ -129,7 +129,7 @@ export const USER_API_URLS = {
     GET_PROFILE: '/users/profile',
     UPDATE_PROFILE: '/users/profile',
     UPDATE_DONOR_INFO: '/users/donor-info',
-    VERIFY_AADHAAR: '/api/v1/users/verify-aadhaar',
+    VERIFY_AADHAAR: '/users/verify-aadhaar',
     UPLOAD_PHOTO: '/users/profile/photo',
 
     // Donors

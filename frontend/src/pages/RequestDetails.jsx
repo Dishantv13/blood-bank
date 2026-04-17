@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useGetRequestByIdQuery, useUpdateRequestStatusMutation } from '../store/requestApi';
 import RequestTimeline from '../components/RequestTimeline';

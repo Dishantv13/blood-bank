@@ -1,4 +1,3 @@
-import React from 'react';
 import '../components.css/InventoryModal.css';
 
 const InventoryModal = ({ bloodBank, onClose }) => {

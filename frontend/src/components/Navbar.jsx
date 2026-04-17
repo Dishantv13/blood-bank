@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useGetAllBloodBanksQuery } from '../store/bloodBankApi';
@@ -7,7 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import { ROUTE_PATH } from '../enum/routePath';
 import NotificationCenter from './NotificationCenter';
 import { useGetUnreadCountQuery } from '../store/notificationApi';
-import { FaHistory, FaUserEdit, FaAward } from 'react-icons/fa';
+import { FaHistory, FaUserEdit } from 'react-icons/fa';
 
 const dropdownItemClass = "dropdown-item";
 
@@ -29,8 +29,6 @@ const Navbar = () => {
     navigate(ROUTE_PATH.LOGIN);
   };
 
-  // RTK Query takes care of the fetching and the 10-minute polling automatically
-  // Search results are filtered based on authentication status and user mode
   const skip = !isAuthenticated;
   const { data: bbRes } = useGetAllBloodBanksQuery(undefined, { pollingInterval: 600000, skip });
   const { data: donorsRes } = useGetDonorsQuery({}, { pollingInterval: 600000, skip });

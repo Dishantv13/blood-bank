@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ROUTE_PATH } from "../enum/routePath";
 import { useGetCampsByBloodBankQuery } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
 

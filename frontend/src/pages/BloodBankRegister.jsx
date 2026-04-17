@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import {
@@ -14,7 +14,6 @@ import {
   emailValidator,
   licenseNumberValidator,
   nameValidator,
-  optionalEmailValidator,
   optionalPhoneValidator,
   phoneValidator,
   pincodeValidator,
@@ -502,10 +501,10 @@ const BloodBankRegister = () => {
           <input
             type={showPassword ? 'password' : 'text'}
             id="password"
-            placeholder="Min 12 characters"
+            placeholder="Min 8 characters"
             {...register('password', {
               required: 'Password is required',
-              minLength: { value: 12, message: 'Password must be at least 12 characters' },
+              minLength: { value: 8, message: 'Password must be at least 8 characters' },
             })}
           />
           <button

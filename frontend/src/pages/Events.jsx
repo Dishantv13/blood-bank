@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useGetAllEventsQuery, useRegisterForEventMutation } from '../store/eventApi';
 import { useGetAllCampsQuery, useRegisterForCampMutation } from '../store/bloodCampApi';
 import { useAuth } from '../context/AuthContext';

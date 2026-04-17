@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetAllBloodBanksQuery } from '../store/bloodBankApi';
 import { BLOOD_GROUPS } from '../enum/constants';

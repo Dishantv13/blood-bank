@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { MIN_PASSWORD_LENGTH } from '../enum/constants';
 import { FaHospital, FaCheckCircle, FaEye, FaEyeSlash } from 'react-icons/fa';

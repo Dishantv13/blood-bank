@@ -1,5 +1,3 @@
-import React from 'react';
-
 const CompatibilityChart = ({ bloodGroup }) => {
   const compatibilityMap = {
     'A+': { give: ['A+', 'AB+'], receive: ['A+', 'A-', 'O+', 'O-'] },

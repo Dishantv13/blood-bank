@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useForgotBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';

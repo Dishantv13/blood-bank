@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 const DESTRUCTIVE_STATUSES = new Set(['suspended', 'inactive', 'rejected', 'cancelled']);
 

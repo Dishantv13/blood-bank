@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGetAllUsersQuery, useUpdateUserStatusMutation } from '../store/adminApi.js';
 import AdminTable from './AdminTable.jsx';
 
@@ -13,16 +13,7 @@ const AdminUsers = () => {
     limit: 10,
     ...filters,
   });
-
-  const handleStatusChange = async (userId, newStatus) => {
-    if (!newStatus) return;
-    try {
-      await updateUserStatus({ userId, status: newStatus }).unwrap();
-    } catch (error) {
-      console.error('Failed to update user status:', error);
-    }
-  };
-
+  
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);

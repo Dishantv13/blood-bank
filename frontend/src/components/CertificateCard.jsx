@@ -1,4 +1,3 @@
-import React from 'react';
 import { FaDownload, FaCertificate, FaCheckCircle, FaSpinner } from 'react-icons/fa';
 import { useDownloadCertificateMutation } from '../store/donationApi';
 import { useToast } from '../components/ToastContainer';
