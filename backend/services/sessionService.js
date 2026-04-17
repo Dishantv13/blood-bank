@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import AuthSession from '../models/AuthSession.model.js';
+import redisClient from '../utils/redisClient.js';
+import { hashToken } from '../utils/authCookies.js';
 
 const buildPrincipalQuery = ({ role, userId = null, bloodBankId = null, adminEmail = null }) => {
   const query = { role };
@@ -13,6 +15,8 @@ const buildPrincipalQuery = ({ role, userId = null, bloodBankId = null, adminEma
   return query;
 };
 
+const getRevocationKey = (sessionId) => `auth:revoked:${sessionId}`;
+
 const getRequestIp = (req) => String(req.ip || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
 const getRequestUserAgent = (req) => String(req.get?.('user-agent') || req.headers['user-agent'] || '').trim().slice(0, 512);
 
@@ -21,6 +25,7 @@ export const createAuthSession = async ({
   role,
   refreshTokenHash,
   refreshTokenExpiresAt,
+  csrfTokenHash = null,
   tokenVersion,
   req,
   userId = null,
@@ -36,6 +41,7 @@ export const createAuthSession = async ({
     bloodBankId,
     adminEmail,
     refreshTokenHash,
+    csrfTokenHash,
     tokenVersion,
     expiresAt: new Date(refreshTokenExpiresAt),
     lastUsedAt: new Date(),
@@ -47,19 +53,45 @@ export const createAuthSession = async ({
 };
 
 export const getAuthSessionForRefresh = async ({ role, sessionId }) =>
-  AuthSession.findOne({ role, sessionId }).select('+refreshTokenHash +previousRefreshTokenHash').lean();
+  AuthSession.findOne({ role, sessionId }).select('+refreshTokenHash +previousRefreshTokenHash +csrfTokenHash +previousCsrfTokenHash').lean();
+
+export const isSessionValid = async (role, sessionId) => {
+  if (!sessionId) {
+    console.warn(`[AUTH] Session validation bypassed for role ${role} due to missing sessionId (migration transition).`);
+    return true;
+  }
+
+  // 1. Check Redis blacklist first (Fast path)
+  const isBlacklisted = await redisClient.get(getRevocationKey(sessionId));
+  if (isBlacklisted) return false;
+
+  // 2. Check DB status
+  const session = await AuthSession.findOne({ role, sessionId })
+    .select('revokedAt expiresAt')
+    .lean();
+
+  if (!session || session.revokedAt || new Date(session.expiresAt) < new Date()) {
+    // Cache negative result to prevent DB hammering
+    await redisClient.set(getRevocationKey(sessionId), 'true', 3600);
+    return false;
+  }
+
+  return true;
+};
 
 export const rotateAuthSession = async ({
   role,
   sessionId,
   refreshTokenHash,
   refreshTokenExpiresAt,
+  csrfTokenHash = null,
   tokenVersion,
   req,
   isGraceUpdate = false,
 }) => {
   const update = {
     refreshTokenHash,
+    csrfTokenHash,
     expiresAt: new Date(refreshTokenExpiresAt),
     tokenVersion,
     lastUsedAt: new Date(),
@@ -68,16 +100,31 @@ export const rotateAuthSession = async ({
     userAgent: getRequestUserAgent(req),
   };
 
-  // Only move current hash to previous if this isn't already a grace-period update.
-  // This preserves the "original" old token for multiple concurrent tab refreshes.
+  // Rotate hashes if this isn't a grace update
   if (!isGraceUpdate) {
-    const session = await AuthSession.findOne({ role, sessionId }).select('refreshTokenHash');
+    const session = await AuthSession.findOne({ role, sessionId }).select('refreshTokenHash csrfTokenHash');
     update.previousRefreshTokenHash = session?.refreshTokenHash || null;
+    update.previousCsrfTokenHash = session?.csrfTokenHash || null;
   }
 
   await AuthSession.updateOne(
     { role, sessionId, revokedAt: null },
     { $set: update }
+  );
+};
+
+export const updateCsrfToken = async ({ role, sessionId, csrfTokenHash }) => {
+  const session = await AuthSession.findOne({ role, sessionId }).select('csrfTokenHash');
+  
+  await AuthSession.updateOne(
+    { role, sessionId, revokedAt: null },
+    { 
+      $set: { 
+        csrfTokenHash,
+        previousCsrfTokenHash: session?.csrfTokenHash || null,
+        rotatedAt: new Date()
+      } 
+    }
   );
 };
 
@@ -93,6 +140,9 @@ export const revokeAuthSession = async ({ role, sessionId, reason = 'revoked' })
     { role, sessionId, revokedAt: null },
     { $set: { revokedAt: new Date(), revokeReason: reason } }
   );
+  
+  // Sync to Redis immediately to kill active Access Tokens
+  await redisClient.set(getRevocationKey(sessionId), 'true', 3600);
 };
 
 export const revokeAllPrincipalSessions = async ({
@@ -102,18 +152,26 @@ export const revokeAllPrincipalSessions = async ({
   adminEmail = null,
   reason = 'revoked_all',
 }) => {
-  await AuthSession.updateMany(
-    {
-      ...buildPrincipalQuery({ role, userId, bloodBankId, adminEmail }),
-      revokedAt: null,
+  // 1. Find all active sessions for this principal
+  const query = {
+    ...buildPrincipalQuery({ role, userId, bloodBankId, adminEmail }),
+    revokedAt: null,
+  };
+  
+  const activeSessions = await AuthSession.find(query).select('sessionId').lean();
+  
+  // 2. Update DB
+  await AuthSession.updateMany(query, {
+    $set: {
+      revokedAt: new Date(),
+      revokeReason: reason,
     },
-    {
-      $set: {
-        revokedAt: new Date(),
-        revokeReason: reason,
-      },
-    }
-  );
+  });
+
+  // 3. Sync to Redis for all sessions
+  for (const session of activeSessions) {
+    await redisClient.set(getRevocationKey(session.sessionId), 'true', 3600);
+  }
 };
 
 export const logRefreshReuseDetected = ({ role, sessionId, principal, ip, userAgent }) => {
@@ -125,4 +183,28 @@ export const logRefreshReuseDetected = ({ role, sessionId, principal, ip, userAg
     userAgent,
     detectedAt: new Date().toISOString(),
   });
+};
+
+export const validateSessionCsrf = async ({ role, sessionId, csrfToken }) => {
+  if (!sessionId) return true;
+  if (!csrfToken) return false;
+
+  const session = await AuthSession.findOne({ role, sessionId })
+    .select('+csrfTokenHash +previousCsrfTokenHash rotatedAt')
+    .lean();
+  
+  if (!session || session.revokedAt) return false;
+
+  const incomingHash = hashToken(csrfToken);
+  
+  // 1. Check current hash
+  if (session.csrfTokenHash === incomingHash) return true;
+
+  // 2. Check previous hash (Grace period: 10 seconds)
+  const isGraceWindow = session.rotatedAt && (Date.now() - new Date(session.rotatedAt).getTime() < 10000);
+  if (isGraceWindow && session.previousCsrfTokenHash === incomingHash) {
+    return true;
+  }
+
+  return false;
 };

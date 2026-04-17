@@ -1,9 +1,7 @@
 import twilio from 'twilio';
 let client = null;
 
-// Sends SMS via Twilio using lazy initialization for .env safety
 export const sendSMS = async (to, message) => {
-  // Initialize client only when first needed
   if (!client && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
     client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   }

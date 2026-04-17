@@ -54,8 +54,8 @@ export const getSession = asyncHandler(async (req, res) => {
   successResponse(res, result, 200, 'Session fetched successfully');
 });
 
-export const getCsrfToken = asyncHandler(async (_req, res) => {
-  const result = authService.issueUserCsrfToken(res);
+export const getCsrfToken = asyncHandler(async (req, res) => {
+  const result = await authService.issueUserCsrfToken(req, res);
   successResponse(res, result, 200, 'CSRF token generated');
 });
 

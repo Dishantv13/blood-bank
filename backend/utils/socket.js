@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import jwt from 'jsonwebtoken';
 import { getRedisClient } from '../config/redis.js';
+import { isSessionValid } from '../services/sessionService.js';
 
 let io;
 
@@ -31,8 +32,7 @@ export const initSocket = async (server) => {
       methods: ['GET', 'POST'],
       credentials: true
     },
-    // Production settings: Prevent ghost connections and optimize ping
-    pingTimeout: 70000, // Slightly higher to account for network jitter
+    pingTimeout: 70000,
     pingInterval: 25000,
     transports: ['websocket', 'polling']
   });
@@ -87,12 +87,18 @@ export const initSocket = async (server) => {
       }
 
       // 4. Verify against the correct secret
-      jwt.verify(token, secret, (err, decoded) => {
+      jwt.verify(token, secret, async (err, decoded) => {
         if (err) {
           console.warn(`[WS Auth] Unauthorized attempt (${roleType}): ${err.message}`);
           return next(new Error('Authentication error: Invalid session'));
         }
         
+        // SESSION ENFORCEMENT: Check if session is revoked in DB/Redis
+        if (!(await isSessionValid(roleType, decoded.sid))) {
+          console.warn(`[WS Auth] Revoked session access attempt: ${decoded.sid}`);
+          return next(new Error('Authentication error: Session revoked'));
+        }
+
         socket.user = decoded;
         socket.roleType = roleType; // Track which auth method was used
         next();
@@ -105,7 +111,6 @@ export const initSocket = async (server) => {
 
   // Client Connection Logic
   io.on('connection', (socket) => {
-    // Robust identifier extraction (Support for User, BloodBank, and Admin roles)
     const rawId = socket.user.userId || socket.user.bloodBankId || socket.user.adminEmail || socket.user._id || socket.user.id;
     
     if (!rawId) {
@@ -116,7 +121,6 @@ export const initSocket = async (server) => {
     const userId = rawId.toString();
     console.log(`[WS] Client connected: ${userId} (${socket.id}) [Role: ${socket.roleType || 'unknown'}]`);
 
-    // Organize rooms for targeted broadcasts
     socket.join(`user:${userId}`);
     
     // Role-based rooms

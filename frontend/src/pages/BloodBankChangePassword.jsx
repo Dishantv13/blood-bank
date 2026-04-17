@@ -135,7 +135,7 @@ const BloodBankChangePassword = () => {
                   {showNewPassword ? '👁️' : '👁️‍🗨️'}
                 </button>
               </div>
-              <small>Must be at least 6 characters</small>
+              <small>Must be at least {MIN_PASSWORD_LENGTH} characters</small>
             </div>
 
             {/* Confirm Password */}
@@ -195,7 +195,11 @@ const BloodBankChangePassword = () => {
             <div className="password-requirements">
               <h4>Password Requirements:</h4>
               <ul>
-                <li>At least 6 characters long</li>
+                <li>At least {MIN_PASSWORD_LENGTH} characters long</li>
+                <li>Must contain at least one uppercase letter</li>
+                <li>Must contain at least one lowercase letter</li>
+                <li>Must contain at least one number</li>
+                <li>Must contain at least one special character</li>
                 <li>Different from current password</li>
                 <li>Both passwords must match</li>
               </ul>

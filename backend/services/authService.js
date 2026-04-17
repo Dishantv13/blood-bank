@@ -21,6 +21,8 @@ import {
   setAuthCookies,
   verifyRefreshToken,
   getPublicCookieOptions,
+  getAccessTokenFromRequest,
+  verifyAccessToken,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
@@ -32,6 +34,7 @@ import {
   revokeAllPrincipalSessions,
   revokeAuthSession,
   rotateAuthSession,
+  updateCsrfToken,
 } from './sessionService.js';
 
 const toPublicUser = (user) => sanitizeUser(user);
@@ -60,6 +63,11 @@ const toBase64Url = (buffer) =>
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/g, '');
+
+const fromBase64Url = (base64url) => {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  return Buffer.from(base64, 'base64').toString();
+};
 
 const createPkcePair = () => {
   const verifier = toBase64Url(crypto.randomBytes(32));
@@ -165,16 +173,13 @@ const getPrivateCookieOptions = () => ({
   maxAge: GOOGLE_OAUTH_COOKIE_TTL_MS,
 });
 
-const clearGoogleOauthCookies = (res) => {
-  const clearOptions = {
-    ...getPrivateCookieOptions(),
-    maxAge: 0,
-  };
-
-  res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, clearOptions);
-  res.clearCookie(GOOGLE_OAUTH_NONCE_COOKIE, clearOptions);
-  res.clearCookie(GOOGLE_OAUTH_VERIFIER_COOKIE, clearOptions);
-  res.clearCookie(GOOGLE_OAUTH_MODE_COOKIE, clearOptions);
+export const clearGoogleOauthCookies = (res, clearMode = false) => {
+  res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE, getPrivateCookieOptions());
+  res.clearCookie(GOOGLE_OAUTH_NONCE_COOKIE, getPrivateCookieOptions());
+  res.clearCookie(GOOGLE_OAUTH_VERIFIER_COOKIE, getPrivateCookieOptions());
+  if (clearMode) {
+    res.clearCookie(GOOGLE_OAUTH_MODE_COOKIE, getPrivateCookieOptions());
+  }
 };
 
 const resolveGoogleMode = (rawMode) => {
@@ -211,6 +216,7 @@ const createUserSession = async (req, res, user) => {
     userId: user.id,
     refreshTokenHash: hashToken(refreshToken),
     refreshTokenExpiresAt,
+    csrfTokenHash: hashToken(csrfToken),
     tokenVersion,
     req,
   });
@@ -236,11 +242,29 @@ const incrementUserTokenVersion = async (userId, reason = 'security_event') => {
   return updatedUser;
 };
 
-export const issueUserCsrfToken = (res) => {
+export const issueUserCsrfToken = async (req, res) => {
   const { csrfCookie } = getCookieNamesForRole('user');
   const csrfToken = generateCsrfToken();
 
   res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
+
+  // If user has an active session, sync the new CSRF token so subsequent state-changing
+  // requests are accepted without requiring a full session refresh.
+  const accessToken = getAccessTokenFromRequest(req, 'user');
+  if (accessToken) {
+    try {
+      const decoded = verifyAccessToken('user', accessToken);
+      if (decoded.sid) {
+        await updateCsrfToken({ 
+          role: 'user', 
+          sessionId: decoded.sid, 
+          csrfTokenHash: hashToken(csrfToken) 
+        });
+      }
+    } catch (_error) {
+      // Ignore errors if token is invalid - client will handle 401 later
+    }
+  }
 
   return { csrfToken };
 };
@@ -263,14 +287,17 @@ export const getGoogleOAuthStartUrl = async (req, res) => {
   const redirectUri = getGoogleRedirectUri(req);
   const mode = resolveGoogleMode(req.query?.mode);
 
-  const stateRaw = toBase64Url(crypto.randomBytes(32));
+  const statePayload = JSON.stringify({
+    mode,
+    nonce: crypto.randomBytes(16).toString('hex')
+  });
+  const stateRaw = toBase64Url(statePayload);
   const nonceRaw = toBase64Url(crypto.randomBytes(32));
   const { verifier, challenge } = createPkcePair();
 
   res.cookie(GOOGLE_OAUTH_STATE_COOKIE, hashToken(stateRaw), getPrivateCookieOptions());
   res.cookie(GOOGLE_OAUTH_NONCE_COOKIE, hashToken(nonceRaw), getPrivateCookieOptions());
   res.cookie(GOOGLE_OAUTH_VERIFIER_COOKIE, verifier, getPrivateCookieOptions());
-  res.cookie(GOOGLE_OAUTH_MODE_COOKIE, mode, getPrivateCookieOptions());
 
   const authUrl = new URL(GOOGLE_OAUTH_AUTH_ENDPOINT);
   authUrl.searchParams.set('client_id', clientId);
@@ -289,11 +316,19 @@ export const getGoogleOAuthStartUrl = async (req, res) => {
 };
 
 export const completeGoogleOAuthAndCreateSession = async (req, res) => {
-  const mode = resolveGoogleMode(req.cookies?.[GOOGLE_OAUTH_MODE_COOKIE]);
+  const state = String(req.query?.state || '');
+  let mode = 'login';
+  
+  try {
+    const decodedState = JSON.parse(fromBase64Url(state));
+    mode = resolveGoogleMode(decodedState.mode);
+  } catch (e) {
+    // If state is not our JSON format, it might be an old flow or invalid
+  }
+
   const fail = (reason) => ({ redirectUrl: buildFrontendRedirect(mode, 'error', reason) });
 
   const code = String(req.query?.code || '');
-  const state = String(req.query?.state || '');
   const oauthError = String(req.query?.error || '');
 
   if (oauthError) {
@@ -365,7 +400,7 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
 
     await createUserSession(req, res, result.user);
 
-    clearGoogleOauthCookies(res);
+    clearGoogleOauthCookies(res, true); // true to clear the now-deprecated mode cookie too
     return { redirectUrl: buildFrontendRedirect(mode, 'success') };
   } catch (error) {
     clearGoogleOauthCookies(res);
@@ -405,7 +440,7 @@ export const refreshUserSession = async (req, res) => {
     sessionRecord.revokedAt ||
     new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
     Number(decoded.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
-    Number(sessionRecord.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
+    Number(sessionRecord?.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
     !isTokenValid;
 
   if (requiresSessionRevoke) {
@@ -439,6 +474,9 @@ export const refreshUserSession = async (req, res) => {
     throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }
 
+  const sessionId = decoded.sid || crypto.randomUUID();
+  const isTransitioningFromLegacy = !decoded.sid || !sessionRecord;
+
   const { refreshToken: nextRefreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
     res,
     'user',
@@ -447,40 +485,59 @@ export const refreshUserSession = async (req, res) => {
       email: decoded.email,
       role: decoded.role,
       type: 'user',
-      sid: decoded.sid,
+      sid: sessionId,
       tokenVersion: Number(sessionUser.tokenVersion || 0),
     }
   );
-  await rotateAuthSession({
-    role: 'user',
-    sessionId: decoded.sid,
-    refreshTokenHash: hashToken(nextRefreshToken),
-    refreshTokenExpiresAt,
-    tokenVersion: Number(sessionUser.tokenVersion || 0),
-    req,
-    isGraceUpdate: isGraceMatch,
-  });
+
+  if (isTransitioningFromLegacy) {
+    await createAuthSession({
+      sessionId: sessionId,
+      role: 'user',
+      userId: sessionUser._id,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: Number(sessionUser.tokenVersion || 0),
+      req,
+    });
+  } else {
+    await rotateAuthSession({
+      role: 'user',
+      sessionId: sessionId,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: Number(sessionUser.tokenVersion || 0),
+      req,
+      isGraceUpdate: isGraceMatch,
+    });
+  }
 
   const result = await getSessionUser(decoded.userId);
   return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
 export const logoutUserSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'user')) {
-    throw new ApiError(403, 'Invalid or missing CSRF token');
-  }
-
-  const refreshToken = getRefreshTokenFromRequest(req, 'user');
-  if (refreshToken) {
-    try {
-      const decoded = verifyRefreshToken('user', refreshToken);
-      await revokeAuthSession({ role: 'user', sessionId: decoded.sid, reason: 'logout' });
-    } catch (_error) {
-      // Still clear client cookies even if refresh token is already invalid.
+  try {
+    if (!enforceCsrfForRole(req, 'user')) {
+      console.warn('[AUTH] CSRF validation failed during logout attempt');
     }
-  }
+    const refreshToken = getRefreshTokenFromRequest(req, 'user');
+    if (refreshToken) {
+      try {
+        const decoded = verifyRefreshToken('user', refreshToken);
+        if (decoded?.sid) {
+          await revokeAuthSession({ role: 'user', sessionId: decoded.sid, reason: 'logout' });
+        }
+      } catch (_error) {
+      }
+    }
+  } finally {
 
-  clearAuthCookies(res, 'user');
+    clearAuthCookies(res, 'user');
+  }
+  
   return { success: true };
 };
 

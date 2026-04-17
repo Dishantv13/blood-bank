@@ -174,8 +174,6 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
     await createBloodUnit(updatedDonation);
   } catch (err) {
     console.error('Failed to create individual blood unit:', err);
-    // Don't throw here to avoid failing the whole donation record, 
-    // but in a strict system we might want atomic transactions.
   }
 
   return updatedDonation;

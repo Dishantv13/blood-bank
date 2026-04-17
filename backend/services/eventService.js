@@ -36,8 +36,6 @@ export const getAllEvents = async (query) => {
   startOfToday.setHours(0, 0, 0, 0);
   const baseFilter = { isActive: true, date: { $gte: startOfToday } };
 
-  // Geo-filtered queries: $near is incompatible with countDocuments;
-  // return a single bounded result page without total count.
   if (latitude && longitude) {
     const geoFilter = {
       ...baseFilter,
@@ -107,6 +105,9 @@ export const registerEvent = async (eventId, userId) => {
 
   event.registeredDonors.push(userId);
   await event.save();
+  
+  // Invalidate cache so the next getAllEvents call gets fresh data
+  await invalidateEventsCache();
 
   // Create in-app notification
   createNotification({

@@ -38,12 +38,10 @@ const initServices = async () => {
 
     // 2. Connect to Redis
     await getRedisClient();
-
-    // 3. Initialize HTTP & Socket.io (Only if not in serverless mode)
+    
     if (process.env.SERVERLESS !== 'true') {
       const httpServer = createServer(app);
       
-      // Initialize Socket.io with Redis Adapter Scaling
       await initSocket(httpServer);
 
       // 4. Initialize Background Workers (BullMQ)

@@ -51,9 +51,7 @@ export const getAllBloodRequests = async (query) => {
 
   // Sorting: Urgency first (critical > urgent > normal), then creation date
   const sort = {
-    urgency: 1, // We'll need a collation or map if we want custom ordering, 
-    // but since normal < urgent < critical alphabetically is not what we want,
-    // we'll handle this with a custom weight if needed, or just stay with createdAt for now.
+    urgency: 1,
     createdAt: -1
   };
 

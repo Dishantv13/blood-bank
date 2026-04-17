@@ -71,11 +71,6 @@ export const cleanupTempFile = async (filePath) => {
   }
 };
 
-/**
- * Multiple files upload middleware
- * Handles up to 10 files at a time
- * Validates MIME type and actual file content (magic bytes)
- */
 export const upload = multer({
   storage,
   fileFilter,

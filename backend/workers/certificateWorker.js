@@ -3,9 +3,6 @@ import { bullConnection } from '../config/bullmq.js';
 import * as certificateService from '../services/certificateService.js';
 import donationRepository from '../repositories/DonationRepository.js';
 
-/**
- * Worker to process certificate generation tasks.
- */
 const certificateWorker = new Worker(
   'certificate-generation',
   async (job) => {
@@ -24,26 +21,22 @@ const certificateWorker = new Worker(
 
       if (!donation) throw new Error('Donation record not found');
 
-      // 2. Generate PDF Buffer
       const pdfBuffer = await certificateService.generateDonationCertificate(donation);
 
-      // 3. Mark job as successful with the result (in-memory buffer for now)
-      // Note: In production, you would upload this to Cloudinary and return the URL
       console.log(`[Worker] Successfully generated certificate for ${donationId}`);
       
       return { 
         success: true, 
         donationId,
-        // pdfBuffer: pdfBuffer.toString('base64') // Optional: send back as base64 if needed immediately
       };
     } catch (error) {
       console.error(`[Worker] Failed for donation ${donationId}:`, error.message);
-      throw error; // Rethrow to trigger BullMQ retry logic
+      throw error; 
     }
   },
   { 
     connection: bullConnection,
-    concurrency: 2, // Process only 2 certificates at a time to save CPU
+    concurrency: 2,
   }
 );
 

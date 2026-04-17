@@ -21,10 +21,6 @@ export const uploadOnCloudinary = async (localFilePath, folder = 'blood-bank/pro
       folder: folder
     });
 
-    // File has been uploaded successfully
-    // console.log('File uploaded to Cloudinary:', response.url);
-
-    // Remove the file from the local server
     if (fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }
@@ -33,7 +29,6 @@ export const uploadOnCloudinary = async (localFilePath, folder = 'blood-bank/pro
   } catch (error) {
     console.error('Cloudinary upload error:', error);
 
-    // Remove the locally saved temporary file as the upload failed
     if (localFilePath && fs.existsSync(localFilePath)) {
       fs.unlinkSync(localFilePath);
     }

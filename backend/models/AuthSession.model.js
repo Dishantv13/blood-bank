@@ -42,6 +42,16 @@ const AuthSessionSchema = new mongoose.Schema({
     default: null,
     select: false,
   },
+  csrfTokenHash: {
+    type: String,
+    default: null,
+    select: false,
+  },
+  previousCsrfTokenHash: {
+    type: String,
+    default: null,
+    select: false,
+  },
   tokenVersion: {
     type: Number,
     required: true,

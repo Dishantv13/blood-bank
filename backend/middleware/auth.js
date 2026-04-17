@@ -2,9 +2,10 @@ import { asyncHandler } from "../utils/asynchandler.js";
 import User from "../models/User.model.js";
 import BloodBank from "../models/BloodBank.model.js";
 import AdminAuthState from "../models/AdminAuthState.model.js";
-import { verifyAccessToken, getAccessTokenFromRequest, isStateChangingMethod } from "../utils/authCookies.js";
+import { verifyAccessToken, getAccessTokenFromRequest, isStateChangingMethod, getCsrfTokenFromRequest } from "../utils/authCookies.js";
 import { enforceCsrfForRole } from "./csrf.js";
 import { BLOOD_BANK_SAFE_FIELDS, sanitizeBloodBank, USER_SAFE_FIELDS, sanitizeUser } from "../utils/serializers.js";
+import { isSessionValid, validateSessionCsrf } from "../services/sessionService.js";
 
 const unauthorized = (res, message = "No authentication token, access denied") =>
   res.status(401).json({ success: false, message });
@@ -12,9 +13,15 @@ const unauthorized = (res, message = "No authentication token, access denied") =
 const forbidden = (res, message = "Not authorized") =>
   res.status(403).json({ success: false, message });
 
-const applyCsrfGuard = (req, res, role) => {
+const applyCsrfGuard = async (req, res, role, sessionId) => {
   if (!isStateChangingMethod(req.method)) return true;
-  if (enforceCsrfForRole(req, role)) return true;
+
+  const { headerToken } = getCsrfTokenFromRequest(req, role);
+
+  if (await validateSessionCsrf({ role, sessionId, csrfToken: headerToken })) {
+    return true;
+  }
+
   forbidden(res, "Invalid or missing CSRF token");
   return false;
 };
@@ -60,15 +67,24 @@ const auth = asyncHandler(async (req, res, next) => {
     const decoded = verifyAccessToken("user", token);
 
     if (decoded.tokenType !== "access") {
-      return unauthorized(res, "Token is not valid");
+      return unauthorized(res, "Token is not a valid access token");
     }
 
     const user = await loadAuthenticatedUser(decoded.userId || decoded.id);
-    if (!user || !matchesTokenVersion(decoded, user.tokenVersion)) {
-      return unauthorized(res, "Session has been revoked");
+    if (!user) {
+      return unauthorized(res, "Authenticated user not found in database");
     }
 
-    if (!applyCsrfGuard(req, res, "user")) {
+    if (!matchesTokenVersion(decoded, user.tokenVersion)) {
+      return unauthorized(res, "Session has been revoked due to security event");
+    }
+
+    // SESSION ENFORCEMENT: Check if this specific session ID is still valid/active
+    if (!(await isSessionValid("user", decoded.sid))) {
+      return unauthorized(res, "Session has been revoked or is no longer active");
+    }
+
+    if (!(await applyCsrfGuard(req, res, "user", decoded.sid))) {
       return;
     }
 
@@ -79,7 +95,8 @@ const auth = asyncHandler(async (req, res, next) => {
     };
     next();
   } catch (error) {
-    return unauthorized(res, "Token is not valid");
+    console.error('[AUTH ERROR] User authentication failed:', error.message);
+    return unauthorized(res, `Token is not valid: ${error.message}`);
   }
 });
 
@@ -103,7 +120,12 @@ const adminAuth = asyncHandler(async (req, res, next) => {
       return unauthorized(res, "Session has been revoked");
     }
 
-    if (!applyCsrfGuard(req, res, "admin")) {
+    // SESSION ENFORCEMENT: Check if this specific session ID is still valid/active
+    if (!(await isSessionValid("admin", decoded.sid))) {
+      return unauthorized(res, "Session has been revoked or is no longer active");
+    }
+
+    if (!(await applyCsrfGuard(req, res, "admin", decoded.sid))) {
       return;
     }
 
@@ -113,7 +135,8 @@ const adminAuth = asyncHandler(async (req, res, next) => {
     };
     next();
   } catch (error) {
-    return unauthorized(res, "Token is not valid");
+    console.error('[AUTH ERROR] Admin authentication failed:', error.message);
+    return unauthorized(res, `Admin token is not valid: ${error.message}`);
   }
 });
 
@@ -128,8 +151,6 @@ const loadApprovedBloodBank = async (bloodBankId, requestingUserId = null) => {
     return { error: { status: 404, message: "Blood bank not found" } };
   }
 
-  // Verify the requesting user is the owner of this blood bank
-  // This prevents IDOR attacks where users access other blood banks
   if (requestingUserId && bloodBank.ownerId && String(bloodBank.ownerId) !== String(requestingUserId)) {
     return { error: { status: 403, message: "You do not have permission to access this blood bank" } };
   }
@@ -174,7 +195,12 @@ const bloodBankAuth = asyncHandler(async (req, res, next) => {
       return unauthorized(res, "Session has been revoked");
     }
 
-    if (!applyCsrfGuard(req, res, "bloodbank")) {
+    // SESSION ENFORCEMENT: Check if this specific session ID is still valid/active
+    if (!(await isSessionValid("bloodbank", decoded.sid))) {
+      return unauthorized(res, "Session has been revoked or is no longer active");
+    }
+
+    if (!(await applyCsrfGuard(req, res, "bloodbank", decoded.sid))) {
       return;
     }
 
@@ -186,7 +212,8 @@ const bloodBankAuth = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
-    return unauthorized(res, "Token is not valid");
+    console.error('[AUTH ERROR] Blood bank authentication failed:', error.message);
+    return unauthorized(res, `Blood bank token is not valid: ${error.message}`);
   }
 });
 
@@ -204,7 +231,12 @@ const authOrBloodBank = asyncHandler(async (req, res, next) => {
           return unauthorized(res, "Session has been revoked");
         }
 
-        if (!applyCsrfGuard(req, res, "user")) {
+        // SESSION ENFORCEMENT
+        if (!(await isSessionValid("user", decoded.sid))) {
+          return unauthorized(res, "Session has been revoked");
+        }
+
+        if (!(await applyCsrfGuard(req, res, "user", decoded.sid))) {
           return;
         }
 
@@ -241,7 +273,12 @@ const authOrBloodBank = asyncHandler(async (req, res, next) => {
       return unauthorized(res, "Session has been revoked");
     }
 
-    if (!applyCsrfGuard(req, res, "bloodbank")) {
+    // SESSION ENFORCEMENT
+    if (!(await isSessionValid("bloodbank", decoded.sid))) {
+      return unauthorized(res, "Session has been revoked");
+    }
+
+    if (!(await applyCsrfGuard(req, res, "bloodbank", decoded.sid))) {
       return;
     }
 
@@ -252,8 +289,9 @@ const authOrBloodBank = asyncHandler(async (req, res, next) => {
     };
 
     return next();
-  } catch (_error) {
-    return unauthorized(res, "Token is not valid");
+  } catch (error) {
+    console.error('[AUTH ERROR] Blood bank authentication failed:', error.message);
+    return unauthorized(res, `Blood bank token is not valid: ${error.message}`);
   }
 });
 

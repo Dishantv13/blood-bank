@@ -2,9 +2,6 @@ import * as locationService from '../services/locationService.js';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 
-/**
- * GET /api/v1/search/availability
- */
 export const searchAvailability = asyncHandler(async (req, res) => {
   const { lat, lng, bloodGroup, radius, type } = req.query;
   

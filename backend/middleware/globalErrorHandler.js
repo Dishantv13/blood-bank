@@ -1,5 +1,4 @@
 const globalErrorHandler = (err, req, res, _next) => {
-  // Handle known Mongoose / MongoDB driver errors before falling through to generic handler
   if (err.name === 'ValidationError') {
     return res.status(400).json({ success: false, message: err.message });
   }
@@ -19,8 +18,6 @@ const globalErrorHandler = (err, req, res, _next) => {
     });
   }
 
-  // Structured log — avoid printing the full error object to prevent sensitive
-  // data leakage in log aggregation pipelines.
   console.error({
     message: err.message,
     stack: err.stack,

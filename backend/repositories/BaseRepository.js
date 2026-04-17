@@ -58,9 +58,6 @@ export default class BaseRepository {
     return this.model.exists(filter);
   }
 
-  /**
-   * For streaming large datasets (SEC-7 integration)
-   */
   async getCursor(filter = {}, options = {}) {
     return this.model.find(filter).select(options.select).cursor();
   }

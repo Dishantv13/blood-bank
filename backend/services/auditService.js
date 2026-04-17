@@ -1,7 +1,5 @@
 import auditLogRepository from '../repositories/AuditLogRepository.js';
 
-// Service to handle persistent audit logging in the database.
-// Replaced pino logger with standard console output for system-level notifications.
 export const logAction = async ({
   action,
   req,

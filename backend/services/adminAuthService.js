@@ -12,6 +12,8 @@ import {
   setAuthCookies,
   verifyRefreshToken,
   getPublicCookieOptions,
+  getAccessTokenFromRequest,
+  verifyAccessToken,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import {
@@ -21,6 +23,7 @@ import {
   revokeAllPrincipalSessions,
   revokeAuthSession,
   rotateAuthSession,
+  updateCsrfToken,
 } from './sessionService.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
 
@@ -99,6 +102,7 @@ const createAdminSession = async (req, res, admin) => {
     adminEmail: admin.email,
     refreshTokenHash: hashToken(refreshToken),
     refreshTokenExpiresAt,
+    csrfTokenHash: hashToken(csrfToken),
     tokenVersion: Number(state.tokenVersion || 0),
     req,
   });
@@ -186,11 +190,26 @@ export const getSessionAdminWithExpiry = async (req) => {
   };
 };
 
-export const issueAdminCsrfToken = (res) => {
+export const issueAdminCsrfToken = async (req, res) => {
   const { csrfCookie } = getCookieNamesForRole('admin');
   const csrfToken = generateCsrfToken();
 
   res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
+
+  // Sync with active session if one exists
+  const accessToken = getAccessTokenFromRequest(req, 'admin');
+  if (accessToken) {
+    try {
+      const decoded = verifyAccessToken('admin', accessToken);
+      if (decoded.sid) {
+        await updateCsrfToken({ 
+          role: 'admin', 
+          sessionId: decoded.sid, 
+          csrfTokenHash: hashToken(csrfToken) 
+        });
+      }
+    } catch (_e) {}
+  }
 
   return { csrfToken };
 };
@@ -265,43 +284,66 @@ export const refreshAdminSession = async (req, res) => {
     throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }
 
+  const sessionId = decoded.sid || crypto.randomUUID();
+  const isTransitioningFromLegacy = !decoded.sid || !sessionRecord;
+
   const { refreshToken: nextRefreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(res, 'admin', {
     type: 'admin',
     role: 'admin',
     adminEmail: decoded.adminEmail,
-    sid: decoded.sid,
+    sid: sessionId,
     tokenVersion: Number(state.tokenVersion || 0),
   });
-  await rotateAuthSession({
-    role: 'admin',
-    sessionId: decoded.sid,
-    refreshTokenHash: hashToken(nextRefreshToken),
-    refreshTokenExpiresAt,
-    tokenVersion: Number(state.tokenVersion || 0),
-    req,
-    isGraceUpdate: isGraceMatch,
-  });
+
+  if (isTransitioningFromLegacy) {
+    await createAuthSession({
+      sessionId: sessionId,
+      role: 'admin',
+      adminEmail: decoded.adminEmail,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: Number(state.tokenVersion || 0),
+      req,
+    });
+  } else {
+    await rotateAuthSession({
+      role: 'admin',
+      sessionId: sessionId,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: Number(state.tokenVersion || 0),
+      req,
+      isGraceUpdate: isGraceMatch,
+    });
+  }
 
   const session = await getSessionAdmin();
   return { ...session, csrfToken, accessTokenExpiresAt };
 };
 
 export const logoutAdminSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'admin')) {
-    throw new ApiError(403, 'Invalid or missing CSRF token');
-  }
-
-  const refreshToken = getRefreshTokenFromRequest(req, 'admin');
-  if (refreshToken) {
-    try {
-      const decoded = verifyRefreshToken('admin', refreshToken);
-      await revokeAuthSession({ role: 'admin', sessionId: decoded.sid, reason: 'logout' });
-    } catch (_error) {
-      // Still clear cookies even if refresh token is already invalid.
+  try {
+    if (!enforceCsrfForRole(req, 'admin')) {
+      console.warn('[AUTH] CSRF validation failed during admin logout attempt');
     }
+
+    const refreshToken = getRefreshTokenFromRequest(req, 'admin');
+    if (refreshToken) {
+      try {
+        const decoded = verifyRefreshToken('admin', refreshToken);
+        if (decoded?.sid) {
+          await revokeAuthSession({ role: 'admin', sessionId: decoded.sid, reason: 'logout' });
+        }
+      } catch (_error) {
+        // Ignore revocation errors
+      }
+    }
+  } finally {
+    clearAuthCookies(res, 'admin');
   }
 
-  clearAuthCookies(res, 'admin');
   return { success: true };
 };
 

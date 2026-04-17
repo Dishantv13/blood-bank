@@ -14,10 +14,8 @@ const Events = () => {
   const [registeredEventIds, setRegisteredEventIds] = useState(new Set());
   const [registeredCampIds, setRegisteredCampIds] = useState(new Set());
 
-  // Use user ID from context
   const currentUserId = user?.id || user?._id || null;
 
-  // RTK Queries automatically fetch and cache data on mount
   const { data: campsResponse, isLoading: loadingCamps, refetch: refetchCamps } = useGetAllCampsQuery({ upcoming: true });
   const { data: eventsResponse, isLoading: loadingEvents, refetch: refetchEvents } = useGetAllEventsQuery();
 

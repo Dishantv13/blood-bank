@@ -1,5 +1,6 @@
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
+import { clearCacheByPrefix } from '../middleware/cache.js';
 import * as bloodBankService from '../services/bloodBankService.js';
 import { ensureValid } from '../middleware/validateRequest.js';
 
@@ -56,8 +57,8 @@ export const getSession = asyncHandler(async (req, res) => {
   successResponse(res, result, 200, 'Session fetched successfully');
 });
 
-export const getCsrfToken = asyncHandler(async (_req, res) => {
-  const result = bloodBankService.issueBloodBankCsrfToken(res);
+export const getCsrfToken = asyncHandler(async (req, res) => {
+  const result = await bloodBankService.issueBloodBankCsrfToken(req, res);
   successResponse(res, result, 200, 'CSRF token generated');
 });
 
@@ -87,6 +88,8 @@ export const updateBloodBankProfile = asyncHandler(async (req, res) => {
 export const createBloodBank = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const result = await bloodBankService.createBloodBank(req.body);
+  clearCacheByPrefix('/api/v1/bloodbanks');
+  clearCacheByPrefix('/api/v1/blood-banks');
   successResponse(res, result, 201, 'Blood bank created successfully');
 });
 
@@ -94,6 +97,8 @@ export const updateBloodBankInventory = asyncHandler(async (req, res) => {
   if (!ensureValid(req, res)) return;
   const { bloodGroup, units } = req.body;
   const result = await bloodBankService.updateBloodBankInventory(req.params.id, bloodGroup, units);
+  clearCacheByPrefix('/api/v1/bloodbanks');
+  clearCacheByPrefix('/api/v1/blood-banks');
   successResponse(res, result, 200, 'Inventory updated successfully');
 });
 
@@ -122,4 +127,3 @@ export const verifyResetToken = asyncHandler(async (req, res) => {
   const result = await bloodBankService.verifyResetToken(token);
   successResponse(res, result, 200, 'Token is valid');
 });
-

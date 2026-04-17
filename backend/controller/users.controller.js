@@ -1,6 +1,7 @@
 import { validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
+import { clearCacheByPrefix } from '../middleware/cache.js';
 import * as userService from '../services/userService.js';
 import { ApiError } from '../utils/apiError.js';
 
@@ -43,6 +44,7 @@ export const updateDonorInfo = asyncHandler(async (req, res) => {
   
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.updateDonorInfo(userId, req.body);
+  clearCacheByPrefix('/api/v1/users/donors');
   successResponse(res, result, 200, 'Donor information saved successfully');
 });
 
@@ -62,6 +64,7 @@ export const toggleMode = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const { mode } = req.body;
   const result = await userService.toggleMode(userId, mode);
+  clearCacheByPrefix('/api/v1/users/donors');
   successResponse(res, result, 200, `Switched to ${mode} mode successfully`);
 });
 

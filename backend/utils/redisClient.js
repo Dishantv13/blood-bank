@@ -1,8 +1,7 @@
 import { getRedisClient } from '../config/redis.js';
 const redisClient = {
   get isReady() {
-    // Check if the client exists and is actually ready to receive commands
-    return false; // Dynamic check would go here, but we'll use a safe proxy
+    return false; 
   },
 
   async client() {

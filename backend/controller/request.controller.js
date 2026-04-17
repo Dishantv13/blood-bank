@@ -1,6 +1,7 @@
 import { validationResult } from 'express-validator';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
+import { clearCacheByPrefix } from '../middleware/cache.js';
 import * as requestService from '../services/requestService.js';
 import * as broadcastService from '../services/broadcastService.js';
 
@@ -26,6 +27,7 @@ export const createRequest = asyncHandler(async (req, res) => {
 
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await requestService.createBloodRequest(userId, req.body);
+  clearCacheByPrefix('/api/v1/requests');
   successResponse(res, result, 201, 'Blood request created successfully');
 });
 
@@ -39,6 +41,7 @@ export const updateRequest = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await requestService.updateBloodRequest(id, userId, req.body);
+  clearCacheByPrefix('/api/v1/requests');
   successResponse(res, result, 200, 'Request updated successfully');
 });
 
@@ -59,6 +62,7 @@ export const updateRequestStatus = asyncHandler(async (req, res) => {
     : { type: 'user', id: req.user.userId || req.user._id || req.user.id };
     
   const result = await requestService.updateRequestStatus(id, status, actor, note);
+  clearCacheByPrefix('/api/v1/requests');
   successResponse(res, result, 200, `Request status updated to ${status}`);
 });
 

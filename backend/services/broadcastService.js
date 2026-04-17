@@ -4,14 +4,11 @@ import Notification from '../models/Notification.model.js';
 import { ApiError } from '../utils/apiError.js';
 import * as smsService from '../utils/smsService.js';
 
-// Service to handle emergency broadcasts to nearby donors.
-// Replaced pino logger with standard console output for system-level notifications.
 export const broadcastEmergencyRequest = async (requestId, radiusKm = 15) => {
   const request = await BloodRequest.findById(requestId);
   if (!request) throw new ApiError(404, 'Blood request not found');
 
   if (request.urgency !== 'critical' && request.urgency !== 'high' && request.urgency !== 'urgent') {
-    // We only broadcast for high urgency to prevent spam
     return { success: false, message: 'Broadcast only allowed for high urgency requests' };
   }
 

@@ -22,7 +22,6 @@ class CacheManager {
     }
   }
 
-  // Retrieves data from cache (Distributed Redis -> Local Memory -> null).
   async get(key) {
     try {
       const client = await getRedisClient();
@@ -46,12 +45,10 @@ class CacheManager {
     }
   }
 
-  // Sets data in cache with an optional TTL (in seconds).
   async set(key, value, ttlSeconds = 3600) {
     try {
       const client = await getRedisClient();
       
-      // Set in local memory always for speed
       this._evictLocal();
       this.localCache.set(key, {
         value,

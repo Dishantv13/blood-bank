@@ -22,7 +22,6 @@ export const SocketProvider = ({ children }) => {
   const currentUser = user || adminUser || bloodBank;
 
   const connectSocket = useCallback(() => {
-    // Get Base URL from environment (Extract host only for Socket.io)
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
     
     // Robust URL parsing: Strip everything after the host/port

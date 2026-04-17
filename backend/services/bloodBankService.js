@@ -23,6 +23,8 @@ import {
   setAuthCookies,
   verifyRefreshToken,
   getPublicCookieOptions,
+  getAccessTokenFromRequest,
+  verifyAccessToken,
 } from '../utils/authCookies.js';
 import { enforceCsrfForRole } from '../middleware/csrf.js';
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
@@ -35,6 +37,7 @@ import {
   revokeAllPrincipalSessions,
   revokeAuthSession,
   rotateAuthSession,
+  updateCsrfToken,
 } from './sessionService.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 
@@ -59,8 +62,6 @@ const BLOODBANK_OTP_MAX_RESEND_ATTEMPTS = Math.max(1, Number(process.env.BLOODBA
 const BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS = Math.max(10, Number(process.env.BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS) || 60);
 const BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES = Math.max(5, Number(process.env.BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES) || 60);
 
-// Lazy getter: validated at startup by validateSecurityConfig(), but accessed
-// per-call so that tests without the env var get an explicit error.
 const getOtpHashSecret = () => {
   const secret = process.env.BLOODBANK_OTP_HASH_SECRET;
   if (!secret) throw new ApiError(500, 'BLOODBANK_OTP_HASH_SECRET is not configured');
@@ -171,6 +172,7 @@ const createBloodBankSession = async (req, res, bloodBank) => {
     bloodBankId: bloodBank.id,
     refreshTokenHash: hashToken(refreshToken),
     refreshTokenExpiresAt,
+    csrfTokenHash: hashToken(csrfToken),
     tokenVersion,
     req,
   });
@@ -196,11 +198,26 @@ const incrementBloodBankTokenVersion = async (bloodBankId, reason = 'security_ev
   return updatedBank;
 };
 
-export const issueBloodBankCsrfToken = (res) => {
+export const issueBloodBankCsrfToken = async (req, res) => {
   const { csrfCookie } = getCookieNamesForRole('bloodbank');
   const csrfToken = generateCsrfToken();
 
   res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
+
+  // Sync with active session if one exists
+  const accessToken = getAccessTokenFromRequest(req, 'bloodbank');
+  if (accessToken) {
+    try {
+      const decoded = verifyAccessToken('bloodbank', accessToken);
+      if (decoded.sid) {
+        await updateCsrfToken({ 
+          role: 'bloodbank', 
+          sessionId: decoded.sid, 
+          csrfTokenHash: hashToken(csrfToken) 
+        });
+      }
+    } catch (_e) {}
+  }
 
   return { csrfToken };
 };
@@ -587,44 +604,67 @@ export const refreshBloodBankSession = async (req, res) => {
     throw new ApiError(401, 'Refresh token is invalid or has been reused');
   }
 
+  const sessionId = decoded.sid || crypto.randomUUID();
+  const isTransitioningFromLegacy = !decoded.sid || !sessionRecord;
+
   const result = await getSessionBloodBank(decoded.bloodBankId);
   const { refreshToken: nextRefreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
     res,
     'bloodbank',
     buildBloodBankClaims({
       ...result.bloodBank,
-      sessionId: decoded.sid,
+      sessionId: sessionId,
       tokenVersion: Number(bloodBankSession.tokenVersion || 0),
     })
   );
-  await rotateAuthSession({
-    role: 'bloodbank',
-    sessionId: decoded.sid,
-    refreshTokenHash: hashToken(nextRefreshToken),
-    refreshTokenExpiresAt,
-    tokenVersion: Number(bloodBankSession.tokenVersion || 0),
-    req,
-    isGraceUpdate: isGraceMatch,
-  });
+
+  if (isTransitioningFromLegacy) {
+    await createAuthSession({
+      sessionId: sessionId,
+      role: 'bloodbank',
+      bloodBankId: bloodBankSession._id,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: Number(bloodBankSession.tokenVersion || 0),
+      req,
+    });
+  } else {
+    await rotateAuthSession({
+      role: 'bloodbank',
+      sessionId: sessionId,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: Number(bloodBankSession.tokenVersion || 0),
+      req,
+      isGraceUpdate: isGraceMatch,
+    });
+  }
   return { bloodBank: result.bloodBank, csrfToken, accessTokenExpiresAt };
 };
 
 export const logoutBloodBankSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'bloodbank')) {
-    throw new ApiError(403, 'Invalid or missing CSRF token');
-  }
-
-  const refreshToken = getRefreshTokenFromRequest(req, 'bloodbank');
-  if (refreshToken) {
-    try {
-      const decoded = verifyRefreshToken('bloodbank', refreshToken);
-      await revokeAuthSession({ role: 'bloodbank', sessionId: decoded.sid, reason: 'logout' });
-    } catch (_error) {
-      // Still clear client cookies even if refresh token is already invalid.
+  try {
+    if (!enforceCsrfForRole(req, 'bloodbank')) {
+      console.warn('[AUTH] CSRF validation failed during bloodbank logout attempt');
     }
-  }
 
-  clearAuthCookies(res, 'bloodbank');
+    const refreshToken = getRefreshTokenFromRequest(req, 'bloodbank');
+    if (refreshToken) {
+      try {
+        const decoded = verifyRefreshToken('bloodbank', refreshToken);
+        if (decoded?.sid) {
+          await revokeAuthSession({ role: 'bloodbank', sessionId: decoded.sid, reason: 'logout' });
+        }
+      } catch (_error) {
+        // Ignore revocation errors
+      }
+    }
+  } finally {
+    clearAuthCookies(res, 'bloodbank');
+  }
+  
   return { success: true };
 };
 

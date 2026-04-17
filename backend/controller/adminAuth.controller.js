@@ -24,8 +24,7 @@ export const getAdminSession = asyncHandler(async (_req, res) => {
   successResponse(res, result, 200, 'Admin session fetched successfully');
 });
 
-export const getAdminCsrfToken = asyncHandler(async (_req, res) => {
-  const result = adminAuthService.issueAdminCsrfToken(res);
+export const getAdminCsrfToken = asyncHandler(async (req, res) => {
+  const result = await adminAuthService.issueAdminCsrfToken(req, res);
   successResponse(res, result, 200, 'Admin CSRF token generated');
 });
-

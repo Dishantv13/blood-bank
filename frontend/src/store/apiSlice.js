@@ -4,7 +4,6 @@ import { AUTH_API_URLS, BLOODBANK_API_URLS, DONATION_API_URLS } from '../enum/ap
 import { ROUTE_PATH } from '../enum/routePath';
 import { withRefreshMutex } from '../enum/authMutex';
 
-// Enforce HTTPS in production - prevent insecure connections
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 if (!API_URL) {
@@ -41,8 +40,6 @@ const isBloodBankPath = (url = '', method = 'GET') => {
   const cleanMethod = String(method || 'GET').toUpperCase();
   const bloodBankDashboardPrefix = BLOODBANK_API_URLS.GET_DASHBOARD.toLowerCase().split('/dashboard')[0];
 
-  // Blood camp management endpoints are protected by blood bank auth,
-  // except donor registration endpoint which is user-authenticated.
   const isCampPath = cleanUrl.startsWith('/blood-camps');
   const isCampRegistrationPath = /^\/blood-camps\/[^/]+\/register$/.test(cleanUrl);
   const isBloodBankCampManagementPath =

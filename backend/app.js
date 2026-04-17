@@ -9,7 +9,6 @@ import { globalErrorHandler } from "./middleware/globalErrorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { globalApiLimiter } from "./middleware/rateLimiter.js";
 import redisClient from "./utils/redisClient.js";
-// import logger from "./utils/logger.js";
 
 // ==================== ROUTE IMPORTS ====================
 // IMPORT ROUTES FILE
@@ -67,7 +66,6 @@ const allowedOrigins = [
 const corsOptions = {
   origin: function (origin, callback) {
     if (!origin) {
-      // Non-browser requests (health checks, server-to-server, curl) often omit Origin.
       return callback(null, true);
     }
 
@@ -158,8 +156,7 @@ app.use(cookieParser());
 // ==================== RATE LIMITING ====================
 app.use("/api/", globalApiLimiter);
 
-// ==================== BODY PARSER ====================
-// Reduced from 10mb to 1mb to prevent DoS attacks via large payloads
+// ==================== BODY PARSER ===================
 app.use(json({ limit: "1mb" }));
 app.use(urlencoded({ extended: true, limit: "1mb" }));
 app.use(sanitizeRequestPayload);
@@ -217,7 +214,6 @@ app.use("/api/v1", v1Router);
 app.use("/api", (req, res, next) => {
   if (req.path.startsWith("/v1") || req.path === "/health") return next();
 
-  // Clean path to prevent double slashes
   const cleanPath = req.path.startsWith("/") ? req.path : `/${req.path}`;
   const queryPart = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
   const nextPath = `/api/v1${cleanPath}${queryPart}`;

@@ -151,9 +151,6 @@ const pipelineCursorToCsv = async (cursor, transformer) => {
       csv += parser.parse([row]);
       first = false;
     } else {
-      // json2csv Parser.parse normally includes headers; 
-      // for streaming we'd ideally use a real stream parser
-      // but for this scale, we'll append rows manually or use a simpler trick.
       const rowCsv = parser.parse([row]).split('\n')[1]; // Skip header
       if (rowCsv) csv += '\n' + rowCsv;
     }

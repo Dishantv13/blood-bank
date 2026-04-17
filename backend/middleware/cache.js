@@ -1,10 +1,6 @@
-// In-Memory API Response Cache.
-// Removed Redis and pino dependency for infrastructure simplification.
-// Uses native Map with LRU eviction and deduping logic.
-
 const pendingResponses = new Map();
 const memoryCacheStore = new Map();
-const MAX_MEMORY_CACHE_SIZE = 500; // Prevent OOM in memory-only mode
+const MAX_MEMORY_CACHE_SIZE = 500;
 
 const normalizeQueryParams = (searchParams) => {
   const entries = [];
@@ -63,7 +59,7 @@ export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
 
     if (cached) {
       res.set('X-Cache', 'HIT');
-      res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json(cached);
     }
 
@@ -73,7 +69,7 @@ export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
         .then((payload) => {
           if (payload !== undefined) {
             res.set('X-Cache', 'HIT-DEDUPED');
-            res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
+            res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
             return res.status(200).json(payload);
           }
           return next();
@@ -94,7 +90,7 @@ export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         setMemoryCache(key, body, ttlSeconds);
         res.set('X-Cache', 'MISS');
-        res.set('Cache-Control', `public, max-age=${ttlSeconds}`);
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
         resolvePending(body);
       } else {
         rejectPending(new Error('Non-cacheable response status'));
@@ -122,11 +118,24 @@ export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
 };
 
 export const clearCacheByPrefix = (prefix) => {
-  const normalizedPrefix = buildCacheKey(prefix || '/');
+  if (!prefix) return;
+  
+  const normalizedPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+  
+  let clearedCount = 0;
   for (const key of memoryCacheStore.keys()) {
-    if (key.startsWith(normalizedPrefix)) {
+    const isExactMatch = key === normalizedPrefix;
+    const isSubPathMatch = key.startsWith(normalizedPrefix + '/');
+    const isQueryMatch = key.startsWith(normalizedPrefix + '?');
+
+    if (isExactMatch || isSubPathMatch || isQueryMatch) {
       memoryCacheStore.delete(key);
+      clearedCount++;
     }
+  }
+  
+  if (clearedCount > 0) {
+    console.log(`[Cache] Cleared ${clearedCount} entries for prefix: ${normalizedPrefix}`);
   }
 };
 

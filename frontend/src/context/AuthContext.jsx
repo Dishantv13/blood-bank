@@ -59,8 +59,6 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  // SECURITY FIX: Use in-memory state instead of localStorage
-  // Backend manages authentication via httpOnly cookies (XSS-proof)
   const [user, setUserState] = useState(null);
   const [adminUser, setAdminUserState] = useState(null);
   const [bloodBank, setBloodBankState] = useState(null);

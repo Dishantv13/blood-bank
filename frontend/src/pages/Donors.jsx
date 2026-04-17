@@ -31,10 +31,9 @@ const Donors = () => {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-    return lastDonationDate < threeMonthsAgo; // Eligible if donated more than 3 months ago
+    return lastDonationDate < threeMonthsAgo;
   };
 
-  // Separate donors into available and recently donated, excluding the current user
   const availableDonors = allDonors.filter(donor =>
     donor.isDonor && calculateDonorEligibility(donor) && (donor._id !== user?._id && donor.id !== user?.id)
   );

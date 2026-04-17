@@ -110,8 +110,6 @@ const getRoleConfig = (role) => {
 
     // Verify secrets are different for different roles
     if (resolved.accessSecret && process.env.NODE_ENV === 'production') {
-      // In production, ensure no secret collisions across roles
-      // This check can be extended to compare all role secrets
       if (!process.env[`${role.toUpperCase()}_ACCESS_TOKEN_SECRET`]) {
         throw new Error(`[SECURITY] Missing dedicated secret for ${role} role`);
       }
@@ -181,8 +179,6 @@ const cookieBaseOptions = () => {
   const isProd = process.env.NODE_ENV === 'production';
   const sameSite = resolveSameSite();
   
-  // SECURE REQUIRED: If sameSite is 'none', browser REQUIRES secure: true
-  // Otherwise, only force secure if explicitly in production (not localhost)
   const secure = sameSite === 'none' ? true : resolveSecure(); 
   
   const domain = resolveCookieDomain();
