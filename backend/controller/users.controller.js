@@ -74,3 +74,13 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   const result = await userService.getDashboardStats(userId);
   successResponse(res, result, 200, 'Dashboard statistics fetched successfully');
 });
+
+// Verify Aadhaar identity
+export const verifyAadhaar = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new ApiError(400, 'Please upload an Aadhaar document to verify');
+  }
+
+  const result = await userService.verifyAadhaarDocument(req.file.path);
+  successResponse(res, result, 200, 'Identity verified successfully');
+});

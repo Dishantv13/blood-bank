@@ -13,6 +13,7 @@ router.route("/profile").put(auth, userControllers.updateProfile);
 router.route("/profile/photo").post(auth, upload.single('photo'), userControllers.updateProfilePhoto);
 
 router.route("/donor-info").put(auth, userControllers.updateDonorInfo);
+router.route("/verify-aadhaar").post(auth, upload.single('document'), userControllers.verifyAadhaar);
 
 router.route("/donors").get(auth, cacheResponse(120), userControllers.getDonors);
 

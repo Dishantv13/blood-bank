@@ -11,6 +11,9 @@ import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js
 import { sanitizeUser, USER_DONOR_FIELDS, USER_PROFILE_FIELDS } from '../utils/serializers.js';
 import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
 import userRepository from '../repositories/UserRepository.js';
+import Tesseract from 'tesseract.js';
+import fs from 'fs';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 import { getRedisClient } from '../config/redis.js';
 
@@ -475,4 +478,59 @@ export const getDashboardStats = async (userId) => {
 
   await setDashboardStatsCache(userId, result);
   return result;
+};
+
+export const verifyAadhaarDocument = async (filePath) => {
+  try {
+    console.log('[AI] Starting document analysis:', filePath);
+    const isPDF = filePath.toLowerCase().endsWith('.pdf');
+    let fullText = "";
+
+    if (isPDF) {
+      const data = new Uint8Array(fs.readFileSync(filePath));
+      const loadingTask = pdfjs.getDocument({ data });
+      const pdfDocument = await loadingTask.promise;
+      
+      let gatheredText = "";
+      for (let i = 1; i <= pdfDocument.numPages; i++) {
+        const page = await pdfDocument.getPage(i);
+        const textContent = await page.getTextContent();
+        gatheredText += textContent.items.map(item => item.str).join(' ');
+      }
+      fullText = gatheredText;
+    } else {
+      const result = await Tesseract.recognize(filePath, 'eng');
+      fullText = result.data.text;
+    }
+
+    const dateRegex = /(?:DOB|Birth|Year of Birth).*?(\d{2})[\/\-\s](\d{2})[\/\-\s](\d{4})/i;
+    const fallbackRegex = /(\d{2})[\/\-\s](\d{2})[\/\-\s](\d{4})/;
+    
+    const match = fullText.match(dateRegex) || fullText.match(fallbackRegex);
+    
+    if (match) {
+      const [_, day, month, year] = match;
+      const formattedDate = `${year}-${month}-${day}`;
+      
+      return {
+        success: true,
+        dob: formattedDate,
+        message: `Identity verified via ${isPDF ? 'Mozilla PDF' : 'Image'} engine`
+      };
+    } else {
+      throw new ApiError(400, 'Could not read a clear Date of Birth from this document.');
+    }
+
+  } catch (err) {
+    throw new ApiError(err.statusCode || 500, err.message || 'Identity Verification Failed');
+  } finally {
+    if (filePath && fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+        console.log('[Security] Temporary ID document securely erased.');
+      } catch (cleanupErr) {
+        console.error('[Security Warning] Failed to erase temporary document:', cleanupErr.message);
+      }
+    }
+  }
 };
