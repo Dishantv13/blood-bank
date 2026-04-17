@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useForgotBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
+import { FaHospital, FaCheckCircle } from 'react-icons/fa';
 import '../pages.css/BloodBankForgotPassword.css'
 
 const BloodBankForgotPassword = () => {
@@ -30,11 +31,11 @@ const BloodBankForgotPassword = () => {
   return (
     <div className="blood-bank-forgot-password-container">
       <div className="blood-bank-forgot-password-box">
-        <h2>🏥 Blood Bank - Forgot Password</h2>
+        <h2><FaHospital /> Blood Bank - Forgot Password</h2>
         
         {submitted ? (
           <div className="success-message">
-            <div className="success-icon">✓</div>
+            <div className="success-icon"><FaCheckCircle color="green" /></div>
             <p>{message}</p>
             <p className="hint">Check your email for password reset instructions.</p>
             <button 

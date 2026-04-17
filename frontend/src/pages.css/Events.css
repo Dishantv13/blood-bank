@@ -317,13 +317,18 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #4f46e5, #5b21b6);
+  background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
   color: white;
+  border: none;
+  transition: all 0.3s ease;
 }
 
+/* Hover Effect */
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+  background: linear-gradient(135deg, #ff4d5a 0%, #e03131 100%);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 6px 18px rgba(230, 57, 70, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .btn-block {

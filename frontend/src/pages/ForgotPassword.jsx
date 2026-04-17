@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useForgotPasswordMutation } from '../store/userApi';
 import { Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
+import { FaCheckCircle } from 'react-icons/fa';
 import '../pages.css/ForgotPassword.css';
 
 const ForgotPassword = () => {
@@ -34,7 +35,7 @@ const ForgotPassword = () => {
         
         {submitted ? (
           <div className="success-message">
-            <div className="success-icon">✓</div>
+            <div className="success-icon"><FaCheckCircle color="green" /></div>
             <p>{message}</p>
             <p className="hint">Check your email for password reset instructions.</p>
             <button 

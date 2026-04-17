@@ -3,6 +3,7 @@ import { useGetAllEventsQuery, useRegisterForEventMutation } from '../store/even
 import { useGetAllCampsQuery, useRegisterForCampMutation } from '../store/bloodCampApi';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
+import { FaTint, FaBullhorn, FaHospital, FaStethoscope } from 'react-icons/fa';
 import '../pages.css/Events.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 import EmptyState from '../components/EmptyState';
@@ -342,9 +343,10 @@ const Events = () => {
 
                 <div className="event-meta">
                   <span className="event-type-badge">
-                    {event.eventType === 'blood-drive' && '🩸 Blood Drive'}
-                    {event.eventType === 'awareness' && '📢 Awareness'}
-                    {event.eventType === 'health-checkup' && '🏥 Health Checkup'}
+                    {event.eventType === 'blood-drive' && <><FaTint color="#e63946" /> Blood Drive</>}
+                    {event.eventType === 'awareness' && <><FaBullhorn /> Awareness</>}
+                    {event.eventType === 'health-checkup' && <><FaStethoscope /> Health Checkup</>}
+                    {event.eventType === 'donation-camp' && <><FaHospital /> Donation Camp</>}
                   </span>
                   <span className="event-registered">
                     {event.registeredDonors?.length || 0} registered

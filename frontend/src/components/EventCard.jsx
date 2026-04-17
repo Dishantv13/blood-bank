@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaGlobe, FaUsers, FaHospital } from 'react-icons/fa';
 import '../components.css/EventCard.css';
 
 const EventCard = ({ event, isBloodBank = false, onEdit, onDelete, onViewRegistrations, onDetails, onRegister, isRegistered = false }) => {
@@ -50,8 +51,8 @@ const EventCard = ({ event, isBloodBank = false, onEdit, onDelete, onViewRegistr
         <h3>{event.title}</h3>
         {event.visibility && (
           <span className="visibility-badge">
-            {event.visibility === 'public' ? '🌐 Public' :
-              event.visibility === 'donors-only' ? '👥 Donors' : '🏥 Patients'}
+            {event.visibility === 'public' ? <><FaGlobe style={{ marginRight: '4px' }} /> Public</> :
+              event.visibility === 'donors-only' ? <><FaUsers style={{ marginRight: '4px' }} /> Donors</> : <><FaHospital style={{ marginRight: '4px' }} /> Patients</>}
           </span>
         )}
       </div>

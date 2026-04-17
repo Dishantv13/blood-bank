@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useChangeUserPasswordMutation } from '../store/userApi';
 import { MIN_PASSWORD_LENGTH } from '../enum/constants';
+import { FaCheckCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
 import '../pages.css/ChangePassword.css'
 
 const ChangePassword = () => {
@@ -81,7 +82,7 @@ const ChangePassword = () => {
 
         {success ? (
           <div className="success-message">
-            <div className="success-icon">✓</div>
+            <div className="success-icon"><FaCheckCircle color="green" /></div>
             <p>{message}</p>
           </div>
         ) : (
@@ -106,7 +107,7 @@ const ChangePassword = () => {
                   disabled={loading}
                   title={showCurrentPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showCurrentPassword ? '👁️' : '👁️‍🗨️'}
+                  {showCurrentPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
             </div>
@@ -132,7 +133,7 @@ const ChangePassword = () => {
                   disabled={loading}
                   title={showNewPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showNewPassword ? '👁️' : '👁️‍🗨️'}
+                  {showNewPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
               <small>Must be at least {MIN_PASSWORD_LENGTH} characters</small>
@@ -159,7 +160,7 @@ const ChangePassword = () => {
                   disabled={loading}
                   title={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                  {showConfirmPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
             </div>

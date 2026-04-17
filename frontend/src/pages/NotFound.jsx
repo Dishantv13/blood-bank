@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
+import { FaTint, FaArrowLeft } from 'react-icons/fa';
 
 const NotFound = () => {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ const NotFound = () => {
       background: 'var(--bg-gradient, #fff)',
       color: 'var(--text-main, #1f2937)',
     }}>
-      <div style={{ fontSize: '6rem', lineHeight: 1, marginBottom: '1rem' }}>🩸</div>
+      <div style={{ fontSize: '6rem', lineHeight: 1, marginBottom: '1rem', color: '#e63946' }}><FaTint /></div>
       <h1 style={{ fontSize: '6rem', fontWeight: 900, color: '#e63946', margin: 0, lineHeight: 1 }}>404</h1>
       <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: '1rem 0 0.5rem' }}>Page Not Found</h2>
       <p style={{ fontSize: '1rem', color: 'var(--text-muted, #6b7280)', maxWidth: '400px', marginBottom: '2rem' }}>
@@ -37,7 +38,7 @@ const NotFound = () => {
             cursor: 'pointer',
           }}
         >
-          ← Go Back
+          <FaArrowLeft style={{ marginRight: '8px', verticalAlign: 'middle' }} /> Go Back
         </button>
         <button
           onClick={() => navigate(ROUTE_PATH.DASHBOARD)}

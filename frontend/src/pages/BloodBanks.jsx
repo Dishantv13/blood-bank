@@ -7,6 +7,7 @@ import MapModal from '../components/MapModal';
 import SkeletonLoader from '../components/SkeletonLoader';
 import EmptyState from '../components/EmptyState';
 import { FiMapPin, FiPhone, FiClock, FiCheckCircle, FiChevronRight } from 'react-icons/fi';
+import { FaStar } from 'react-icons/fa';
 import '../pages.css/BloodBanks.css';
 
 const BloodBanks = () => {
@@ -88,7 +89,7 @@ const BloodBanks = () => {
                         <p className="bank-category">Licensed Medical Facility</p>
                       </div>
                       <div className="bank-rating-box">
-                        <span className="rating-star">★</span> 4.9
+                        <span className="rating-star"><FaStar /></span> 4.9
                       </div>
                     </div>
 

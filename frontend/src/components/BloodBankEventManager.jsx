@@ -3,6 +3,7 @@ import { useGetBloodBankEventsQuery, useGetEventRegistrationsQuery, useCreateEve
 import EventCard from './EventCard';
 import EventFormModal from './EventFormModal';
 import { useToast } from './ToastContainer';
+import { FaCalendarAlt, FaChartBar } from 'react-icons/fa';
 import '../components.css/BloodBankEventManager.css'
 import SkeletonLoader from './SkeletonLoader';
 
@@ -213,7 +214,7 @@ const BloodBankEventManager = () => {
       {/* Upcoming Events */}
       {upcomingEvents.length > 0 && (
         <div className="events-section">
-          <h3 className="section-title">📅 Upcoming Events</h3>
+          <h3 className="section-title"><FaCalendarAlt style={{ marginRight: '8px' }} /> Upcoming Events</h3>
           <div className="events-grid events-scroll-grid">
             {upcomingEvents.map(event => (
               <EventCard
@@ -233,7 +234,7 @@ const BloodBankEventManager = () => {
       {/* Past Events */}
       {pastEvents.length > 0 && (
         <div className="events-section">
-          <h3 className="section-title">📊 Past Events (Last 3)</h3>
+          <h3 className="section-title"><FaChartBar style={{ marginRight: '8px' }} /> Past Events (Last 3)</h3>
           <div className="events-grid events-scroll-grid">
             {latestPastEvents.map(event => (
               <EventCard

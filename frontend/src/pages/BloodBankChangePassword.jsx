@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { MIN_PASSWORD_LENGTH } from '../enum/constants';
-import '../pages.css/BloodBankChangePassword.css'
+import { FaHospital, FaCheckCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
+import '../pages.css/BloodBankChangePassword.css';
 
 const BloodBankChangePassword = () => {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -74,14 +75,14 @@ const BloodBankChangePassword = () => {
   return (
     <div className="blood-bank-change-password-container">
       <div className="blood-bank-change-password-box">
-        <h2>🏥 Change Password</h2>
+        <h2><FaHospital style={{ marginRight: '8px' }} /> Change Password</h2>
         <p className="form-description">
           Update your blood bank password to keep your account secure
         </p>
 
         {success ? (
           <div className="success-message">
-            <div className="success-icon">✓</div>
+            <div className="success-icon"><FaCheckCircle color="green" /></div>
             <p>{message}</p>
           </div>
         ) : (
@@ -106,7 +107,7 @@ const BloodBankChangePassword = () => {
                   disabled={loading}
                   title={showCurrentPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showCurrentPassword ? '👁️' : '👁️‍🗨️'}
+                  {showCurrentPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
             </div>
@@ -132,7 +133,7 @@ const BloodBankChangePassword = () => {
                   disabled={loading}
                   title={showNewPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showNewPassword ? '👁️' : '👁️‍🗨️'}
+                  {showNewPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
               <small>Must be at least {MIN_PASSWORD_LENGTH} characters</small>
@@ -159,7 +160,7 @@ const BloodBankChangePassword = () => {
                   disabled={loading}
                   title={showConfirmPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showConfirmPassword ? '👁️' : '👁️‍🗨️'}
+                  {showConfirmPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
               </div>
             </div>

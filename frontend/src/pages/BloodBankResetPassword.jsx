@@ -3,6 +3,7 @@ import { useForgotBloodBankPasswordMutation, useResetBloodBankPasswordMutation, 
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { MIN_PASSWORD_LENGTH } from '../enum/constants';
+import { FaHospital, FaCheckCircle } from 'react-icons/fa';
 import '../pages.css/BloodBankResetPassword.css'
 
 const BloodBankResetPassword = () => {
@@ -107,11 +108,11 @@ const BloodBankResetPassword = () => {
   return (
     <div className="blood-bank-reset-password-container">
       <div className="blood-bank-reset-password-box">
-        <h2>🏥 Reset Blood Bank Password</h2>
+        <h2><FaHospital style={{ marginRight: '8px' }} /> Reset Blood Bank Password</h2>
 
         {success ? (
           <div className="success-message">
-            <div className="success-icon">✓</div>
+            <div className="success-icon"><FaCheckCircle color="green" /></div>
             <p>{message}</p>
             <p className="hint">Redirecting to login...</p>
           </div>

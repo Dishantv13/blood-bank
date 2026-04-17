@@ -3,6 +3,7 @@ import { useResetPasswordMutation, useVerifyResetTokenMutation } from '../store/
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 import { MIN_PASSWORD_LENGTH } from '../enum/constants';
+import { FaCheckCircle } from 'react-icons/fa';
 import '../pages.css/ResetPassword.css';
 
 const ResetPassword = () => {
@@ -111,7 +112,7 @@ const ResetPassword = () => {
 
         {success ? (
           <div className="success-message">
-            <div className="success-icon">✓</div>
+            <div className="success-icon"><FaCheckCircle color="green" /></div>
             <p>{message}</p>
             <p className="hint">Redirecting to login...</p>
           </div>

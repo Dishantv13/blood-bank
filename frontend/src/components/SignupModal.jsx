@@ -20,7 +20,7 @@ const SignupModal = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const toast = useToast();
   const { register: registerUser, verifyOtp, resendOtp, loginWithGoogle } = useAuth();
-  
+
   const [showPassword, setShowPassword] = useState(true);
   const [showConfirmPassword, setShowConfirmPassword] = useState(true);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -127,7 +127,7 @@ const SignupModal = ({ isOpen, onClose }) => {
   const handleVerifyOtp = async (e) => {
     if (e) e.preventDefault();
     if (!verificationState?.verificationId) return;
-    
+
     const sanitizedOtp = String(otpCode || '').replace(/\D/g, '').slice(0, 6);
     if (sanitizedOtp.length !== 6) {
       setOtpError('Please enter the 6-digit code');
@@ -136,7 +136,7 @@ const SignupModal = ({ isOpen, onClose }) => {
 
     setOtpError('');
     setIsVerifying(true);
-    
+
     try {
       const result = await verifyOtp({
         verificationId: verificationState.verificationId,
@@ -162,10 +162,10 @@ const SignupModal = ({ isOpen, onClose }) => {
 
   const handleResendOtp = async () => {
     if (!verificationState?.verificationId || (verificationState.resendAvailableInSeconds || 0) > 0) return;
-    
+
     setOtpError('');
     setIsResending(true);
-    
+
     try {
       const result = await resendOtp(verificationState.verificationId);
       if (result.success) {
@@ -230,8 +230,8 @@ const SignupModal = ({ isOpen, onClose }) => {
           )}
         </div>
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className={`btn btn-primary btn-full ${isVerifying ? 'btn-loading' : ''}`}
           disabled={isVerifying || otpCode.length !== 6}
         >
@@ -246,9 +246,9 @@ const SignupModal = ({ isOpen, onClose }) => {
                 Resend in {verificationState.resendAvailableInSeconds}s
               </span>
             ) : (
-              <button 
-                type="button" 
-                className="resend-link" 
+              <button
+                type="button"
+                className="resend-link"
                 onClick={handleResendOtp}
                 disabled={isResending}
               >
@@ -256,9 +256,9 @@ const SignupModal = ({ isOpen, onClose }) => {
               </button>
             )}
           </p>
-          <button 
-            type="button" 
-            className="back-btn" 
+          <button
+            type="button"
+            className="back-btn"
             onClick={() => setVerificationState(null)}
           >
             Back to Edit Info
@@ -336,15 +336,15 @@ const SignupModal = ({ isOpen, onClose }) => {
             >
               {showPassword ? (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                  <path d="M1 1l22 22"/>
-                  <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                  <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+                  <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
+                  <path d="M1 1l22 22" />
+                  <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
+                  <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
                 </svg>
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
                 </svg>
               )}
             </button>
@@ -371,15 +371,15 @@ const SignupModal = ({ isOpen, onClose }) => {
             >
               {showConfirmPassword ? (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78"/>
-                  <path d="M1 1l22 22"/>
-                  <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86"/>
-                  <path d="M14.12 14.12a3 3 0 01-4.24-4.24"/>
+                  <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
+                  <path d="M1 1l22 22" />
+                  <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
+                  <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
                 </svg>
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
                 </svg>
               )}
             </button>

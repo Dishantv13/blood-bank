@@ -4,6 +4,7 @@ import { ROUTE_PATH } from '../enum/routePath';
 import { useGetAllEventsQuery, useRegisterForEventMutation } from '../store/eventApi';
 import { useToast } from '../components/ToastContainer';
 import { useAuth } from '../context/AuthContext';
+import { FaTint, FaBullhorn, FaHospital, FaStethoscope, FaCalendarAlt, FaArrowLeft, FaGlobe, FaUsers, FaClock, FaMapMarkerAlt, FaCheck, FaMobileAlt, FaLink } from 'react-icons/fa';
 import '../pages.css/EventDetails.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 
@@ -86,12 +87,12 @@ const EventDetails = () => {
 
   const getEventTypeIcon = (type) => {
     const icons = {
-      'blood-drive': '🩸',
-      'awareness': '📢',
-      'donation-camp': '🏥',
-      'health-checkup': '⚕️'
+      'blood-drive': <FaTint color="#e63946" />,
+      'awareness': <FaBullhorn />,
+      'donation-camp': <FaHospital />,
+      'health-checkup': <FaStethoscope />
     };
-    return icons[type] || '📅';
+    return icons[type] || <FaCalendarAlt />;
   };
 
   const getEventTypeLabel = (type) => {
@@ -109,7 +110,7 @@ const EventDetails = () => {
       {/* Hero Section */}
       <div className="event-hero">
         <button className="btn-back-small" onClick={() => navigate(ROUTE_PATH.EVENTS)}>
-          ← Back to Events
+          <FaArrowLeft style={{ marginRight: '6px' }} /> Back to Events
         </button>
         <div className="hero-content">
           <div className="event-type-badge">
@@ -118,9 +119,9 @@ const EventDetails = () => {
           <h1>{event.title}</h1>
           {event.visibility && (
             <p className="visibility">
-              {event.visibility === 'public' ? '🌐 Public Event' : 
-               event.visibility === 'donors-only' ? '👥 For Donors Only' : 
-               '🏥 For Patients'}
+              {event.visibility === 'public' ? <><FaGlobe style={{ marginRight: '4px' }} /> Public Event</> : 
+               event.visibility === 'donors-only' ? <><FaUsers style={{ marginRight: '4px' }} /> For Donors Only</> : 
+               <><FaHospital style={{ marginRight: '4px' }} /> For Patients</>}
             </p>
           )}
         </div>
@@ -140,7 +141,7 @@ const EventDetails = () => {
             <h2>Event Information</h2>
             <div className="info-grid">
               <div className="info-card">
-                <div className="info-icon">📅</div>
+                <div className="info-icon"><FaCalendarAlt /></div>
                 <div className="info-content">
                   <h3>Date</h3>
                   <p>{eventDate.toLocaleDateString('en-US', {
@@ -153,7 +154,7 @@ const EventDetails = () => {
               </div>
 
               <div className="info-card">
-                <div className="info-icon">🕐</div>
+                <div className="info-icon"><FaClock /></div>
                 <div className="info-content">
                   <h3>Time</h3>
                   <p>
@@ -163,7 +164,7 @@ const EventDetails = () => {
               </div>
 
               <div className="info-card">
-                <div className="info-icon">📍</div>
+                <div className="info-icon"><FaMapMarkerAlt /></div>
                 <div className="info-content">
                   <h3>Location</h3>
                   <p>
@@ -175,7 +176,7 @@ const EventDetails = () => {
               </div>
 
               <div className="info-card">
-                <div className="info-icon">👥</div>
+                <div className="info-icon"><FaUsers /></div>
                 <div className="info-content">
                   <h3>Capacity</h3>
                   <p>{registeredCount} / {event.maxParticipants || 100} registered</p>
@@ -282,7 +283,7 @@ const EventDetails = () => {
               disabled={isRegistered || isPastEvent || availableSlots <= 0 || registering}
             >
               {registering ? 'Registering...' : 
-               isRegistered ? '✓ Registered' : 
+               isRegistered ? <><FaCheck /> Registered</> : 
                availableSlots <= 0 ? 'Event Full' :
                'Register for Event'}
             </button>
@@ -322,7 +323,7 @@ const EventDetails = () => {
                   }
                 }}
               >
-                📱 Share
+                <FaMobileAlt style={{ marginRight: '6px' }} /> Share
               </button>
               <button 
                 className="share-btn"
@@ -331,7 +332,7 @@ const EventDetails = () => {
                   success('Link copied to clipboard!');
                 }}
               >
-                🔗 Copy Link
+                <FaLink style={{ marginRight: '6px' }} /> Copy Link
               </button>
             </div>
           </div>

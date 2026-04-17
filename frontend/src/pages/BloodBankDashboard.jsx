@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useGetBloodBankInventoryQuery, useGetBloodBankProfileQuery, useUpdateBloodBankProfileMutation, useUpdateBloodBankInventoryMutation, useUploadBloodBankPhotoMutation, useGetAllBloodBanksQuery, useChangeBloodBankPasswordMutation } from '../store/bloodBankApi';
 import { useGetBloodBankRequestsQuery, useUpdateRequestStatusMutation } from '../store/requestApi';
 import { useGetBloodBankCampsQuery, useDeleteCampMutation, useLazyGetCampRegistrationsQuery, useDeleteCampRegistrationMutation, useCreateCampMutation, useUpdateCampMutation } from '../store/bloodCampApi';
@@ -12,6 +12,7 @@ import BloodBankSidebar from '../components/BloodBankSidebar';
 import ThemeToggle from '../components/ThemeToggle';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { ROUTE_PATH } from '../enum/routePath';
+import { FaCalendarAlt, FaChartBar } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
 import '../pages.css/BloodBankDashboard.css';
 
@@ -1419,7 +1420,7 @@ const BloodBankDashboard = () => {
 
               {!loadingCamps && upcomingCampsList.length > 0 && (
                 <div className="events-section">
-                  <h3 className="section-title">📅 Upcoming Camps</h3>
+                  <h3 className="section-title"><FaCalendarAlt style={{ marginRight: '8px' }} /> Upcoming Camps</h3>
                   <div className="events-grid camps-scroll-grid">
                     {upcomingCampsList.map(camp => renderCampCard(camp))}
                   </div>
@@ -1428,7 +1429,7 @@ const BloodBankDashboard = () => {
 
               {!loadingCamps && pastCampsList.length > 0 && (
                 <div className="events-section">
-                  <h3 className="section-title">📊 Past Camps (Last 3)</h3>
+                  <h3 className="section-title"><FaChartBar style={{ marginRight: '8px' }} /> Past Camps (Last 3)</h3>
                   <div className="events-grid camps-scroll-grid">
                     {pastCampsList.slice(0, 3).map(camp => renderCampCard(camp))}
                   </div>

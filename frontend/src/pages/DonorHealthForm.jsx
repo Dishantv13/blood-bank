@@ -7,6 +7,7 @@ import { useUpdateDonorInfoMutation } from '../store/userApi';
 import axios from 'axios';
 import { ROUTE_PATH } from '../enum/routePath';
 import { USER_API_URLS } from '../enum/apiUrl';
+import { FaShieldAlt, FaCheck, FaSatelliteDish, FaMapMarkerAlt, FaFileAlt, FaUndo, FaCheckCircle } from 'react-icons/fa';
 import '../pages.css/DonorHealthForm.css';
 
 const defaultFormValues = {
@@ -68,7 +69,7 @@ const DonorHealthForm = () => {
   const { user, setUser } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
-  
+
   // Wizard States
   const [currentStep, setCurrentStep] = useState(1);
   const [isScanning, setIsScanning] = useState(false);
@@ -109,7 +110,7 @@ const DonorHealthForm = () => {
         const d = new Date(dateStr);
         return isNaN(d) ? '' : d.toISOString().split('T')[0];
       };
-      
+
       reset({
         ...defaultFormValues,
         ...user.donorInfo,
@@ -130,7 +131,7 @@ const DonorHealthForm = () => {
     if (currentStep === 1) fields = ['weight', 'height', 'gender'];
     if (currentStep === 2) fields = ['diseases', 'recentConditions'];
     if (currentStep === 3) fields = ['dateOfBirth'];
-    
+
     const isValid = await trigger(fields);
     if (isValid) {
       if (currentStep === 3 && !aadharVerified) {
@@ -245,7 +246,7 @@ const DonorHealthForm = () => {
       const response = await updateDonorInfo(submitData).unwrap();
       const updatedUser = response?.user || response?.data || response;
       if (updatedUser) setUser(updatedUser);
-      
+
       toast.success('Health Profile Updated Successfully!');
       navigate(ROUTE_PATH.DASHBOARD);
     } catch (err) {
@@ -262,7 +263,7 @@ const DonorHealthForm = () => {
           <p><strong>{user?.name}</strong> | {user?.phone}</p>
         </div>
         <div className="secure-badge">
-          🛡️ Private & Secure Verification
+          <FaShieldAlt /> Private & Secure Verification
         </div>
       </div>
 
@@ -271,7 +272,7 @@ const DonorHealthForm = () => {
         <div className="stepper">
           {[1, 2, 3, 4].map(s => (
             <div key={s} className={`step ${currentStep >= s ? 'active' : ''} ${currentStep > s ? 'complete' : ''}`}>
-              <div className="num">{currentStep > s ? '✓' : s}</div>
+              <div className="num">{currentStep > s ? <FaCheck /> : s}</div>
               <span className="label">
                 {s === 1 && 'Vitals'}
                 {s === 2 && 'Medical'}
@@ -309,13 +310,13 @@ const DonorHealthForm = () => {
               </div>
               <div className="form-group">
                 <label>Emergency Location Sharing</label>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className={`btn-loc ${locationShared ? 'active' : ''}`}
                   onClick={handleGetLocation}
                   disabled={gettingLocation}
                 >
-                  {gettingLocation ? '🛰️ Accessing...' : locationShared ? '📍 Location Shared' : '📍 Share My Location'}
+                  {gettingLocation ? <><FaSatelliteDish /> Accessing...</> : locationShared ? <><FaMapMarkerAlt /> Location Shared</> : <><FaMapMarkerAlt /> Share My Location</>}
                 </button>
               </div>
             </div>
@@ -348,21 +349,21 @@ const DonorHealthForm = () => {
           <div className="step-content">
             <h2>Step 3: Identity & DOB Verification</h2>
             <p className="notice">We need to match your Date of Birth from your Aadhaar card.</p>
-            
+
             <div className="verification-hub">
               <div className="aadhar-scan-box">
                 {isScanning ? (
                   <div className="scanning-overlay">
                     <div className="scanner-line"></div>
                     <div className="scan-details">
-                      <p>📡 Extracting DOB from Aadhaar card...</p>
+                      <p><FaSatelliteDish /> Extracting DOB from Aadhaar card...</p>
                       <small>Please wait while we reach UIDAI records...</small>
                     </div>
                   </div>
                 ) : aadharVerified ? (
                   <div className="verified-view-card">
                     <div className="match-status">
-                      <div className="status-badge success">AUTO-FILLED ✅</div>
+                      <div className="status-badge success">AUTO-FILLED <FaCheckCircle /></div>
                       <div className="comparison-box">
                         <div className="comp-item">
                           <span>Verified Date of Birth</span>
@@ -371,20 +372,20 @@ const DonorHealthForm = () => {
                       </div>
                     </div>
                     <button type="button" className="btn-retry" onClick={resetVerification}>
-                      ↻ Re-scan different document
+                      <FaUndo /> Re-scan different document
                     </button>
                   </div>
                 ) : (
                   <div className="upload-view">
                     <label className="upload-btn">
-                      <input 
-                        type="file" 
-                        accept="image/*,application/pdf" 
-                        onChange={(e) => handleAadharVerification(e.target.files[0])} 
-                        hidden 
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={(e) => handleAadharVerification(e.target.files[0])}
+                        hidden
                       />
                       <div className="upload-inner">
-                        <span className="icon">📄</span>
+                        <span className="icon"><FaFileAlt /></span>
                         <strong>Upload Aadhaar (Image or PDF)</strong>
                         <p>e-Aadhaar PDFs are now supported</p>
                       </div>
@@ -396,9 +397,9 @@ const DonorHealthForm = () => {
               {/* DOB Field - Now Auto-filled after scan */}
               <div className="form-group large" style={{ marginTop: '2rem' }}>
                 <label>Date of Birth (Auto-filled from Aadhaar) *</label>
-                <input 
-                  type="date" 
-                  {...register('dateOfBirth', { required: 'DOB is required' })} 
+                <input
+                  type="date"
+                  {...register('dateOfBirth', { required: 'DOB is required' })}
                   disabled={aadharVerified}
                   className={aadharVerified ? 'locked' : ''}
                   placeholder="Will be filled after scan"
@@ -436,7 +437,7 @@ const DonorHealthForm = () => {
           {currentStep > 1 && (
             <button type="button" className="btn-sub" onClick={handleBack}>Previous</button>
           )}
-          
+
           {currentStep < 4 ? (
             <button type="button" className="btn-pri" onClick={handleNext}>Continue</button>
           ) : (

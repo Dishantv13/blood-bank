@@ -16,7 +16,7 @@ import { useGetAllCampsQuery } from '../store/bloodCampApi';
 import { useGetMyDonationsQuery } from '../store/donationApi';
 import DonateBloodModal from '../components/DonateBloodModal';
 import { ROUTE_PATH } from '../enum/routePath';
-import { FaCheckCircle, FaAward, FaHistory } from 'react-icons/fa';
+import { FaCheckCircle, FaAward, FaHistory, FaTint, FaArrowRight } from 'react-icons/fa';
 import '../pages.css/Dashboard.css';
 import SkeletonLoader from '../components/SkeletonLoader';
 import EmptyState from '../components/EmptyState';
@@ -381,7 +381,7 @@ const Dashboard = () => {
               <MatchingRequests userBloodGroup={user?.bloodGroup} />
             </div>
             <div className="donor-info-card">
-              <h2>Your Donor Journey</h2>
+              <h2 >Your Donor Journey</h2>
               <div className="donor-journey-stats">
                 {donorStats.lastDonation && (
                   <div className="journey-item">
@@ -411,7 +411,7 @@ const Dashboard = () => {
               </div>
               {myDonations.length === 0 ? (
                 <EmptyState
-                  title="Welcome to Your Donor Journey! 🩸"
+                  title={<>Welcome to Your Donor Journey! <FaTint color="#e63946" /></>}
                   message="You haven't made any donation requests yet. Start your life-saving journey today!"
                   actionLabel={isActuallyEligible ? "Request to Donate Now" : null}
                   onAction={isActuallyEligible ? () => setShowDonateModal(true) : null}
@@ -637,7 +637,7 @@ const Dashboard = () => {
                         <p><strong>Requested Date:</strong> {new Date(request.createdAt).toLocaleDateString()}</p>
                       </div>
                       <div className="request-footer">
-                        <Link to={ROUTE_PATH.REQUEST_DETAILS.replace(":requestId", request._id)} className="view-details-link">View Full Details →</Link>
+                        <Link to={ROUTE_PATH.REQUEST_DETAILS.replace(":requestId", request._id)} className="view-details-link">View Full Details <FaArrowRight style={{ marginLeft: '4px', verticalAlign: 'middle' }} /></Link>
                       </div>
                     </div>
                   ))}

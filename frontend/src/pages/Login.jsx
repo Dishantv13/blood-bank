@@ -6,6 +6,7 @@ import ImageSlider from "../components/ImageSlider";
 import SignupModal from "../components/SignupModal";
 import ThemeToggle from "../components/ThemeToggle";
 import { ROUTE_PATH } from "../enum/routePath";
+import { FaCheck } from "react-icons/fa";
 import "../pages.css/Auth.css";
 
 const Login = () => {
@@ -302,13 +303,13 @@ const Login = () => {
 
             <div className="features-info">
               <div className="feature-item">
-                <span>✓</span> Secure Authentication
+                <span><FaCheck /></span> Secure Authentication
               </div>
               <div className="feature-item">
-                <span>✓</span> Real-time Updates
+                <span><FaCheck /></span> Real-time Updates
               </div>
               <div className="feature-item">
-                <span>✓</span> 24/7 Support
+                <span><FaCheck /></span> 24/7 Support
               </div>
             </div>
           </div>

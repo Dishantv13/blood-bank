@@ -11,7 +11,7 @@ import SkeletonLoader from '../components/SkeletonLoader';
 import DonorBadges from '../components/DonorBadges';
 import DonationTimeline from '../components/DonationTimeline';
 import { useGetMyDonationsQuery } from '../store/donationApi';
-import { FaAward, FaHistory, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa';
+import { FaAward, FaHistory, FaCheckCircle, FaExclamationCircle, FaTimesCircle, FaMapMarkerAlt } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { ROUTE_PATH } from '../enum/routePath';
 
@@ -294,12 +294,12 @@ const Profile = () => {
                   </div>
                   <div className="info-item">
                     <label>Donor Status:</label>
-                    <span>{user?.isDonor ? '✅ Registered Donor' : '❌ Not a Donor'}</span>
+                    <span>{user?.isDonor ? <><FaCheckCircle color="green" /> Registered Donor</> : <><FaTimesCircle color="red" /> Not a Donor</>}</span>
                   </div>
                   {user?.isDonor && (
                     <div className="info-item">
                       <label>Availability:</label>
-                      <span>{user?.isAvailable ? '✅ Available' : '❌ Not Available'}</span>
+                      <span>{user?.isAvailable ? <><FaCheckCircle color="green" /> Available</> : <><FaTimesCircle color="red" /> Not Available</>}</span>
                     </div>
                   )}
                 </div>
@@ -638,7 +638,7 @@ const Profile = () => {
 
                   {watchedLocation && (
                     <div className="captured-location-info">
-                      <span>📍 Lat: {watchedLocation.coordinates[1].toFixed(6)}, Lng: {watchedLocation.coordinates[0].toFixed(6)}</span>
+                      <span><FaMapMarkerAlt /> Lat: {watchedLocation.coordinates[1].toFixed(6)}, Lng: {watchedLocation.coordinates[0].toFixed(6)}</span>
                     </div>
                   )}
                 </div>
