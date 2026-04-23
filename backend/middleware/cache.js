@@ -1,6 +1,25 @@
+import redisClient from '../utils/redisClient.js';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+
 const pendingResponses = new Map();
 const memoryCacheStore = new Map();
 const MAX_MEMORY_CACHE_SIZE = 500;
+
+// Helper to get ID from token without DB hit
+const getIdentityFromToken = (req) => {
+  try {
+    const token = req.cookies?.['bb_bank_at'] || 
+                  req.cookies?.['bb_user_at'] || 
+                  req.cookies?.['bb_admin_at'] ||
+                  req.headers.authorization?.split(' ')[1];
+    if (!token) return 'public';
+    const decoded = jwt.decode(token);
+    return decoded?.bloodBankId || decoded?.userId || decoded?.id || 'public';
+  } catch {
+    return 'public';
+  }
+};
 
 const normalizeQueryParams = (searchParams) => {
   const entries = [];
@@ -8,132 +27,149 @@ const normalizeQueryParams = (searchParams) => {
     if (value === '' || value == null) continue;
     entries.push([key, value]);
   }
-
-  entries.sort((a, b) => {
-    const keyCompare = a[0].localeCompare(b[0]);
-    if (keyCompare !== 0) return keyCompare;
-    return String(a[1]).localeCompare(String(b[1]));
-  });
-
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
   const normalized = new URLSearchParams();
   entries.forEach(([key, value]) => normalized.append(key, value));
   return normalized.toString();
 };
 
-const buildCacheKey = (originalUrl = '') => {
-  const [rawPath = '/', rawQuery = ''] = originalUrl.split('?');
-  const normalizedPath = rawPath.replace('/api/blood-banks', '/api/bloodbanks');
+const buildCacheKey = (req) => {
+  const identity = getIdentityFromToken(req);
+  const [rawPath = '/', rawQuery = ''] = req.originalUrl.split('?');
+  const normalizedPath = rawPath.replace('/api/v1/blood-banks', '/api/v1/bloodbanks');
   const normalizedQuery = normalizeQueryParams(new URLSearchParams(rawQuery));
-  return normalizedQuery ? `${normalizedPath}?${normalizedQuery}` : normalizedPath;
+  const fullPath = normalizedQuery ? `${normalizedPath}?${normalizedQuery}` : normalizedPath;
+  return `cache:${identity}:${fullPath}`;
 };
 
 const getMemoryCache = (key) => {
   const cached = memoryCacheStore.get(key);
-  if (!cached) return null;
-  if (cached.expiresAt <= Date.now()) {
-    memoryCacheStore.delete(key);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    if (cached) memoryCacheStore.delete(key);
     return null;
   }
-  return cached.payload;
+  return cached;
 };
 
 const setMemoryCache = (key, payload, ttlSeconds) => {
   if (memoryCacheStore.size >= MAX_MEMORY_CACHE_SIZE) {
-    const firstKey = memoryCacheStore.keys().next().value;
-    memoryCacheStore.delete(firstKey);
+    memoryCacheStore.delete(memoryCacheStore.keys().next().value);
   }
+  
+  // Generate ETag for browser optimization
+  const etag = crypto.createHash('md5').update(JSON.stringify(payload)).digest('hex');
 
   memoryCacheStore.set(key, {
     payload,
+    etag,
     expiresAt: Date.now() + ttlSeconds * 1000,
   });
+  return etag;
 };
 
-export const cacheResponse = (ttlSeconds = 60) => (req, res, next) => {
+export const cacheResponse = (ttlSeconds = 60) => async (req, res, next) => {
+  const start = performance.now();
   if (req.method !== 'GET') return next();
 
-  const key = buildCacheKey(req.originalUrl);
+  const key = buildCacheKey(req);
+  const clientEtag = req.headers['if-none-match'];
 
-  const run = async () => {
-    const cached = getMemoryCache(key);
-
-    if (cached) {
-      res.set('X-Cache', 'HIT');
-      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-      return res.status(200).json(cached);
+  try {
+    // 1. Check Memory L1
+    const memoryCached = getMemoryCache(key);
+    if (memoryCached) {
+      const took = (performance.now() - start).toFixed(2);
+      if (clientEtag === `W/"${memoryCached.etag}"` || clientEtag === memoryCached.etag) {
+        res.set('X-Cache', 'HIT-MEMORY-304');
+        res.set('X-Server-Time', `${took}ms`);
+        return res.status(304).end();
+      }
+      res.set('X-Cache', 'HIT-MEMORY');
+      res.set('X-Server-Time', `${took}ms`);
+      res.set('ETag', `W/"${memoryCached.etag}"`);
+      res.set('Cache-Control', 'no-cache');
+      return res.json(memoryCached.payload);
     }
 
+    // 2. Check Redis L2
+    const redisCached = await redisClient.get(key);
+    if (redisCached) {
+      try {
+        const payload = JSON.parse(redisCached);
+        const etag = setMemoryCache(key, payload, ttlSeconds);
+        const took = (performance.now() - start).toFixed(2);
+        
+        if (clientEtag === `W/"${etag}"` || clientEtag === etag) {
+          res.set('X-Cache', 'HIT-REDIS-304');
+          res.set('X-Server-Time', `${took}ms`);
+          return res.status(304).end();
+        }
+
+        res.set('X-Cache', 'HIT-REDIS');
+        res.set('X-Server-Time', `${took}ms`);
+        res.set('ETag', `W/"${etag}"`);
+        res.set('Cache-Control', 'no-cache');
+        return res.json(payload);
+      } catch (e) {
+        console.error('[Cache] Redis parse error:', e);
+      }
+    }
+
+    // 3. Handle Thundering Herd
     const pending = pendingResponses.get(key);
     if (pending) {
-      return pending
-        .then((payload) => {
-          if (payload !== undefined) {
-            res.set('X-Cache', 'HIT-DEDUPED');
-            res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-            return res.status(200).json(payload);
-          }
-          return next();
-        })
-        .catch(() => next());
+      const data = await pending;
+      if (data) {
+        const took = (performance.now() - start).toFixed(2);
+        res.set('X-Cache', 'HIT-DEDUPED');
+        res.set('X-Server-Time', `${took}ms`);
+        res.set('Cache-Control', 'no-cache');
+        return res.json(data);
+      }
     }
 
+    // 4. Intercept DB Response
     let resolvePending;
-    let rejectPending;
-    const requestPromise = new Promise((resolve, reject) => {
-      resolvePending = resolve;
-      rejectPending = reject;
-    });
+    const requestPromise = new Promise((resolve) => { resolvePending = resolve; });
     pendingResponses.set(key, requestPromise);
 
     const originalJson = res.json.bind(res);
     res.json = (body) => {
+      const took = (performance.now() - start).toFixed(2);
       if (res.statusCode >= 200 && res.statusCode < 300) {
-        setMemoryCache(key, body, ttlSeconds);
-        res.set('X-Cache', 'MISS');
-        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        const etag = setMemoryCache(key, body, ttlSeconds);
+        redisClient.set(key, JSON.stringify(body), ttlSeconds).catch(() => {});
+        
+        res.set('X-Cache', 'MISS-DATABASE');
+        res.set('X-Server-Time', `${took}ms`);
+        res.set('ETag', `W/"${etag}"`);
+        res.set('Cache-Control', 'no-cache');
         resolvePending(body);
       } else {
-        rejectPending(new Error('Non-cacheable response status'));
+        resolvePending(null);
       }
-
       pendingResponses.delete(key);
       return originalJson(body);
     };
 
-    res.on('close', () => {
-      if (pendingResponses.has(key)) {
-        pendingResponses.delete(key);
-        rejectPending(new Error('Response closed before cache was populated'));
-      }
-    });
-
-    return next();
-  };
-
-  run().catch((error) => {
-    console.error(`[Cache] Middleware error for ${req.originalUrl}:`, error);
+    next();
+  } catch (error) {
+    console.error(`[Cache] Middleware error:`, error);
     res.set('X-Cache', 'BYPASS');
     next();
-  });
+  }
 };
 
 export const clearCacheByPrefix = (prefix) => {
   if (!prefix) return;
-  
   const normalizedPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
-  
   let clearedCount = 0;
   for (const key of memoryCacheStore.keys()) {
-    const isExactMatch = key === normalizedPrefix;
-    const isSubPathMatch = key.startsWith(normalizedPrefix + '/');
-    const isQueryMatch = key.startsWith(normalizedPrefix + '?');
-
-    if (isExactMatch || isSubPathMatch || isQueryMatch) {
+    if (key === normalizedPrefix || key.startsWith(normalizedPrefix + '/') || key.startsWith(normalizedPrefix + '?')) {
       memoryCacheStore.delete(key);
       clearedCount++;
     }
   }
-  
   if (clearedCount > 0) {
     console.log(`[Cache] Cleared ${clearedCount} entries for prefix: ${normalizedPrefix}`);
   }

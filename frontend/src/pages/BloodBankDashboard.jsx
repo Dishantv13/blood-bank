@@ -13,6 +13,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { ROUTE_PATH } from '../enum/routePath';
 import { useAuth } from '../context/AuthContext';
+import { FaCalendarAlt, FaChartBar } from 'react-icons/fa';
 import '../pages.css/BloodBankDashboard.css';
 
 const DEFAULT_INVENTORY = [

@@ -38,8 +38,9 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
   const donation = await donationRepository.create({
     donor: donorId,
     bloodBank: bloodBankId,
-    type: 'request',
-    bloodGroup: user.bloodGroup,
+    camp: data.campId || null,
+    type: data.campId ? 'camp' : 'request',
+    bloodGroup: data.bloodGroup || user.bloodGroup,
     donationDate: data.date || new Date(),
     notes: data.notes || '',
     status: 'pending'

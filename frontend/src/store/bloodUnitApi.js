@@ -30,6 +30,7 @@ export const bloodUnitApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (result, error, { unitId }) => [
         { type: TAGS.BLOOD_UNIT, id: unitId },
+        { type: TAGS.BLOOD_UNIT, id: 'LIST' },
         { type: TAGS.DASHBOARD, id: 'LIST' }
       ],
     }),
@@ -53,7 +54,8 @@ export const bloodUnitApi = apiSlice.injectEndpoints({
         body: logData,
       }),
       invalidatesTags: (result, error, { unitId }) => [
-        { type: TAGS.BLOOD_UNIT, id: unitId }
+        { type: TAGS.BLOOD_UNIT, id: unitId },
+        { type: TAGS.BLOOD_UNIT, id: 'LIST' }
       ],
     }),
 

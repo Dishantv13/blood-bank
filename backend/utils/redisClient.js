@@ -1,7 +1,7 @@
 import { getRedisClient } from '../config/redis.js';
 const redisClient = {
   get isReady() {
-    return false; 
+    return true; 
   },
 
   async client() {

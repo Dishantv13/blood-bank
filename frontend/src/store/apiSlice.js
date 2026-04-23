@@ -51,7 +51,9 @@ const isBloodBankPath = (url = '', method = 'GET') => {
     isBloodBankCampManagementPath ||
     cleanUrl.startsWith(bloodBankDashboardPrefix) ||
     cleanUrl.startsWith(BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase().split('/login')[0]) ||
-    cleanUrl.startsWith(DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS.toLowerCase())
+    cleanUrl.startsWith(DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS.toLowerCase()) ||
+    cleanUrl.startsWith('/blood-unit') ||
+    (cleanUrl.startsWith('/requests') && (cleanUrl.includes('blood-bank') || cleanUrl.includes('fulfill')))
   );
 };
 

@@ -8,8 +8,17 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['api/executeMutation/fulfilled', 'api/executeQuery/fulfilled'],
-        ignoredActionPaths: ['meta.arg', 'payload'],
+        ignoredActions: [
+          'api/executeMutation/fulfilled', 
+          'api/executeQuery/fulfilled',
+          'api/executeMutation/rejected'
+        ],
+        ignoredActionPaths: [
+          'meta.arg', 
+          'payload', 
+          'meta.baseQueryMeta.request',
+          'meta.baseQueryMeta.response'
+        ],
         ignoredPaths: [
           `${apiSlice.reducerPath}.mutations`,
           `${apiSlice.reducerPath}.queries`

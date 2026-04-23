@@ -36,7 +36,7 @@ const BloodBankDonations = () => {
 
   const donations = donationsRes?.data || [];
 
-  const pendingDonations = donations.filter(d => d.status === 'pending' || d.status === 'approved');
+  const pendingDonations = donations.filter(d => (d.status === 'pending' || d.status === 'approved') && d.type !== 'camp');
   // Only direct (non-camp) completed donations show in the Completed tab
   const completedDonations = donations.filter(d => d.status === 'completed' && d.type !== 'camp');
   // All completed donations (used for stats in collections)

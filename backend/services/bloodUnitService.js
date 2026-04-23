@@ -60,8 +60,10 @@ export const refineBloodUnit = async (unitId, refineMethod, adminId) => {
     const expiryDate = new Date(rawUnit.collectionDate);
     expiryDate.setDate(expiryDate.getDate() + expiryDays);
 
+    const newUnitId = `${rawUnit.unitId}-${spec.type.substring(0, 3).toUpperCase()}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`;
+    
     const newUnit = await BloodUnit.create({
-      unitId: `${rawUnit.unitId}-${spec.type.substring(0, 3).toUpperCase()}`,
+      unitId: newUnitId,
       batchNumber: rawUnit.batchNumber,
       donation: rawUnit.donation,
       donor: rawUnit.donor,
@@ -176,7 +178,8 @@ export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
       .sort({ expiryDate: 1 })
       .skip(skip)
       .limit(Number(limit))
-      .populate('donor', 'name bloodGroup'),
+      .populate('donor', 'name bloodGroup')
+      .lean(),
     BloodUnit.countDocuments(filter)
   ]);
 
@@ -189,4 +192,47 @@ export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
       pages: Math.ceil(total / limit)
     }
   };
+};
+
+export const splitComponent = async (unitId, components, adminId) => {
+  const sourceUnit = await BloodUnit.findOne({ unitId, status: { $in: ['available', 'quarantine', 'raw'] } });
+  if (!sourceUnit) throw new ApiError(404, 'Source unit not found or unavailable for splitting');
+
+  const totalSplitVolume = components.reduce((acc, c) => acc + Number(c.volume), 0);
+  if (totalSplitVolume > sourceUnit.volume) {
+    throw new ApiError(400, `Total split volume (${totalSplitVolume}ml) exceeds source unit volume (${sourceUnit.volume}ml)`);
+  }
+
+  const createdUnits = [];
+  for (const comp of components) {
+    const expiryDays = COMPONENT_EXPIRY_DAYS[comp.type] || 35;
+    const expiryDate = new Date(sourceUnit.collectionDate);
+    expiryDate.setDate(expiryDate.getDate() + expiryDays);
+
+    const newUnit = await BloodUnit.create({
+      unitId: `${sourceUnit.unitId}-S${crypto.randomBytes(2).toString('hex').toUpperCase()}`,
+      batchNumber: sourceUnit.batchNumber,
+      donation: sourceUnit.donation,
+      donor: sourceUnit.donor,
+      bloodBank: sourceUnit.bloodBank,
+      bloodGroup: sourceUnit.bloodGroup,
+      componentType: comp.type,
+      volume: comp.volume,
+      collectionDate: sourceUnit.collectionDate,
+      expiryDate,
+      status: sourceUnit.status === 'raw' ? 'quarantine' : sourceUnit.status, 
+      screeningStatus: sourceUnit.screeningStatus
+    });
+    createdUnits.push(newUnit);
+  }
+
+  sourceUnit.status = 'processed';
+  sourceUnit.discardDetails = {
+    reason: 'Split into smaller units/components',
+    discardedAt: new Date(),
+    discardedBy: adminId
+  };
+  await sourceUnit.save();
+
+  return createdUnits;
 };

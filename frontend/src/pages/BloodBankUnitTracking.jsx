@@ -332,7 +332,7 @@ const BloodBankUnitTracking = () => {
               ))}
             </div>
             <div className="modal-actions">
-              <button onClick={() => setShowScreeningModal(false)}>Cancel</button>
+              <button className="secondary" onClick={() => setShowScreeningModal(false)}>Cancel</button>
               <button className="btn-primary" onClick={handleScreeningUpdate}>Save Results</button>
             </div>
           </div>
@@ -372,7 +372,7 @@ const BloodBankUnitTracking = () => {
               </div>
             </div>
             <div className="modal-actions">
-              <button onClick={() => setShowColdChainModal(false)}>Cancel</button>
+              <button className="secondary" onClick={() => setShowColdChainModal(false)}>Cancel</button>
               <button className="btn-primary" onClick={handleColdChainLog}>Save Log</button>
             </div>
           </div>
@@ -415,43 +415,7 @@ const BloodBankUnitTracking = () => {
         </div>
       )}
 
-      {/* CSS for components */}
-      <style>{`
-        .sub-tabs { display: flex; gap: 0.75rem; margin-top: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; }
-        .sub-tab {
-          padding: 0.7rem 1.5rem;
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
-          cursor: pointer;
-          color: var(--text-muted);
-          font-weight: 700;
-          font-size: 0.9rem;
-          transition: all 0.2s ease;
-        }
-        .sub-tab:hover { border-color: rgba(230, 57, 70, 0.5); color: var(--text-main); }
-        .sub-tab.active {
-          color: #fff;
-          border-color: transparent;
-          background: linear-gradient(135deg, #e63946 0%, #d62828 100%);
-          box-shadow: 0 8px 18px rgba(230, 57, 70, 0.35);
-        }
-        .comp-vol-box { display: flex; flex-direction: column; line-height: 1.2; }
-        .comp-vol-box small { color: #888; font-size: 0.75rem; }
-        .btn-refine { background: #6366f1; color: white; border: none; padding: 0.4rem 1rem; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-        .btn-refine:hover { background: #4f46e5; transform: translateY(-1px); }
-        .refine-options { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin: 2rem 0; }
-        .refine-card { padding: 1.5rem; border: 2px solid #eee; border-radius: 12px; cursor: pointer; transition: 0.3s ease; }
-        .refine-card:hover { border-color: var(--primary-color); background: #fdf2f2; transform: translateY(-3px); }
-        .refine-card.primary { background: #fefce8; border-color: #facc15; }
-        .refine-card.primary:hover { border-color: #eab308; background: #fef9c3; }
-        .refine-card h3 { margin-top: 0; color: #333; }
-        .yield-estimate { margin-top: 1rem; font-weight: 600; color: #059669; background: #ecfdf5; padding: 0.4rem; border-radius: 4px; display: inline-block; }
-        .theoretical-yield { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed #fad390; }
-        .theoretical-yield h4 { font-size: 0.8rem; text-transform: uppercase; color: #888; margin-bottom: 0.5rem; }
-        .theoretical-yield ul { list-style: none; padding: 0; margin: 0; }
-        .theoretical-yield li { font-size: 0.85rem; display: flex; justify-content: space-between; margin-bottom: 0.2rem; }
-      `}</style>
+
           </div>
         </div>
       </main>
