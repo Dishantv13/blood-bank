@@ -160,18 +160,42 @@ export const cacheResponse = (ttlSeconds = 60) => async (req, res, next) => {
   }
 };
 
-export const clearCacheByPrefix = (prefix) => {
+export const clearCacheByPrefix = async (prefix) => {
   if (!prefix) return;
   const normalizedPrefix = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+  
+  // 1. Clear Memory Cache
   let clearedCount = 0;
   for (const key of memoryCacheStore.keys()) {
-    if (key === normalizedPrefix || key.startsWith(normalizedPrefix + '/') || key.startsWith(normalizedPrefix + '?')) {
+    if (key === normalizedPrefix || key.startsWith(normalizedPrefix + '/') || key.startsWith(normalizedPrefix + '?') || key.includes(normalizedPrefix)) {
       memoryCacheStore.delete(key);
       clearedCount++;
     }
   }
+
+  // 2. Clear Redis Cache (Distributed)
+  try {
+    const client = await redisClient.getRawClient?.();
+    if (client?.isReady) {
+      // Use SCAN to find keys with the prefix safely in production
+      let cursor = '0';
+      const pattern = `*${normalizedPrefix}*`;
+      do {
+        const reply = await client.scan(cursor, { MATCH: pattern, COUNT: 100 });
+        cursor = reply.cursor;
+        const keys = reply.keys;
+        if (keys.length > 0) {
+          await client.del(keys);
+          clearedCount += keys.length;
+        }
+      } while (cursor !== '0');
+    }
+  } catch (error) {
+    console.error('[Cache] Redis clear error:', error);
+  }
+
   if (clearedCount > 0) {
-    console.log(`[Cache] Cleared ${clearedCount} entries for prefix: ${normalizedPrefix}`);
+    console.log(`[Cache] Purged ${clearedCount} entries related to: ${normalizedPrefix}`);
   }
 };
 

@@ -6,10 +6,10 @@ import * as bloodUnitController from '../controller/bloodUnit.controller.js';
 const router = Router();
 
 // Detailed Individual Unit Inventory
-router.route('/units').get(cacheResponse(30), bloodBankAuth, bloodUnitController.getIndividualInventory);
+router.route('/units').get(bloodBankAuth, bloodUnitController.getIndividualInventory);
 
 // Expedited Expiry Monitoring
-router.route('/units/expiring').get(cacheResponse(30), bloodBankAuth, bloodUnitController.getExpiringUnits);
+router.route('/units/expiring').get(bloodBankAuth, bloodUnitController.getExpiringUnits);
 
 // Medical Screening Update
 router.route('/units/:unitId/screening').patch(bloodBankAuth, bloodUnitController.updateScreeningStatus);

@@ -130,8 +130,8 @@ export const recordDonation = async (donationId, bloodBankId, volumeDonated) => 
     { returnDocument: 'after', runValidators: true, populate: [{ path: 'donor', select: 'name email' }, { path: 'bloodBank', select: 'name' }] }
   );
 
-  // Send donation completion email (async)
-  if (updatedDonation && updatedDonation.donor) {
+  // Send donation completion email (async) - ONLY for personal requests, not camps
+  if (updatedDonation && updatedDonation.donor && updatedDonation.type === 'request') {
     sendDonationUpdateEmail(
       updatedDonation.donor, 
       updatedDonation, 
@@ -189,7 +189,7 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
   }
 
   const donation = await donationRepository.findById(donationId, {
-    select: 'bloodBank status'
+    select: 'bloodBank status type'
   });
   
   if (!donation) {
@@ -207,8 +207,8 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
     { returnDocument: 'after', runValidators: true, populate: [{ path: 'donor', select: 'name email' }, { path: 'bloodBank', select: 'name' }] }
   );
 
-  // Send status update email (async)
-  if (updatedDonation && updatedDonation.donor && updatedDonation.status !== 'completed') {
+  // Send status update email (async) - ONLY for personal requests, not camps
+  if (updatedDonation && updatedDonation.donor && updatedDonation.status !== 'completed' && updatedDonation.type === 'request') {
     const message = status === 'rejected' 
       ? 'Unfortunately, your donation request was not approved at this time. Please contact the blood bank for details.'
       : `Your donation request has been marked as ${status}.`;

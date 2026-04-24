@@ -5,13 +5,13 @@ import * as bloodUnitService from '../services/bloodUnitService.js';
 const getBloodBankId = (req) => req.bloodBank.bloodBankId || req.bloodBank.id;
 
 export const getIndividualInventory = asyncHandler(async (req, res) => {
-  res.set('Cache-Control', 'private, max-age=5');
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   const result = await bloodUnitService.getBloodBankInventoryDetails(getBloodBankId(req), req.query);
   successResponse(res, result, 200, 'Individual blood units fetched successfully');
 });
 
 export const getExpiringUnits = asyncHandler(async (req, res) => {
-  res.set('Cache-Control', 'private, max-age=5');
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   const result = await bloodUnitService.getExpiringUnits(getBloodBankId(req), req.query.days);
   successResponse(res, result, 200, 'Expiring units fetched successfully');
 });
