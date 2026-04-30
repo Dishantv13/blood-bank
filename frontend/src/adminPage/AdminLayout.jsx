@@ -126,6 +126,9 @@ const AdminLayout = () => {
         </nav>
 
         <div className="sidebar-footer">
+          <div className="sidebar-theme-toggle" style={{ padding: '0 1.25rem', marginBottom: '10px' }}>
+             <ThemeToggle />
+          </div>
           <button className="logout-button" onClick={handleLogout}>
             <FiLogOut />
             {isSidebarOpen && <span>Logout</span>}

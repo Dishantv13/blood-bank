@@ -81,22 +81,6 @@ const BloodBankSchema = new mongoose.Schema({
       }
     }
   },
-  inventory: [{
-    bloodGroup: {
-      type: String,
-      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-      required: true
-    },
-    units: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    lastUpdated: {
-      type: Date,
-      default: Date.now
-    }
-  }],
   operatingHours: {
     open: {
       type: String,

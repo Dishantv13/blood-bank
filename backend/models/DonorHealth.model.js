@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { encrypt, decrypt } from '../utils/encryption.js';
 
 const DonorHealthSchema = new mongoose.Schema({
   donor: {
@@ -7,10 +8,12 @@ const DonorHealthSchema = new mongoose.Schema({
     required: true
   },
   
-  // Personal Information
+  // Personal Information (Encrypted PII)
   fullName: {
     type: String,
-    required: true
+    required: true,
+    get: decrypt,
+    set: encrypt
   },
   dateOfBirth: {
     type: Date,
@@ -33,17 +36,25 @@ const DonorHealthSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: true
+    required: true,
+    get: decrypt,
+    set: encrypt
   },
   email: {
     type: String,
-    required: true
+    required: true,
+    get: decrypt,
+    set: encrypt
   },
   address: {
-    type: String
+    type: String,
+    get: decrypt,
+    set: encrypt
   },
   city: {
-    type: String
+    type: String,
+    get: decrypt,
+    set: encrypt
   },
   
   // Medical Conditions
@@ -78,7 +89,11 @@ const DonorHealthSchema = new mongoose.Schema({
   currentHealth: {
     recentFeverOrIllness: { type: Boolean, default: false },
     onMedication: { type: Boolean, default: false },
-    medicationDetails: { type: String },
+    medicationDetails: { 
+      type: String,
+      get: decrypt,
+      set: encrypt
+    },
     recentAlcoholConsumption: { type: Boolean, default: false }
   },
   
@@ -94,7 +109,11 @@ const DonorHealthSchema = new mongoose.Schema({
     lastDonationDate: { type: Date },
     totalDonations: { type: Number, default: 0 },
     anyReactionsInPast: { type: Boolean, default: false },
-    reactionDetails: { type: String }
+    reactionDetails: { 
+      type: String,
+      get: decrypt,
+      set: encrypt
+    }
   },
   
   // Eligibility
@@ -137,6 +156,9 @@ const DonorHealthSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  toJSON: { getters: true },
+  toObject: { getters: true }
 });
 
 // Update the updatedAt field before saving

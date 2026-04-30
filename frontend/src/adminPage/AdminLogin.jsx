@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ROUTE_PATH } from '../enum/routePath';
@@ -14,7 +14,7 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   // Redirect if already logged in
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAdminAuthenticated) {
       navigate(ROUTE_PATH.ADMIN_DASHBOARD);
     }

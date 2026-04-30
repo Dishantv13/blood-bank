@@ -45,9 +45,10 @@ import './adminPage.css/AdminDonations.css';
 import './adminPage.css/AdminInventory.css';
 import './adminPage.css/AdminExports.css';
 
+
+
 // 2. LAZY LOAD ALL JAVASCRIPT
 const Login = lazy(() => import('./pages/Login'));
-
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const BloodBanks = lazy(() => import('./pages/BloodBanks'));
 const Donors = lazy(() => import('./pages/Donors'));
@@ -106,17 +107,11 @@ const Layout = ({ children }) => {
   const showNavbar = !noNavbarPaths.some((path) =>
     location.pathname === path || location.pathname.startsWith(path + "/")
   );
-  const showAdminThemeButton = (location.pathname === ROUTE_PATH.ADMIN_BASE || location.pathname.startsWith(ROUTE_PATH.ADMIN_BASE + "/")) && location.pathname !== ROUTE_PATH.ADMIN_LOGIN;
 
   return (
     <>
       <a href="#main-content" className="skip-link">Skip to main content</a>
       {showNavbar && <Navbar />}
-      {showAdminThemeButton && (
-        <div className="admin-theme-fab">
-          <ThemeToggle />
-        </div>
-      )}
       <main id="main-content">
         {children}
       </main>
@@ -221,15 +216,11 @@ function App() {
                       <Route path={ROUTE_PATH.LOGIN} element={<Login />} />
 
 
-                      {/* Protected Routes */}
                       <Route
                         path={ROUTE_PATH.HOME}
-                        element={
-                          <PrivateRoute>
-                            <Dashboard />
-                          </PrivateRoute>
-                        }
+                        element={<Login />}
                       />
+
                       <Route
                         path={ROUTE_PATH.DASHBOARD}
                         element={

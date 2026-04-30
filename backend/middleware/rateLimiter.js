@@ -5,15 +5,21 @@ import { getRedisClient } from '../config/redis.js';
 const createRedisStore = async (prefix) => {
   try {
     const client = await getRedisClient();
-    if (!client?.isReady) return undefined;
+    
+    if (!client || !client.isReady) {
+      console.warn(`[RateLimiter] Redis not ready for '${prefix}', using memory store fallback.`);
+      return undefined;
+    }
 
-    return new RedisStore({
+    const store = new RedisStore({
       sendCommand: (...args) => client.sendCommand(args),
       prefix: `rl:${prefix}:`, // Ensure isolation in Redis
     });
+
+    return store;
   } catch (err) {
-    console.error(`[RateLimiter] Redis store '${prefix}' init failed:`, err.message);
-    return undefined;
+    console.error(`[RateLimiter] Redis store '${prefix}' initialization failed:`, err.message);
+    return undefined; // rateLimit will use MemoryStore
   }
 };
 

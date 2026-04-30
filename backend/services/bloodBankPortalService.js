@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import ExcelJS from 'exceljs';
 import requestRepository from '../repositories/RequestRepository.js';
 import bloodBankRepository from '../repositories/BloodBankRepository.js';
@@ -208,49 +209,61 @@ export const createBankToBankRequest = async (requestingBankId, data) => {
 };
 
 export const approveRequest = async (requestId, responderBankId, responseNote) => {
-  const request = await requestRepository.findById(requestId, { lean: false });
-  if (!request) throw new ApiError(404, 'Request not found');
-  if (request.status !== 'pending') throw new ApiError(400, 'Request is no longer pending');
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (request.requestType === 'bloodbank') {
-    if (String(request.targetBloodBank) !== String(responderBankId)) {
-      throw new ApiError(403, 'You can only approve requests sent to your blood bank');
+  try {
+    const request = await requestRepository.findById(requestId, { lean: false, session });
+    if (!request) throw new ApiError(404, 'Request not found');
+    if (request.status !== 'pending') throw new ApiError(400, 'Request is no longer pending');
+
+    if (request.requestType === 'bloodbank') {
+      if (String(request.targetBloodBank) !== String(responderBankId)) {
+        throw new ApiError(403, 'You can only approve requests sent to your blood bank');
+      }
+      await subtractInventoryUnits(responderBankId, request.bloodGroup, request.units, session);
+      await addInventoryUnits(request.requestingBloodBank, request.bloodGroup, request.units, session);
+    } else {
+      await subtractInventoryUnits(responderBankId, request.bloodGroup, request.units, session);
     }
-    await subtractInventoryUnits(responderBankId, request.bloodGroup, request.units);
-    await addInventoryUnits(request.requestingBloodBank, request.bloodGroup, request.units);
-  } else {
-    await subtractInventoryUnits(responderBankId, request.bloodGroup, request.units);
+
+    request.status = 'approved';
+    request.bloodBank = responderBankId;
+    request.bloodBankResponse = {
+      status: 'approved',
+      respondedAt: new Date(),
+      respondedBy: responderBankId,
+      responseNote: responseNote || 'Request approved. Please contact us for collection.'
+    };
+
+    await request.save({ session });
+
+    await auditService.logAction({
+      action: 'BLOOD_REQUEST_APPROVED',
+      actorId: responderBankId,
+      actorModel: 'BloodBank',
+      targetId: request._id,
+      targetModel: 'BloodRequest',
+      changes: { status: 'approved' },
+      metadata: { requestType: request.requestType, bloodGroup: request.bloodGroup, units: request.units }
+    });
+
+    await session.commitTransaction();
+
+    await request.populate([
+      { path: 'requestedBy', select: 'name email phone' },
+      { path: 'requestingBloodBank', select: 'name email phone address' },
+      { path: 'targetBloodBank', select: 'name email phone address' },
+      { path: 'bloodBank', select: 'name phone email address' }
+    ]);
+
+    return request;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  request.status = 'approved';
-  request.bloodBank = responderBankId;
-  request.bloodBankResponse = {
-    status: 'approved',
-    respondedAt: new Date(),
-    respondedBy: responderBankId,
-    responseNote: responseNote || 'Request approved. Please contact us for collection.'
-  };
-
-  await request.save();
-
-  await auditService.logAction({
-    action: 'BLOOD_REQUEST_APPROVED',
-    actorId: responderBankId,
-    actorModel: 'BloodBank',
-    targetId: request._id,
-    targetModel: 'BloodRequest',
-    changes: { status: 'approved' },
-    metadata: { requestType: request.requestType, bloodGroup: request.bloodGroup, units: request.units }
-  });
-
-  await request.populate([
-    { path: 'requestedBy', select: 'name email phone' },
-    { path: 'requestingBloodBank', select: 'name email phone address' },
-    { path: 'targetBloodBank', select: 'name email phone address' },
-    { path: 'bloodBank', select: 'name phone email address' }
-  ]);
-
-  return request;
 };
 
 export const rejectRequest = async (requestId, bloodBankId, responseNote) => {
@@ -292,18 +305,7 @@ export const rejectRequest = async (requestId, bloodBankId, responseNote) => {
 };
 
 export const getRequestStats = async (bloodBankId) => {
-  const stats = await requestRepository.model.aggregate([
-    {
-      $facet: {
-        total: [{ $count: 'count' }],
-        pending: [{ $match: { status: 'pending' } }, { $count: 'count' }],
-        approved: [{ $match: { bloodBank: bloodBankId, status: 'approved' } }, { $count: 'count' }],
-        rejected: [{ $match: { bloodBank: bloodBankId, status: 'rejected' } }, { $count: 'count' }],
-        byBloodGroup: [{ $match: { status: 'pending' } }, { $group: { _id: '$bloodGroup', count: { $sum: 1 } } }],
-        byUrgency: [{ $match: { status: 'pending' } }, { $group: { _id: '$urgency', count: { $sum: 1 } } }]
-      }
-    }
-  ]);
+  const stats = await requestRepository.getFacetedStats(bloodBankId);
 
   return {
     total: stats[0].total[0]?.count || 0,
@@ -513,28 +515,9 @@ export const getDashboard = async (bloodBankId) => {
   const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: 'name inventory' });
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
-  const requestStats = await requestRepository.model.aggregate([
-    {
-      $facet: {
-        pending: [{ $match: { status: 'pending' } }, { $count: 'count' }],
-        approved: [{ $match: { bloodBank: bloodBankId, status: 'approved' } }, { $count: 'count' }],
-        thisMonth: [
-          { $match: { bloodBank: bloodBankId, createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) } } },
-          { $count: 'count' }
-        ]
-      }
-    }
-  ]);
-
-  const eventStats = await eventRepository.model.aggregate([
-    { $match: { organizedBy: bloodBankId, organizerModel: 'BloodBank' } },
-    {
-      $facet: {
-        total: [{ $count: 'count' }],
-        upcoming: [{ $match: { date: { $gte: new Date() }, isActive: true } }, { $count: 'count' }],
-        totalRegistrations: [{ $unwind: '$registeredDonors' }, { $count: 'count' }]
-      }
-    }
+  const [requestStats, eventStats] = await Promise.all([
+    requestRepository.getDashboardStats(bloodBankId),
+    eventRepository.getEventStats(bloodBankId)
   ]);
 
   return {
@@ -563,11 +546,33 @@ export const updateProfile = async (bloodBankId, payload) => {
   if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
 
   const allowedUpdates = ['name', 'phone', 'logo', 'imageUrl', 'address', 'location', 'operatingHours', 'services', 'contactPerson', 'establishedYear'];
+  const nameChanged = payload.name !== undefined && payload.name !== bloodBank.name;
+  
   allowedUpdates.forEach((field) => {
     if (payload[field] !== undefined) bloodBank[field] = payload[field];
   });
 
-  await bloodBank.save();
+  if (nameChanged) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await bloodBank.save({ session });
+      await inventoryRepository.model.updateOne(
+        { bloodBank: bloodBank._id },
+        { $set: { bloodBankName: bloodBank.name } },
+        { session }
+      );
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  } else {
+    await bloodBank.save();
+  }
+
   const updatedBloodBank = await bloodBankRepository.findById(bloodBank._id, { select: BLOOD_BANK_SAFE_FIELDS });
   return sanitizeBloodBank(updatedBloodBank);
 };
@@ -638,17 +643,17 @@ export const updateInventory = async (bloodBankId, inventory) => {
 export const updateBloodGroupUnits = async (bloodBankId, bloodGroup, units) => {
   if (units === undefined || units < 0) throw new ApiError(400, 'Please provide valid units (>=0)');
 
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, { lean: false });
-  if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  const inventory = await inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: false });
+  if (!inventory) throw new ApiError(404, 'Inventory record not found');
 
-  const inventoryItem = bloodBank.inventory.find((item) => item.bloodGroup === bloodGroup);
-  if (inventoryItem) {
-    inventoryItem.units = units;
-    inventoryItem.lastUpdated = new Date();
+  const itemIndex = inventory.items.findIndex((item) => item.bloodGroup === bloodGroup);
+  if (itemIndex > -1) {
+    inventory.items[itemIndex].units = units;
+    inventory.items[itemIndex].lastUpdated = new Date();
   } else {
-    bloodBank.inventory.push({ bloodGroup, units, lastUpdated: new Date() });
+    inventory.items.push({ bloodGroup, units, lastUpdated: new Date() });
   }
 
-  await bloodBank.save();
-  return bloodBank.inventory;
+  await inventory.save();
+  return inventory.items;
 };

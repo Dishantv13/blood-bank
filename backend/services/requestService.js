@@ -312,16 +312,7 @@ export const getApprovedRequests = async (bloodBankId, query) => {
 
 // Get request statistics
 export const getRequestStats = async (bloodBankId) => {
-  const stats = await BloodRequest.aggregate([
-    { $match: { targetBloodBank: new mongoose.Types.ObjectId(bloodBankId) } },
-    {
-      $group: {
-        _id: '$status',
-        count: { $sum: 1 },
-        totalUnits: { $sum: '$units' }
-      }
-    }
-  ]);
+  const stats = await requestRepository.getStatusStats(bloodBankId);
 
   const formattedStats = {
     total: 0,

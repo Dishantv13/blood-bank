@@ -28,26 +28,62 @@ export const searchBloodAvailability = async ({
 
   if (type === 'all' || type === 'banks') {
     promises.push(
-      BloodBank.find({
-        location: {
-          $near: {
-            $geometry: point,
-            $maxDistance: radiusInMeters
+      BloodBank.aggregate([
+        {
+          $geoNear: {
+            near: point,
+            distanceField: "distance",
+            maxDistance: radiusInMeters,
+            query: { approvalStatus: 'approved', isActive: true },
+            spherical: true
           }
         },
-        approvalStatus: 'approved',
-        isActive: true,
-        'inventory.bloodGroup': bloodGroup,
-        'inventory.units': { $gt: 0 }
-      })
-      .select('name email phone address inventory location')
-      .lean()
+        {
+          $lookup: {
+            from: 'inventories',
+            localField: '_id',
+            foreignField: 'bloodBank',
+            as: 'inventoryData'
+          }
+        },
+        { $unwind: '$inventoryData' },
+        {
+          $match: {
+            'inventoryData.items': {
+              $elemMatch: { bloodGroup: bloodGroup, units: { $gt: 0 } }
+            }
+          }
+        },
+        {
+          $project: {
+            name: 1,
+            email: 1,
+            phone: 1,
+            address: 1,
+            location: 1,
+            distance: 1,
+            availableUnits: {
+              $filter: {
+                input: '$inventoryData.items',
+                as: 'item',
+                cond: { $eq: ['$$item.bloodGroup', bloodGroup] }
+              }
+            }
+          }
+        },
+        {
+          $addFields: {
+            availableUnits: { $arrayElemAt: ['$availableUnits.units', 0] }
+          }
+        }
+      ])
       .then(banks => {
         results.bloodBanks = banks.map(bank => ({
           ...bank,
-          availableUnits: bank.inventory.find(i => i.bloodGroup === bloodGroup)?.units || 0,
-          inventory: undefined, // Don't expose full inventory
-          searchDetails: { type: 'bloodbank', distanceInfo: 'Sorted by distance ($near)' }
+          searchDetails: { 
+            type: 'bloodbank', 
+            distanceInfo: `${(bank.distance / 1000).toFixed(2)} km away` 
+          }
         }));
       })
     );

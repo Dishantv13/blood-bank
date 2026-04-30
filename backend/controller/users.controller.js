@@ -1,4 +1,4 @@
-import { validationResult } from 'express-validator';
+import { ensureValid } from '../middleware/validateRequest.js';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import { clearCacheByPrefix } from '../middleware/cache.js';
@@ -25,10 +25,7 @@ export const updateProfilePhoto = asyncHandler(async (req, res) => {
 
 // Update user profile
 export const updateProfile = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  ensureValid(req);
   
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.updateUserProfile(userId, req.body);
@@ -37,10 +34,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
 // Update donor information
 export const updateDonorInfo = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  ensureValid(req);
   
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.updateDonorInfo(userId, req.body);
@@ -56,10 +50,7 @@ export const getDonors = asyncHandler(async (req, res) => {
 
 // Toggle between donor and patient mode
 export const toggleMode = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  ensureValid(req);
   
   const userId = req.user.userId || req.user._id || req.user.id;
   const { mode } = req.body;

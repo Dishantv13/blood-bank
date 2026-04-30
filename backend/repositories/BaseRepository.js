@@ -4,7 +4,7 @@ export default class BaseRepository {
   }
 
   async find(filter = {}, options = {}) {
-    const { sort, skip, limit, populate, select, lean = true } = options;
+    const { sort, skip, limit, populate, select, lean = true, session } = options;
     let query = this.model.find(filter);
 
     if (select) query = query.select(select);
@@ -12,53 +12,81 @@ export default class BaseRepository {
     if (skip) query = query.skip(skip);
     if (limit) query = query.limit(limit);
     if (populate) query = query.populate(populate);
+    if (session) query = query.session(session);
     
     return lean ? query.lean() : query;
   }
 
   async findOne(filter = {}, options = {}) {
-    const { populate, select, lean = true } = options;
+    const { populate, select, lean = true, session } = options;
     let query = this.model.findOne(filter);
     
     if (select) query = query.select(select);
     if (populate) query = query.populate(populate);
+    if (session) query = query.session(session);
     
     return lean ? query.lean() : query;
   }
 
   async findById(id, options = {}) {
-    const { populate, select, lean = true } = options;
+    const { populate, select, lean = true, session } = options;
     let query = this.model.findById(id);
     
     if (select) query = query.select(select);
     if (populate) query = query.populate(populate);
+    if (session) query = query.session(session);
     
     return lean ? query.lean() : query;
   }
 
-  async create(data) {
+  async create(data, options = {}) {
+    const { session } = options;
+    if (session) {
+      const doc = new this.model(data);
+      return doc.save({ session });
+    }
     return this.model.create(data);
   }
 
   async updateOne(filter, data, options = { new: true, lean: true }) {
+    const { session, lean = true } = options;
     let query = this.model.findOneAndUpdate(filter, data, options);
-    if (options.lean) query = query.lean();
+    
+    if (session) query = query.session(session);
+    if (lean) query = query.lean();
+    
     return query;
   }
 
-  async deleteOne(filter) {
-    return this.model.findOneAndDelete(filter);
+  async deleteOne(filter, options = {}) {
+    const { session } = options;
+    let query = this.model.findOneAndDelete(filter);
+    if (session) query = query.session(session);
+    return query;
   }
 
-  async count(filter = {}) {
-    return this.model.countDocuments(filter);
+  async count(filter = {}, options = {}) {
+    const { session } = options;
+    let query = this.model.countDocuments(filter);
+    if (session) query = query.session(session);
+    return query;
   }
 
-  async exists(filter = {}) {
-    return this.model.exists(filter);
+  async exists(filter = {}, options = {}) {
+    const { session } = options;
+    let query = this.model.exists(filter);
+    if (session) query = query.session(session);
+    return query;
   }
 
   async getCursor(filter = {}, options = {}) {
     return this.model.find(filter).select(options.select).cursor();
+  }
+
+  async aggregate(pipeline = [], options = {}) {
+    const { session } = options;
+    let aggregation = this.model.aggregate(pipeline);
+    if (session) aggregation = aggregation.session(session);
+    return aggregation;
   }
 }

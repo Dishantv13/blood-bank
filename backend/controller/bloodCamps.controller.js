@@ -1,4 +1,4 @@
-import { validationResult } from 'express-validator';
+import { ensureValid } from '../middleware/validateRequest.js';
 import { asyncHandler } from '../utils/asynchandler.js';
 import { successResponse } from '../utils/response.js';
 import { clearCacheByPrefix } from '../middleware/cache.js';
@@ -18,10 +18,7 @@ export const getCampById = asyncHandler(async (req, res) => {
 
 // Create a new blood camp
 export const createCamp = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
+  ensureValid(req);
 
   const result = await bloodCampService.createCamp(req.bloodBank, req.body);
   clearCacheByPrefix('/api/v1/blood-camps');

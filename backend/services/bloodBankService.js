@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import bloodBankRepository from '../repositories/BloodBankRepository.js';
 import inventoryRepository from '../repositories/InventoryRepository.js';
 import cacheManager from '../utils/cacheManager.js';
@@ -288,7 +289,6 @@ const createBloodBankAndInventory = async (data) => {
       phone: contactPersonPhone,
       email: contactPersonEmail
     },
-    inventory: initialInventory,
     location: location || undefined,
     logo: logo || '',
     imageUrl: logo || '',
@@ -300,19 +300,31 @@ const createBloodBankAndInventory = async (data) => {
     rejectionReason: ''
   };
 
-  const bloodBank = await bloodBankRepository.create(bloodBankData);
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const inventory = await inventoryRepository.create({
-    bloodBank: bloodBank._id,
-    bloodBankName: bloodBank.name,
-    items: initialInventory.map((item) => ({ ...item, lastUpdated: new Date() }))
-  });
+  try {
+    const [bloodBank] = await bloodBankRepository.model.create([bloodBankData], { session });
 
-  return {
-    bloodBank: sanitizeBloodBank(bloodBank),
-    requiresApproval: true,
-    emailVerified: true,
-  };
+    await inventoryRepository.model.create([{
+      bloodBank: bloodBank._id,
+      bloodBankName: bloodBank.name,
+      items: initialInventory.map((item) => ({ ...item, lastUpdated: new Date() }))
+    }], { session });
+
+    await session.commitTransaction();
+
+    return {
+      bloodBank: sanitizeBloodBank(bloodBank),
+      requiresApproval: true,
+      emailVerified: true,
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 const buildRegistrationDataFromRequest = async (req) => {
@@ -802,7 +814,7 @@ export const getAllBloodBanks = async (query) => {
   const bloodBanksWithInventory = rawBanks.map(bank => ({
     ...sanitizeBloodBank(bank),
     logo: resolveLightweightLogo(bank),
-    inventory: inventoryMap.get(bank._id.toString()) || bank.inventory || []
+    inventory: inventoryMap.get(bank._id.toString()) || []
   }));
 
   // Filter by blood group availability if specified

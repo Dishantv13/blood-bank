@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { auth, protectBloodBank } from '../middleware/auth.js';
+import { auth, protectBloodBank, adminAuth } from '../middleware/auth.js';
 import { cacheResponse } from '../middleware/cache.js';
 import * as bloodCampsControllers from '../controller/bloodCamps.controller.js';
 

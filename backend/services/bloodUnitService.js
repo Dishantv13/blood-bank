@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import BloodUnit from '../models/BloodUnit.model.js';
 import { ApiError } from '../utils/apiError.js';
 import crypto from 'crypto';
@@ -99,41 +100,53 @@ export const refineBloodUnit = async (unitId, refineMethod, adminId) => {
 };
 
 export const updateScreeningResults = async (unitId, results, adminId) => {
-  const unit = await BloodUnit.findOne({ unitId });
-  if (!unit) throw new ApiError(404, 'Blood unit not found');
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  unit.screeningResults = {
-    ...unit.screeningResults,
-    ...results,
-    testedAt: new Date(),
-    testedBy: adminId
-  };
+  try {
+    const unit = await BloodUnit.findOne({ unitId }).session(session);
+    if (!unit) throw new ApiError(404, 'Blood unit not found');
 
-  const tests = ['hiv', 'hbv', 'hcv', 'syphilis', 'malaria'];
-  const allNegative = tests.every(test => unit.screeningResults[test] === 'negative');
-  const anyPositive = tests.some(test => unit.screeningResults[test] === 'positive');
-
-  if (anyPositive) {
-    unit.screeningStatus = 'failed';
-    unit.status = 'discarded';
-    unit.discardDetails = {
-      reason: 'Failed medical screening',
-      discardedAt: new Date(),
-      discardedBy: adminId
-    };
-  } else if (allNegative) {
-    unit.screeningStatus = 'passed';
-    unit.status = 'available';
-    
-    try {
-      await addInventoryUnits(unit.bloodBank, unit.bloodGroup, 1);
-    } catch (err) {
-      console.error('Inventory auto-update failed:', err);
+    if (unit.screeningStatus !== 'pending') {
+      throw new ApiError(400, 'Unit screening results have already been recorded');
     }
-  }
 
-  await unit.save();
-  return unit;
+    unit.screeningResults = {
+      ...unit.screeningResults,
+      ...results,
+      testedAt: new Date(),
+      testedBy: adminId
+    };
+
+    const tests = ['hiv', 'hbv', 'hcv', 'syphilis', 'malaria'];
+    const allNegative = tests.every(test => unit.screeningResults[test] === 'negative');
+    const anyPositive = tests.some(test => unit.screeningResults[test] === 'positive');
+
+    if (anyPositive) {
+      unit.screeningStatus = 'failed';
+      unit.status = 'discarded';
+      unit.discardDetails = {
+        reason: 'Failed medical screening',
+        discardedAt: new Date(),
+        discardedBy: adminId
+      };
+    } else if (allNegative) {
+      unit.screeningStatus = 'passed';
+      unit.status = 'available';
+      
+      // Atomic inventory increment
+      await addInventoryUnits(unit.bloodBank, unit.bloodGroup, 1, session);
+    }
+
+    await unit.save({ session });
+    await session.commitTransaction();
+    return unit;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 export const recordColdChain = async (unitId, data, adminId) => {

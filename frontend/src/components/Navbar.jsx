@@ -38,12 +38,13 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <div className="navbar-container">
-        <Link to={isAuthenticated ? ROUTE_PATH.DASHBOARD : ROUTE_PATH.LOGIN} className="navbar-brand">
+        <Link to={ROUTE_PATH.HOME} className="navbar-brand">
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ marginRight: '8px', verticalAlign: 'middle' }}>
             <path d="M10 2C10 2 5 7.5 5 12C5 14.7614 7.23858 17 10 17C12.7614 17 15 14.7614 15 12C15 7.5 10 2 10 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="#ef4444" />
           </svg>
           RaktSarthi
         </Link>
+
 
         {isAuthenticated && (
           <>
@@ -117,6 +118,22 @@ const Navbar = () => {
           </>
         )}
 
+        {!isAuthenticated && (
+          <ul className={`navbar-menu ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+            <li>
+              <NavLink to={ROUTE_PATH.BLOOD_BANKS} className={getNavLinkClass}>
+                Blood Banks
+              </NavLink>
+            </li>
+            <li>
+              <NavLink to={ROUTE_PATH.EVENTS} className={getNavLinkClass}>
+                Camps
+              </NavLink>
+            </li>
+          </ul>
+        )}
+
+
         <div className="navbar-actions">
           {/* Theme Toggle is always visible */}
           <ThemeToggle />
@@ -173,12 +190,6 @@ const Navbar = () => {
                       {user?.activeMode === 'donor' && user?.isDonor && (
                         <>
                           <Link to={ROUTE_PATH.DONOR_FORM} className={dropdownItemClass} onClick={() => setShowDropdown(false)}>
-                            {/* <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <line x1="12" y1="18" x2="12" y2="12" />
-                            <line x1="9" y1="15" x2="15" y2="15" />
-                          </svg> */}
                             <FaUserEdit /> Donor Profile
                           </Link>
                           <Link to={ROUTE_PATH.DONATION_HISTORY} className={dropdownItemClass} onClick={() => setShowDropdown(false)}>
@@ -209,11 +220,62 @@ const Navbar = () => {
               </div>
             </>
           )}
+
+          {!isAuthenticated && (
+            <div className="guest-actions" style={{ display: 'flex', gap: '10px' }}>
+              <Link to={ROUTE_PATH.LOGIN} className="btn btn-outline navbar-btn login-btn">
+                Login
+              </Link>
+              <Link to={ROUTE_PATH.BLOOD_BANK_REGISTER} className="btn btn-primary navbar-btn register-btn">
+                Register
+              </Link>
+            </div>
+          )}
+
+
         </div>
       </div>
 
+
       <style>{`
+        .navbar-btn {
+          padding: 0.6rem 1.4rem !important;
+          font-size: 0.95rem !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 10px !important;
+          transition: all 0.3s ease !important;
+          font-weight: 600 !important;
+        }
+
+        .login-btn {
+          border: 2px solid white !important;
+          color: white !important;
+          background: transparent !important;
+        }
+
+        .login-btn:hover {
+          background: rgba(255, 255, 255, 0.15) !important;
+          transform: translateY(-2px);
+        }
+
+        .register-btn {
+          border: 2px solid white !important;
+          color: white !important;
+          background: transparent !important;
+        }
+
+        .register-btn:hover {
+          background: #ef4444 !important;
+          color: white !important;
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+        }
+
+
         .navbar-actions {
+
           display: flex;
           align-items: center;
           gap: 1rem;

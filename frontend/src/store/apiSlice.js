@@ -260,8 +260,13 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 
     const isRefreshCall = requestUrl.toLowerCase().includes('/refresh');
     const skipReauthForThisCall = isLoginOrAuthMutationPath(requestUrl);
+    const isSessionCheck = requestUrl.toLowerCase().includes('/session');
+    const onAuthPage = 
+      currentPath === ROUTE_PATH.LOGIN.toLowerCase() || 
+      currentPath === ROUTE_PATH.BLOOD_BANK_LOGIN.toLowerCase() ||
+      currentPath === ROUTE_PATH.ADMIN_LOGIN.toLowerCase();
 
-    if (!isRefreshCall && !skipReauthForThisCall) {
+    if (!isRefreshCall && !skipReauthForThisCall && !(isSessionCheck && onAuthPage)) {
       const refreshResult = await runRefreshForRole(requestRole, api, extraOptions);
 
       if (refreshResult.data) {

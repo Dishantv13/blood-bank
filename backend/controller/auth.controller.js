@@ -4,27 +4,27 @@ import * as authService from '../services/authService.js';
 import { ensureValid } from '../middleware/validateRequest.js';
 
 export const register = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const result = await authService.initiateUserRegistration(req, req.body);
   successResponse(res, result, 200, 'OTP sent to your email');
 });
 
 export const verifyOtp = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const { verificationId, otp } = req.body;
   const result = await authService.verifyUserRegistrationOtp(req, res, verificationId, otp);
   successResponse(res, result, 201, 'Registration completed successfully');
 });
 
 export const resendOtp = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const { verificationId } = req.body;
   const result = await authService.resendUserRegistrationOtp(req, verificationId);
   successResponse(res, result, 200, 'New OTP sent to your email');
 });
 
 export const login = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const result = await authService.loginAndCreateSession(req, res);
   successResponse(res, result, 200, 'Login successful');
 });
@@ -60,7 +60,7 @@ export const getCsrfToken = asyncHandler(async (req, res) => {
 });
 
 export const forgotPassword = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const { email } = req.body;
   await authService.requestPasswordReset(email);
   successResponse(
@@ -72,21 +72,21 @@ export const forgotPassword = asyncHandler(async (req, res) => {
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const { token, password } = req.body;
   await authService.resetPassword(token, password);
   successResponse(res, { success: true }, 200, 'Password reset successful. You can now login with your new password');
 });
 
 export const verifyResetToken = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const { token } = req.body;
   const result = await authService.verifyResetToken(token);
   successResponse(res, result, 200, 'Token is valid');
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
-  if (!ensureValid(req, res)) return;
+  ensureValid(req);
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.userId || req.user.id;
   await authService.changePassword(userId, currentPassword, newPassword);
