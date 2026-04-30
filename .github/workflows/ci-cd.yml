@@ -67,7 +67,6 @@ jobs:
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
           vercel-version: latest
-          working-directory: ./frontend
 
   deploy-backend:
     name: Deploy Backend to Render
