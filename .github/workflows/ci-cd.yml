@@ -50,3 +50,29 @@ jobs:
       - name: Build Frontend
         working-directory: ./frontend
         run: npm run build
+
+  deploy-frontend:
+    name: Deploy Frontend to Vercel
+    needs: [frontend-ci]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./frontend
+
+  deploy-backend:
+    name: Deploy Backend to Render
+    needs: [backend-ci]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: Trigger Render Deployment
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
