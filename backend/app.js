@@ -4,22 +4,26 @@ import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
 import compression from "compression";
-import mongoose from "mongoose";
 import { globalErrorHandler } from "./middleware/globalErrorHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 import { globalApiLimiter } from "./middleware/rateLimiter.js";
-import redisClient from "./utils/redisClient.js";
-
-// ==================== ROUTE IMPORTS ====================
-// IMPORT ROUTES FILE
+import { cacheControl } from "./middleware/cacheControl.js";
+import { partialResponse } from "./middleware/partialResponse.js";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./config/swagger.js";
 
 import v1Router from "./routes/index.js";
 
 const app = express();
 app.set("trust proxy", 1);
+app.set("etag", "strong");
 
 const shouldCompress = (req, res) => {
-  if (req.path.startsWith("/api/auth") || req.path.startsWith("/api/admin-auth") || req.path.startsWith("/api/upload")) {
+  if (
+    req.path.startsWith("/api/auth") ||
+    req.path.startsWith("/api/admin-auth") ||
+    req.path.startsWith("/api/upload")
+  ) {
     return false;
   }
 
@@ -48,7 +52,7 @@ const sanitizeRequestPayload = (req, _res, next) => {
   next();
 };
 
-// ==================== CORS CONFIGURATION ====================
+// CORS CONFIGURATION
 const envOrigins = String(process.env.FRONTEND_URLS || "")
   .split(",")
   .map((value) => value.trim())
@@ -59,9 +63,13 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   "http://localhost:3000",
   "http://localhost:3001",
+  "http://localhost:5000",
   "http://127.0.0.1:3000",
-  "http://127.0.0.1:3001"
-].filter(Boolean).map((url) => url.replace(/\/$/, ""));
+  "http://127.0.0.1:3001",
+  "http://127.0.0.1:5000",
+]
+  .filter(Boolean)
+  .map((url) => url.replace(/\/$/, ""));
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -81,11 +89,7 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-CSRF-Token"
-  ],
+  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
   maxAge: 86400,
 };
@@ -93,14 +97,15 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options("/{*any}", cors(corsOptions));
 
-// ==================== HTTPS ENFORCEMENT ====================
+// HTTPS ENFORCEMENT
 // Enforce HTTPS in production environment
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === "production") {
   app.use((req, res, next) => {
     // Check if request is over HTTPS
-    const isHttps = req.secure ||
-      req.headers['x-forwarded-proto'] === 'https' ||
-      req.headers['x-forwarded-ssl'] === 'on';
+    const isHttps =
+      req.secure ||
+      req.headers["x-forwarded-proto"] === "https" ||
+      req.headers["x-forwarded-ssl"] === "on";
 
     if (!isHttps) {
       // Redirect to HTTPS
@@ -110,58 +115,62 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// ==================== SECURITY MIDDLEWARE ====================
+// SECURITY MIDDLEWARE
 // Disable X-Powered-By header to prevent information disclosure
-app.disable('x-powered-by');
+app.disable("x-powered-by");
 
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      fontSrc: ["'self'"],
-      connectSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        frameSrc: ["'none'"],
+        objectSrc: ["'none'"],
+      },
     },
-  },
-  hsts: {
-    maxAge: 31536000, // 1 year
-    includeSubDomains: true,
-    preload: true,
-  },
-  frameGuard: { action: 'deny' },
-  noSniff: true,
-  xssFilter: true,
-  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-  // Add Expect-CT for certificate transparency
-  expectCt: {
-    maxAge: 86400, // 24 hours
-    enforce: true,
-  },
-  // Add Permissions-Policy to restrict browser features
-  permissionsPolicy: {
-    camera: [],
-    microphone: [],
-    geolocation: [],
-    payment: [],
-  },
-}));
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameGuard: { action: "deny" },
+    noSniff: true,
+    xssFilter: true,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    // Add Expect-CT for certificate transparency
+    expectCt: {
+      maxAge: 86400, // 24 hours
+      enforce: true,
+    },
+    // Add Permissions-Policy to restrict browser features
+    permissionsPolicy: {
+      camera: [],
+      microphone: [],
+      geolocation: [],
+      payment: [],
+    },
+  }),
+);
 app.use(compression({ filter: shouldCompress }));
-app.use(requestLogger(1000));
+app.use(requestLogger(2000));
 app.use(cookieParser());
 
-// ==================== RATE LIMITING ====================
+// RATE LIMITING
 app.use("/api/", globalApiLimiter);
+app.use("/api/", cacheControl);
+app.use("/api/", partialResponse);
 
-// ==================== BODY PARSER ===================
+// BODY PARSER
 app.use(json({ limit: "1mb" }));
 app.use(urlencoded({ extended: true, limit: "1mb" }));
 app.use(sanitizeRequestPayload);
 
-// ==================== REQUEST TIMEOUT PROTECTION ====================
+// REQUEST TIMEOUT PROTECTION
 // Prevent hanging connections before route handling starts.
 app.use((req, res, next) => {
   res.setTimeout(20000, () => {
@@ -171,20 +180,20 @@ app.use((req, res, next) => {
 
     res.status(408).json({
       success: false,
-      message: 'Request timeout - server did not receive a complete request in time'
+      message:
+        "Request timeout - server did not receive a complete request in time",
     });
   });
   next();
 });
 
-// ==================== HEALTH CHECK ====================
-// ==================== SYSTEM ROUTES ====================
+// SYSTEM ROUTES
 app.get("/", (_req, res) => {
   res.json({
     status: "ok",
     message: "RaktSarthi API is running",
     version: "v1.0.0",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -192,22 +201,30 @@ app.get("/", (_req, res) => {
 app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
-    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-    redis: redisClient.isReady ? "connected" : "disconnected",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
-    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-    redis: redisClient.isReady ? "connected" : "disconnected",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
-// ==================== VERSIONED API ROUTES ====================
+// SWAGGER DOCUMENTATION
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+    customSiteTitle: "RaktSarthi API Docs",
+  }),
+);
+
+// VERSIONED API ROUTES
 app.use("/api/v1", v1Router);
 
 // Legacy /api redirect to /api/v1
@@ -215,13 +232,15 @@ app.use("/api", (req, res, next) => {
   if (req.path.startsWith("/v1") || req.path === "/health") return next();
 
   const cleanPath = req.path.startsWith("/") ? req.path : `/${req.path}`;
-  const queryPart = req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '';
+  const queryPart = req.url.includes("?")
+    ? req.url.substring(req.url.indexOf("?"))
+    : "";
   const nextPath = `/api/v1${cleanPath}${queryPart}`;
-  
+
   res.redirect(307, nextPath);
 });
 
-// ==================== ERROR HANDLING MIDDLEWARE (must be AFTER routes) ====================
+// ERROR HANDLING MIDDLEWARE (must be AFTER routes)
 app.use(globalErrorHandler);
 
 export default app;

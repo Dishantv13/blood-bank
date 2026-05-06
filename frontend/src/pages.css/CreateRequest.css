@@ -82,15 +82,15 @@ textarea.form-control {
   .form-row {
     grid-template-columns: 1fr;
   }
-  
+
   .request-form {
     padding: 1.5rem;
   }
-  
+
   .form-actions {
     flex-direction: column;
   }
-  
+
   .form-actions .btn {
     width: 100%;
   }

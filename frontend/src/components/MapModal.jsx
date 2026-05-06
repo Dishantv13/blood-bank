@@ -1,4 +1,4 @@
-import '../components.css/MapModal.css';
+import "../components.css/MapModal.css";
 
 const MapModal = ({ location, name, onClose }) => {
   if (!location || !location.coordinates) return null;
@@ -10,7 +10,7 @@ const MapModal = ({ location, name, onClose }) => {
   const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01},${lat - 0.01},${lng + 0.01},${lat + 0.01}&layer=mapnik&marker=${lat},${lng}`;
 
   const handleOverlayClick = (e) => {
-    if (e.target.className === 'map-modal-overlay') {
+    if (e.target.className === "map-modal-overlay") {
       onClose();
     }
   };
@@ -20,15 +20,36 @@ const MapModal = ({ location, name, onClose }) => {
       <div className="map-modal-content">
         <div className="map-modal-header">
           <h3>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ verticalAlign: 'middle', marginRight: '8px' }}>
-              <path d="M10 2C7.5 2 5 4 5 7C5 11 10 18 10 18C10 18 15 11 15 7C15 4 12.5 2 10 2Z" stroke="currentColor" strokeWidth="2" />
-              <circle cx="10" cy="7" r="2" stroke="currentColor" strokeWidth="2" />
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              style={{ verticalAlign: "middle", marginRight: "8px" }}
+            >
+              <path
+                d="M10 2C7.5 2 5 4 5 7C5 11 10 18 10 18C10 18 15 11 15 7C15 4 12.5 2 10 2Z"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+              <circle
+                cx="10"
+                cy="7"
+                r="2"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
             </svg>
             {name}
           </h3>
           <button className="map-modal-close" onClick={onClose}>
             <svg width="24" height="24" viewBox="0 0 20 20" fill="none">
-              <path d="M5 5L15 15M5 15L15 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <path
+                d="M5 5L15 15M5 15L15 5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         </div>
@@ -61,8 +82,21 @@ const MapModal = ({ location, name, onClose }) => {
             className="btn-open-google-maps"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M10 2C7.5 2 5 4 5 7C5 11 10 18 10 18C10 18 15 11 15 7C15 4 12.5 2 10 2Z" stroke="currentColor" strokeWidth="2" fill="currentColor" fillOpacity="0.2" />
-              <circle cx="10" cy="7" r="2" stroke="currentColor" strokeWidth="2" fill="white" />
+              <path
+                d="M10 2C7.5 2 5 4 5 7C5 11 10 18 10 18C10 18 15 11 15 7C15 4 12.5 2 10 2Z"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="currentColor"
+                fillOpacity="0.2"
+              />
+              <circle
+                cx="10"
+                cy="7"
+                r="2"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="white"
+              />
             </svg>
             Open in Google Maps
           </a>

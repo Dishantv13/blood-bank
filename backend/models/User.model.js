@@ -1,74 +1,75 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
   },
   password: {
     type: String,
     required: true,
     minlength: 8,
-    select: false
+    select: false,
   },
   phone: {
     type: String,
     required: false,
     trim: true,
     validate: {
-      validator: (value) => !value || /^[0-9]{10}$/.test(String(value).replace(/\D/g, '')),
-      message: 'Phone number must be 10 digits'
-    }
+      validator: (value) =>
+        !value || /^[0-9]{10}$/.test(String(value).replace(/\D/g, "")),
+      message: "Phone number must be 10 digits",
+    },
   },
   bloodGroup: {
     type: String,
-    enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-    required: false
+    enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+    required: false,
   },
   googleId: {
     type: String,
     unique: true,
-    sparse: true
+    sparse: true,
   },
   photoURL: {
     type: String,
-    trim: true
+    trim: true,
   },
   photoURLPublicId: {
     type: String,
-    trim: true
+    trim: true,
   },
   role: {
     type: String,
-    enum: ['user', 'donor', 'admin', 'bloodbank'],
-    default: 'user'
+    enum: ["user", "donor", "admin", "bloodbank"],
+    default: "user",
   },
   isDonor: {
     type: Boolean,
-    default: false
+    default: false,
   },
   needsBlood: {
     type: Boolean,
-    default: false
+    default: false,
   },
   activeMode: {
     type: String,
-    enum: ['donor', 'patient'],
-    default: 'patient'
+    enum: ["donor", "patient"],
+    default: "patient",
   },
   address: {
     street: String,
     city: String,
     state: String,
-    pincode: String
+    pincode: String,
   },
   emailPreferences: {
     requests: { type: Boolean, default: true },
@@ -76,41 +77,54 @@ const UserSchema = new mongoose.Schema({
     camps: { type: Boolean, default: true },
     events: { type: Boolean, default: true },
     reminders: { type: Boolean, default: true },
-    promotional: { type: Boolean, default: false }
+    promotional: { type: Boolean, default: false },
   },
   location: {
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point'
+      enum: ["Point"],
+      default: "Point",
     },
     coordinates: {
       type: [Number],
       default: [0, 0],
       validate: {
-        validator: (coords) => Array.isArray(coords) && coords.length === 2 && coords.every((value) => Number.isFinite(value)),
-        message: 'Location coordinates must contain valid longitude and latitude values'
-      }
-    }
+        validator: (coords) =>
+          Array.isArray(coords) &&
+          coords.length === 2 &&
+          coords.every((value) => Number.isFinite(value)),
+        message:
+          "Location coordinates must contain valid longitude and latitude values",
+      },
+    },
   },
   aadharCard: {
     imageUrl: String,
     isVerified: {
       type: Boolean,
-      default: false
+      default: false,
     },
-    uploadedAt: Date
+    uploadedAt: Date,
+    verificationStatus: {
+      type: String,
+      enum: ["not_started", "pending", "verified", "failed"],
+      default: "not_started",
+    },
+    verificationRequestedAt: Date,
+    verificationCompletedAt: Date,
+    verificationFailureReason: String,
+    verifiedDateOfBirth: Date,
   },
   lastDonationDate: {
-    type: Date
+    type: Date,
   },
   isAvailable: {
     type: Boolean,
-    default: true
+    default: true,
   },
   healthForm: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'DonorHealth'
+    ref: "DonorHealth",
   },
   donorInfo: {
     // Summary statistics for fast dashboard/profile access
@@ -121,54 +135,56 @@ const UserSchema = new mongoose.Schema({
     eligibilityReasons: Object,
     lastUpdated: Date,
     lastReminderSentAt: Date,
-    
+
     // Core identity fields that might be needed frequently
     dateOfBirth: Date,
     gender: String,
-    bloodGroup: String
+    bloodGroup: String,
   },
   loginAttempts: {
     type: Number,
     default: 0,
-    select: false
+    select: false,
   },
   lockUntil: {
     type: Date,
-    select: false
+    select: false,
   },
   passwordReset: {
     token: { type: String, select: false },
-    expiresAt: { type: Date, select: false }
+    expiresAt: { type: Date, select: false },
   },
   tokenVersion: {
     type: Number,
     default: 0,
     min: 0,
-    select: false
+    select: false,
   },
   passwordChangedAt: {
     type: Date,
     default: null,
-    select: false
+    select: false,
   },
   isEmailVerified: {
     type: Boolean,
-    default: true
+    default: true,
   },
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   isFake: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 });
 
 // Index for geospatial queries
-UserSchema.index({ location: '2dsphere' });
+UserSchema.index({ location: "2dsphere" });
 UserSchema.index({ phone: 1 });
 UserSchema.index({ bloodGroup: 1, isAvailable: 1, isDonor: 1 });
-UserSchema.index({ role: 1, createdAt: -1 });
+UserSchema.index({ role: 1, isAvailable: 1 });
+UserSchema.index({ isAvailable: 1, bloodGroup: 1 });
+UserSchema.index({ createdAt: -1 });
 
-export default mongoose.model('User', UserSchema);
+export default mongoose.model("User", UserSchema);

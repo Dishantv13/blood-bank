@@ -1,48 +1,55 @@
-import { useState } from 'react';
-import { useForgotBloodBankPasswordMutation } from '../store/bloodBankApi';
-import { Link } from 'react-router-dom';
-import { ROUTE_PATH } from '../enum/routePath';
-import { FaHospital, FaCheckCircle } from 'react-icons/fa';
-import '../pages.css/BloodBankForgotPassword.css'
+import { useState } from "react";
+import { useForgotBloodBankPasswordMutation } from "../store/bloodBankApi";
+import { Link } from "react-router-dom";
+import { ROUTE_PATH } from "../enum/routePath";
+import { FaHospital, FaCheckCircle } from "react-icons/fa";
+import "../pages.css/BloodBankForgotPassword.css";
 
 const BloodBankForgotPassword = () => {
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  const [forgotPassword, { isLoading: loading }] = useForgotBloodBankPasswordMutation();
+  const [forgotPassword, { isLoading: loading }] =
+    useForgotBloodBankPasswordMutation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     try {
       const response = await forgotPassword({ email }).unwrap();
-      setMessage(response.message || 'Reset link sent to your email');
+      setMessage(response.message || "Reset link sent to your email");
       setSubmitted(true);
-      setEmail('');
+      setEmail("");
     } catch (err) {
-      setError(err.data?.message || 'Failed to send reset email');
+      setError(err.data?.message || "Failed to send reset email");
     }
   };
 
   return (
     <div className="blood-bank-forgot-password-container">
       <div className="blood-bank-forgot-password-box">
-        <h2><FaHospital /> Blood Bank - Forgot Password</h2>
-        
+        <h2>
+          <FaHospital /> Blood Bank - Forgot Password
+        </h2>
+
         {submitted ? (
           <div className="success-message">
-            <div className="success-icon"><FaCheckCircle color="green" /></div>
+            <div className="success-icon">
+              <FaCheckCircle color="green" />
+            </div>
             <p>{message}</p>
-            <p className="hint">Check your email for password reset instructions.</p>
-            <button 
+            <p className="hint">
+              Check your email for password reset instructions.
+            </p>
+            <button
               className="back-button"
               onClick={() => {
                 setSubmitted(false);
-                setMessage('');
+                setMessage("");
               }}
             >
               Back to Login
@@ -51,7 +58,8 @@ const BloodBankForgotPassword = () => {
         ) : (
           <form onSubmit={handleSubmit}>
             <p className="form-description">
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email address and we'll send you a link to reset your
+              password.
             </p>
 
             <div className="form-group">
@@ -69,12 +77,12 @@ const BloodBankForgotPassword = () => {
 
             {error && <div className="error-message">{error}</div>}
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="submit-button"
               disabled={loading || !email}
             >
-              {loading ? 'Sending...' : 'Send Reset Link'}
+              {loading ? "Sending..." : "Send Reset Link"}
             </button>
 
             <div className="back-link">

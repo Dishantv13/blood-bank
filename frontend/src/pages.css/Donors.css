@@ -185,7 +185,7 @@
   flex-shrink: 0;
 }
 
-.availability-tab-vertical>div {
+.availability-tab-vertical > div {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -768,7 +768,7 @@
     font-size: 0.85rem;
   }
 
-  .availability-tab-vertical>div {
+  .availability-tab-vertical > div {
     display: none;
   }
 
@@ -806,7 +806,6 @@
   .donor-info-section {
     padding: 1rem;
   }
-
 
   .donor-name {
     font-size: 1.1rem;

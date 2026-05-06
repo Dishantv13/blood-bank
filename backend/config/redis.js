@@ -7,11 +7,11 @@ export const redisConfig = {
     reconnectStrategy: (retries) => {
       const delay = Math.min(retries * 500, 30000);
       return delay;
-    }
+    },
   },
   password: process.env.REDIS_PASSWORD || undefined,
   username: process.env.REDIS_USERNAME || undefined,
-};  
+};
 
 let _client = null;
 let _isConnecting = false;
@@ -20,15 +20,36 @@ const ERROR_LOG_INTERVAL = 60000; // Log error at most once per minute
 
 // Returns a singleton Redis client.
 export const getRedisClient = async () => {
+  if (process.env.NODE_ENV === 'test') {
+    if (!_client) {
+      _client = {
+        on: () => _client,
+        connect: async () => {},
+        isOpen: true,
+        isReady: true,
+        get: async () => null,
+        set: async () => 'OK',
+        del: async () => 1,
+        quit: async () => {},
+        configSet: async () => 'OK',
+        info: async () => 'maxmemory_policy:noeviction',
+        sendCommand: async () => [0, Date.now() + 60000], // [current, resetTime]
+      };
+    }
+    return _client;
+  }
+
   if (_client?.isReady) return _client;
-  
+
   if (!_client) {
     _client = createClient(redisConfig);
 
     _client.on('error', (err) => {
       const now = Date.now();
       if (now - _lastErrorLoggedAt > ERROR_LOG_INTERVAL) {
-        console.warn(`[Redis] Connectivity issue: ${err.message}. System is using local memory fallback.`);
+        console.warn(
+          `[Redis] Connectivity issue: ${err.message}. System is using local memory fallback.`
+        );
         _lastErrorLoggedAt = now;
       }
     });

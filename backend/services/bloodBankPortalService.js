@@ -1,39 +1,64 @@
-import mongoose from 'mongoose';
-import ExcelJS from 'exceljs';
-import requestRepository from '../repositories/RequestRepository.js';
-import bloodBankRepository from '../repositories/BloodBankRepository.js';
-import bloodCampRepository from '../repositories/BloodCampRepository.js';
-import inventoryRepository from '../repositories/InventoryRepository.js';
-import eventRepository from '../repositories/EventRepository.js';
-import { ApiError } from '../utils/apiError.js';
-import { addInventoryUnits, subtractInventoryUnits } from './inventoryService.js';
-import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
-import { BLOOD_BANK_SAFE_FIELDS, sanitizeBloodBank } from '../utils/serializers.js';
-import * as validationService from './validationService.js';
-import { revokeAllPrincipalSessions } from './sessionService.js';
-import * as auditService from './auditService.js';
+import mongoose from "mongoose";
+import ExcelJS from "exceljs";
+import requestRepository from "../repositories/RequestRepository.js";
+import bloodBankRepository from "../repositories/BloodBankRepository.js";
+import bloodCampRepository from "../repositories/BloodCampRepository.js";
+import inventoryRepository from "../repositories/InventoryRepository.js";
+import eventRepository from "../repositories/EventRepository.js";
+import { ApiError } from "../utils/apiError.js";
+import {
+  addInventoryUnits,
+  subtractInventoryUnits,
+} from "./inventoryService.js";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
+import {
+  BLOOD_BANK_SAFE_FIELDS,
+  sanitizeBloodBank,
+} from "../utils/serializers.js";
+import * as validationService from "./validationService.js";
+import { revokeAllPrincipalSessions } from "./sessionService.js";
+import * as auditService from "./auditService.js";
 
 const buildBloodBankAddress = (address = {}) => {
-  if (!address) return '';
-  if (typeof address === 'string') return address;
-  return [address.street, address.city, address.state, address.pincode || address.zipCode].filter(Boolean).join(', ');
+  if (!address) return "";
+  if (typeof address === "string") return address;
+  return [
+    address.street,
+    address.city,
+    address.state,
+    address.pincode || address.zipCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
 };
 
 export const getAllRequests = async (bloodBankId, query) => {
-  const { status = 'pending', bloodGroup, urgency, requestType, direction, limit, page } = query;
+  const {
+    status = "pending",
+    bloodGroup,
+    urgency,
+    requestType,
+    direction,
+    limit,
+    page,
+  } = query;
   const normalizedStatus = String(status).toLowerCase();
-  const isPending = normalizedStatus === 'pending';
-  const responseStatuses = isPending ? ['pending', null] : [normalizedStatus];
-  const directionFilter = direction === 'sent' || direction === 'received' ? direction : 'all';
+  const isPending = normalizedStatus === "pending";
+  const responseStatuses = isPending ? ["pending", null] : [normalizedStatus];
+  const directionFilter =
+    direction === "sent" || direction === "received" ? direction : "all";
 
   const requestScopes = [];
-  const includeUserRequests = requestType !== 'bloodbank';
-  const includeBloodBankRequests = requestType !== 'user';
+  const includeUserRequests = requestType !== "bloodbank";
+  const includeBloodBankRequests = requestType !== "user";
 
   if (includeUserRequests) {
     const userScope = {
-      requestType: 'user',
-      'bloodBankResponse.status': { $in: responseStatuses }
+      requestType: "user",
+      "bloodBankResponse.status": { $in: responseStatuses },
     };
 
     if (!isPending) {
@@ -45,24 +70,27 @@ export const getAllRequests = async (bloodBankId, query) => {
 
   if (includeBloodBankRequests) {
     const interBankScope = {
-      requestType: 'bloodbank',
-      'bloodBankResponse.status': { $in: responseStatuses }
+      requestType: "bloodbank",
+      "bloodBankResponse.status": { $in: responseStatuses },
     };
 
-    if (directionFilter === 'sent') {
+    if (directionFilter === "sent") {
       interBankScope.requestingBloodBank = bloodBankId;
-    } else if (directionFilter === 'received') {
+    } else if (directionFilter === "received") {
       interBankScope.targetBloodBank = bloodBankId;
     } else {
-      interBankScope.$or = [{ targetBloodBank: bloodBankId }, { requestingBloodBank: bloodBankId }];
+      interBankScope.$or = [
+        { targetBloodBank: bloodBankId },
+        { requestingBloodBank: bloodBankId },
+      ];
     }
 
     requestScopes.push(interBankScope);
   }
 
   const filter = {
-    status: isPending ? 'pending' : normalizedStatus,
-    $or: requestScopes
+    status: isPending ? "pending" : normalizedStatus,
+    $or: requestScopes,
   };
 
   if (bloodGroup) filter.bloodGroup = bloodGroup;
@@ -75,15 +103,15 @@ export const getAllRequests = async (bloodBankId, query) => {
   const [requests, total] = await Promise.all([
     requestRepository.find(filter, {
       populate: [
-        { path: 'requestedBy', select: 'name email phone bloodGroup' },
-        { path: 'requestingBloodBank', select: 'name email phone address' },
-        { path: 'targetBloodBank', select: 'name email phone address' }
+        { path: "requestedBy", select: "name email phone bloodGroup" },
+        { path: "requestingBloodBank", select: "name email phone address" },
+        { path: "targetBloodBank", select: "name email phone address" },
       ],
       sort: { urgency: -1, createdAt: -1 },
       skip,
-      limit: parsedLimit
+      limit: parsedLimit,
     }),
-    requestRepository.count(filter)
+    requestRepository.count(filter),
   ]);
 
   return {
@@ -91,7 +119,7 @@ export const getAllRequests = async (bloodBankId, query) => {
     total,
     page: parsedPage,
     pages: Math.ceil(total / parsedLimit),
-    requests
+    requests,
   };
 };
 
@@ -99,27 +127,42 @@ export const getApprovedRequests = async (bloodBankId, query) => {
   const { requestType, direction, limit, page } = query;
 
   const approvedQuery = {
-    status: 'approved',
+    status: "approved",
     $or: [
-      { requestType: 'user', bloodBank: bloodBankId },
-      { requestType: 'bloodbank', $or: [{ targetBloodBank: bloodBankId }, { requestingBloodBank: bloodBankId }] }
-    ]
+      { requestType: "user", bloodBank: bloodBankId },
+      {
+        requestType: "bloodbank",
+        $or: [
+          { targetBloodBank: bloodBankId },
+          { requestingBloodBank: bloodBankId },
+        ],
+      },
+    ],
   };
 
-  if (requestType === 'user' || requestType === 'bloodbank') {
-    approvedQuery.$or = approvedQuery.$or.filter((entry) => entry.requestType === requestType);
+  if (requestType === "user" || requestType === "bloodbank") {
+    approvedQuery.$or = approvedQuery.$or.filter(
+      (entry) => entry.requestType === requestType,
+    );
   }
 
-  const directionFilter = direction === 'sent' || direction === 'received' ? direction : 'all';
-  if (directionFilter !== 'all') {
+  const directionFilter =
+    direction === "sent" || direction === "received" ? direction : "all";
+  if (directionFilter !== "all") {
     approvedQuery.$or = approvedQuery.$or
       .map((entry) => {
-        if (entry.requestType !== 'bloodbank' || !entry.$or) return entry;
+        if (entry.requestType !== "bloodbank" || !entry.$or) return entry;
         const scoped = { ...entry };
         scoped.$or = scoped.$or.filter((condition) =>
-          directionFilter === 'sent'
-            ? Object.prototype.hasOwnProperty.call(condition, 'requestingBloodBank')
-            : Object.prototype.hasOwnProperty.call(condition, 'targetBloodBank')
+          directionFilter === "sent"
+            ? Object.prototype.hasOwnProperty.call(
+                condition,
+                "requestingBloodBank",
+              )
+            : Object.prototype.hasOwnProperty.call(
+                condition,
+                "targetBloodBank",
+              ),
         );
         if (!scoped.$or.length) return null;
         return scoped;
@@ -134,15 +177,19 @@ export const getApprovedRequests = async (bloodBankId, query) => {
   const [requests, total] = await Promise.all([
     requestRepository.find(approvedQuery, {
       populate: [
-        { path: 'requestedBy', select: 'name email phone bloodGroup' },
-        { path: 'requestingBloodBank', select: 'name email phone address' },
-        { path: 'targetBloodBank', select: 'name email phone address' }
+        { path: "requestedBy", select: "name email phone bloodGroup" },
+        { path: "requestingBloodBank", select: "name email phone address" },
+        { path: "targetBloodBank", select: "name email phone address" },
       ],
-      sort: { 'bloodBankResponse.respondedAt': -1, updatedAt: -1, createdAt: -1 },
+      sort: {
+        "bloodBankResponse.respondedAt": -1,
+        updatedAt: -1,
+        createdAt: -1,
+      },
       skip,
-      limit: parsedLimit
+      limit: parsedLimit,
     }),
-    requestRepository.count(approvedQuery)
+    requestRepository.count(approvedQuery),
   ]);
 
   return {
@@ -150,111 +197,173 @@ export const getApprovedRequests = async (bloodBankId, query) => {
     total,
     page: parsedPage,
     pages: Math.ceil(total / parsedLimit),
-    requests
+    requests,
   };
 };
 
-export const getRequestDetails = async (id) => {
+export const getRequestDetails = async (id, requesterBankId) => {
   const request = await requestRepository.findById(id, {
     populate: [
-      { path: 'requestedBy', select: 'name email phone bloodGroup address' },
-      { path: 'requestingBloodBank', select: 'name email phone address' },
-      { path: 'targetBloodBank', select: 'name email phone address' },
-      { path: 'bloodBankResponse.respondedBy', select: 'name' }
-    ]
+      { path: "requestedBy", select: "name email phone bloodGroup address" },
+      { path: "requestingBloodBank", select: "name email phone address" },
+      { path: "targetBloodBank", select: "name email phone address" },
+      { path: "bloodBankResponse.respondedBy", select: "name" },
+    ],
   });
 
-  if (!request) throw new ApiError(404, 'Request not found');
+  if (!request) throw new ApiError(404, "Request not found");
+
+  // SECURITY FIX: IDOR Prevention
+  // 1. Pending requests are public for all blood banks to see/act upon.
+  if (request.status === "pending") return request;
+
+  // 2. For non-pending requests, the requester must be involved.
+  const isTargetBank =
+    String(request.targetBloodBank?._id || request.targetBloodBank) ===
+    String(requesterBankId);
+  const isRequestingBank =
+    String(request.requestingBloodBank?._id || request.requestingBloodBank) ===
+    String(requesterBankId);
+  const isAssignedBank =
+    String(request.bloodBank?._id || request.bloodBank) ===
+    String(requesterBankId);
+
+  if (!isTargetBank && !isRequestingBank && !isAssignedBank) {
+    throw new ApiError(
+      403,
+      "You are not authorized to view the details of this non-pending request.",
+    );
+  }
+
   return request;
 };
 
 export const createBankToBankRequest = async (requestingBankId, data) => {
   const { targetBloodBankId, bloodGroup, units, urgency, description } = data;
   if (!targetBloodBankId || !bloodGroup || !units) {
-    throw new ApiError(400, 'Target blood bank, blood group, and units are required');
+    throw new ApiError(
+      400,
+      "Target blood bank, blood group, and units are required",
+    );
   }
   if (String(requestingBankId) === String(targetBloodBankId)) {
-    throw new ApiError(400, 'You cannot request blood from your own blood bank');
+    throw new ApiError(
+      400,
+      "You cannot request blood from your own blood bank",
+    );
   }
 
   const [requestingBank, targetBloodBank] = await Promise.all([
     bloodBankRepository.findById(requestingBankId),
-    bloodBankRepository.findById(targetBloodBankId)
+    bloodBankRepository.findById(targetBloodBankId),
   ]);
 
-  if (!requestingBank || !targetBloodBank) throw new ApiError(404, 'Blood bank not found');
+  if (!requestingBank || !targetBloodBank)
+    throw new ApiError(404, "Blood bank not found");
 
   const request = await requestRepository.create({
-    requestType: 'bloodbank',
+    requestType: "bloodbank",
     requestingBloodBank: requestingBankId,
     targetBloodBank: targetBloodBankId,
     patientName: requestingBank.name,
     bloodGroup,
     units: parseInt(units, 10),
-    urgency: urgency || 'normal',
+    urgency: urgency || "normal",
     hospital: {
       name: requestingBank.name,
-      address: buildBloodBankAddress(requestingBank.address)
+      address: buildBloodBankAddress(requestingBank.address),
     },
     contactNumber: requestingBank.phone,
-    description: description || `Inventory request sent to ${targetBloodBank.name}`,
-    bloodBankResponse: { status: 'pending' }
+    description:
+      description || `Inventory request sent to ${targetBloodBank.name}`,
+    bloodBankResponse: { status: "pending" },
   });
 
   await requestRepository.model.populate(request, [
-    { path: 'requestingBloodBank', select: 'name email phone address' },
-    { path: 'targetBloodBank', select: 'name email phone address' }
+    { path: "requestingBloodBank", select: "name email phone address" },
+    { path: "targetBloodBank", select: "name email phone address" },
   ]);
   return request;
 };
 
-export const approveRequest = async (requestId, responderBankId, responseNote) => {
+export const approveRequest = async (
+  requestId,
+  responderBankId,
+  responseNote,
+) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const request = await requestRepository.findById(requestId, { lean: false, session });
-    if (!request) throw new ApiError(404, 'Request not found');
-    if (request.status !== 'pending') throw new ApiError(400, 'Request is no longer pending');
+    const request = await requestRepository.findById(requestId, {
+      lean: false,
+      session,
+    });
+    if (!request) throw new ApiError(404, "Request not found");
+    if (request.status !== "pending")
+      throw new ApiError(400, "Request is no longer pending");
 
-    if (request.requestType === 'bloodbank') {
+    if (request.requestType === "bloodbank") {
       if (String(request.targetBloodBank) !== String(responderBankId)) {
-        throw new ApiError(403, 'You can only approve requests sent to your blood bank');
+        throw new ApiError(
+          403,
+          "You can only approve requests sent to your blood bank",
+        );
       }
-      await subtractInventoryUnits(responderBankId, request.bloodGroup, request.units, session);
-      await addInventoryUnits(request.requestingBloodBank, request.bloodGroup, request.units, session);
+      await subtractInventoryUnits(
+        responderBankId,
+        request.bloodGroup,
+        request.units,
+        session,
+      );
+      await addInventoryUnits(
+        request.requestingBloodBank,
+        request.bloodGroup,
+        request.units,
+        session,
+      );
     } else {
-      await subtractInventoryUnits(responderBankId, request.bloodGroup, request.units, session);
+      await subtractInventoryUnits(
+        responderBankId,
+        request.bloodGroup,
+        request.units,
+        session,
+      );
     }
 
-    request.status = 'approved';
+    request.status = "approved";
     request.bloodBank = responderBankId;
     request.bloodBankResponse = {
-      status: 'approved',
+      status: "approved",
       respondedAt: new Date(),
       respondedBy: responderBankId,
-      responseNote: responseNote || 'Request approved. Please contact us for collection.'
+      responseNote:
+        responseNote || "Request approved. Please contact us for collection.",
     };
 
     await request.save({ session });
 
     await auditService.logAction({
-      action: 'BLOOD_REQUEST_APPROVED',
+      action: "BLOOD_REQUEST_APPROVED",
       actorId: responderBankId,
-      actorModel: 'BloodBank',
+      actorModel: "BloodBank",
       targetId: request._id,
-      targetModel: 'BloodRequest',
-      changes: { status: 'approved' },
-      metadata: { requestType: request.requestType, bloodGroup: request.bloodGroup, units: request.units }
+      targetModel: "BloodRequest",
+      changes: { status: "approved" },
+      metadata: {
+        requestType: request.requestType,
+        bloodGroup: request.bloodGroup,
+        units: request.units,
+      },
     });
 
     await session.commitTransaction();
 
     await request.populate([
-      { path: 'requestedBy', select: 'name email phone' },
-      { path: 'requestingBloodBank', select: 'name email phone address' },
-      { path: 'targetBloodBank', select: 'name email phone address' },
-      { path: 'bloodBank', select: 'name phone email address' }
+      { path: "requestedBy", select: "name email phone" },
+      { path: "requestingBloodBank", select: "name email phone address" },
+      { path: "targetBloodBank", select: "name email phone address" },
+      { path: "bloodBank", select: "name phone email address" },
     ]);
 
     return request;
@@ -268,37 +377,45 @@ export const approveRequest = async (requestId, responderBankId, responseNote) =
 
 export const rejectRequest = async (requestId, bloodBankId, responseNote) => {
   const request = await requestRepository.findById(requestId, { lean: false });
-  if (!request) throw new ApiError(404, 'Request not found');
-  if (request.status !== 'pending') throw new ApiError(400, 'Request is no longer pending');
-  if (request.requestType === 'bloodbank' && String(request.targetBloodBank) !== String(bloodBankId)) {
-    throw new ApiError(403, 'You can only reject requests sent to your blood bank');
+  if (!request) throw new ApiError(404, "Request not found");
+  if (request.status !== "pending")
+    throw new ApiError(400, "Request is no longer pending");
+  if (
+    request.requestType === "bloodbank" &&
+    String(request.targetBloodBank) !== String(bloodBankId)
+  ) {
+    throw new ApiError(
+      403,
+      "You can only reject requests sent to your blood bank",
+    );
   }
 
-  request.status = 'rejected';
+  request.status = "rejected";
   request.bloodBank = bloodBankId;
   request.bloodBankResponse = {
-    status: 'rejected',
+    status: "rejected",
     respondedAt: new Date(),
     respondedBy: bloodBankId,
-    responseNote: responseNote || 'Unable to fulfill this request at this time.'
+    responseNote:
+      responseNote || "Unable to fulfill this request at this time.",
   };
   await request.save();
 
   await auditService.logAction({
-    action: 'BLOOD_REQUEST_REJECTED',
+    action: "BLOOD_REQUEST_REJECTED",
     actorId: bloodBankId,
-    actorModel: 'BloodBank',
+    actorModel: "BloodBank",
     targetId: request._id,
-    targetModel: 'BloodRequest',
-    changes: { status: 'rejected' },
-    metadata: { reason: responseNote }
+    targetModel: "BloodRequest",
+    changes: { status: "rejected" },
+    metadata: { reason: responseNote },
   });
 
   await request.populate([
-    { path: 'requestedBy', select: 'name email phone' },
-    { path: 'requestingBloodBank', select: 'name email phone address' },
-    { path: 'targetBloodBank', select: 'name email phone address' },
-    { path: 'bloodBank', select: 'name phone email' }
+    { path: "requestedBy", select: "name email phone" },
+    { path: "requestingBloodBank", select: "name email phone address" },
+    { path: "targetBloodBank", select: "name email phone address" },
+    { path: "bloodBank", select: "name phone email" },
   ]);
 
   return request;
@@ -313,39 +430,58 @@ export const getRequestStats = async (bloodBankId) => {
     approved: stats[0].approved[0]?.count || 0,
     rejected: stats[0].rejected[0]?.count || 0,
     byBloodGroup: stats[0].byBloodGroup,
-    byUrgency: stats[0].byUrgency
+    byUrgency: stats[0].byUrgency,
   };
 };
 
 export const getAllEvents = async (bloodBankId) => {
-  const events = await eventRepository.find({ organizedBy: bloodBankId, organizerModel: 'BloodBank' }, {
-    populate: { path: 'registeredDonors', select: 'name email phone bloodGroup' },
-    sort: { date: 1 }
-  });
+  const events = await eventRepository.find(
+    { organizedBy: bloodBankId, organizerModel: "BloodBank" },
+    {
+      populate: {
+        path: "registeredDonors",
+        select: "name email phone bloodGroup",
+      },
+      sort: { date: 1 },
+    },
+  );
   return { count: events.length, events };
 };
 
 export const createEvent = async (bloodBankId, eventData) => {
   const bloodBank = await bloodBankRepository.findById(bloodBankId);
-  if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
 
   const event = await eventRepository.create({
     ...eventData,
     organizer: bloodBank.name,
     organizedBy: bloodBankId,
-    organizerModel: 'BloodBank',
-    visibility: eventData.visibility || 'public'
+    organizerModel: "BloodBank",
+    visibility: eventData.visibility || "public",
   });
   return event;
 };
 
 export const updateEvent = async (eventId, bloodBankId, payload) => {
-  const event = await eventRepository.findOne({ _id: eventId, organizedBy: bloodBankId }, { lean: false });
-  if (!event) throw new ApiError(404, 'Event not found or unauthorized');
+  const event = await eventRepository.findOne(
+    { _id: eventId, organizedBy: bloodBankId },
+    { lean: false },
+  );
+  if (!event) throw new ApiError(404, "Event not found or unauthorized");
 
   const allowedUpdates = [
-    'title', 'description', 'eventType', 'location', 'date', 'startTime', 'endTime',
-    'contactInfo', 'expectedDonors', 'isActive', 'visibility', 'maxParticipants'
+    "title",
+    "description",
+    "eventType",
+    "location",
+    "date",
+    "startTime",
+    "endTime",
+    "contactInfo",
+    "expectedDonors",
+    "isActive",
+    "visibility",
+    "maxParticipants",
   ];
 
   allowedUpdates.forEach((field) => {
@@ -357,81 +493,117 @@ export const updateEvent = async (eventId, bloodBankId, payload) => {
 };
 
 export const deleteEvent = async (eventId, bloodBankId) => {
-  const event = await eventRepository.deleteOne({ _id: eventId, organizedBy: bloodBankId });
-  if (!event) throw new ApiError(404, 'Event not found or unauthorized');
+  const event = await eventRepository.deleteOne({
+    _id: eventId,
+    organizedBy: bloodBankId,
+  });
+  if (!event) throw new ApiError(404, "Event not found or unauthorized");
   return { success: true };
 };
 
 export const getEventRegistrations = async (eventId, bloodBankId) => {
-  const event = await eventRepository.findOne({ _id: eventId, organizedBy: bloodBankId }, {
-    populate: { path: 'registeredDonors', select: 'name email phone bloodGroup address lastDonationDate isDonor donorInfo' }
-  });
+  const event = await eventRepository.findOne(
+    { _id: eventId, organizedBy: bloodBankId },
+    {
+      populate: {
+        path: "registeredDonors",
+        select:
+          "name email phone bloodGroup address lastDonationDate isDonor donorInfo",
+      },
+    },
+  );
 
-  if (!event) throw new ApiError(404, 'Event not found or unauthorized');
+  if (!event) throw new ApiError(404, "Event not found or unauthorized");
 
   return {
     event: { title: event.title, date: event.date, location: event.location },
     registrations: event.registeredDonors,
-    count: event.registeredDonors.length
+    count: event.registeredDonors.length,
   };
 };
 
 export const exportEventRegistrations = async (eventId, bloodBankId) => {
-  const event = await eventRepository.findOne({ _id: eventId, organizedBy: bloodBankId }, {
-    select: 'title registeredDonors',
-    populate: { path: 'registeredDonors', select: 'name email phone bloodGroup createdAt' }
-  });
+  const event = await eventRepository.findOne(
+    { _id: eventId, organizedBy: bloodBankId },
+    {
+      select: "title registeredDonors",
+      populate: {
+        path: "registeredDonors",
+        select: "name email phone bloodGroup createdAt",
+      },
+    },
+  );
 
-  if (!event) throw new ApiError(404, 'Event not found or unauthorized');
+  if (!event) throw new ApiError(404, "Event not found or unauthorized");
 
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Event Registrations');
+  const worksheet = workbook.addWorksheet("Event Registrations");
   worksheet.columns = [
-    { header: 'S.No', key: 'sno', width: 8 },
-    { header: 'Name', key: 'name', width: 25 },
-    { header: 'Email', key: 'email', width: 30 },
-    { header: 'Phone', key: 'phone', width: 16 },
-    { header: 'Blood Group', key: 'bloodGroup', width: 12 },
-    { header: 'Registration Date', key: 'registeredAt', width: 20 }
+    { header: "S.No", key: "sno", width: 8 },
+    { header: "Name", key: "name", width: 25 },
+    { header: "Email", key: "email", width: 30 },
+    { header: "Phone", key: "phone", width: 16 },
+    { header: "Blood Group", key: "bloodGroup", width: 12 },
+    { header: "Registration Date", key: "registeredAt", width: 20 },
   ];
 
   event.registeredDonors.forEach((donor, index) => {
     worksheet.addRow({
       sno: index + 1,
-      name: donor.name || 'N/A',
-      email: donor.email || 'N/A',
-      phone: donor.phone || 'N/A',
-      bloodGroup: donor.bloodGroup || 'N/A',
-      registeredAt: donor.createdAt ? new Date(donor.createdAt).toLocaleDateString() : 'N/A'
+      name: donor.name || "N/A",
+      email: donor.email || "N/A",
+      phone: donor.phone || "N/A",
+      bloodGroup: donor.bloodGroup || "N/A",
+      registeredAt: donor.createdAt
+        ? new Date(donor.createdAt).toLocaleDateString()
+        : "N/A",
     });
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
   return {
     buffer,
-    fileName: `${event.title.replace(/\s+/g, '_')}_Registrations_${new Date().toISOString().split('T')[0]}.xlsx`
+    fileName: `${event.title.replace(/\s+/g, "_")}_Registrations_${new Date().toISOString().split("T")[0]}.xlsx`,
   };
 };
 
 export const getAllCamps = async (bloodBankId) => {
-  const camps = await bloodCampRepository.find({ organizer: bloodBankId }, { sort: { date: -1 } });
+  const camps = await bloodCampRepository.find(
+    { organizer: bloodBankId },
+    { sort: { date: -1 } },
+  );
   return { camps };
 };
 
 export const getCampRegistrations = async (campId, bloodBankId) => {
-  const camp = await bloodCampRepository.findOne({ _id: campId, organizer: bloodBankId });
-  if (!camp) throw new ApiError(404, 'Blood camp not found or unauthorized');
+  const camp = await bloodCampRepository.findOne({
+    _id: campId,
+    organizer: bloodBankId,
+  });
+  if (!camp) throw new ApiError(404, "Blood camp not found or unauthorized");
 
   return {
-    camp: { name: camp.name, date: camp.date, venue: camp.venue, city: camp.city },
+    camp: {
+      name: camp.name,
+      date: camp.date,
+      venue: camp.venue,
+      city: camp.city,
+    },
     registrations: camp.registeredDonors,
-    count: camp.registeredDonors.length
+    count: camp.registeredDonors.length,
   };
 };
 
-export const removeDonorRegistration = async (campId, bloodBankId, donorIdToRemove) => {
-  const camp = await bloodCampRepository.findOne({ _id: campId, organizer: bloodBankId }, { lean: false });
-  if (!camp) throw new ApiError(404, 'Blood camp not found or unauthorized');
+export const removeDonorRegistration = async (
+  campId,
+  bloodBankId,
+  donorIdToRemove,
+) => {
+  const camp = await bloodCampRepository.findOne(
+    { _id: campId, organizer: bloodBankId },
+    { lean: false },
+  );
+  if (!camp) throw new ApiError(404, "Blood camp not found or unauthorized");
 
   const initialLength = camp.registeredDonors.length;
   camp.registeredDonors = camp.registeredDonors.filter((donor) => {
@@ -441,7 +613,7 @@ export const removeDonorRegistration = async (campId, bloodBankId, donorIdToRemo
   });
 
   if (camp.registeredDonors.length === initialLength) {
-    throw new ApiError(404, 'Donor registration not found');
+    throw new ApiError(404, "Donor registration not found");
   }
 
   await camp.save();
@@ -449,75 +621,88 @@ export const removeDonorRegistration = async (campId, bloodBankId, donorIdToRemo
 };
 
 export const exportCampRegistrations = async (campId, bloodBankId) => {
-  const camp = await bloodCampRepository.findOne({ _id: campId, organizer: bloodBankId }, {
-    populate: { path: 'registeredDonors.donor', select: 'name email phone bloodGroup address' }
-  });
+  const camp = await bloodCampRepository.findOne(
+    { _id: campId, organizer: bloodBankId },
+    {
+      populate: {
+        path: "registeredDonors.donor",
+        select: "name email phone bloodGroup address",
+      },
+    },
+  );
 
-  if (!camp) throw new ApiError(404, 'Blood camp not found or unauthorized');
+  if (!camp) throw new ApiError(404, "Blood camp not found or unauthorized");
 
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet('Camp Registrations');
+  const worksheet = workbook.addWorksheet("Camp Registrations");
   worksheet.columns = [
-    { header: 'S.No', key: 'sno', width: 8 },
-    { header: 'Name', key: 'name', width: 25 },
-    { header: 'Blood Group', key: 'bloodGroup', width: 12 },
-    { header: 'Phone', key: 'phone', width: 15 },
-    { header: 'Email', key: 'email', width: 30 },
-    { header: 'Registered At', key: 'registeredAt', width: 20 }
+    { header: "S.No", key: "sno", width: 8 },
+    { header: "Name", key: "name", width: 25 },
+    { header: "Blood Group", key: "bloodGroup", width: 12 },
+    { header: "Phone", key: "phone", width: 15 },
+    { header: "Email", key: "email", width: 30 },
+    { header: "Registered At", key: "registeredAt", width: 20 },
   ];
 
   camp.registeredDonors.forEach((registration, index) => {
     worksheet.addRow({
       sno: index + 1,
-      name: registration.name || 'N/A',
-      bloodGroup: registration.bloodGroup || 'N/A',
-      phone: registration.phone || 'N/A',
-      email: registration.donor?.email || 'N/A',
-      registeredAt: new Date(registration.registeredAt).toLocaleString()
+      name: registration.name || "N/A",
+      bloodGroup: registration.bloodGroup || "N/A",
+      phone: registration.phone || "N/A",
+      email: registration.donor?.email || "N/A",
+      registeredAt: new Date(registration.registeredAt).toLocaleString(),
     });
   });
 
   const buffer = await workbook.xlsx.writeBuffer();
   return {
     buffer,
-    fileName: `camp_${camp.name.replace(/[^a-z0-9]/gi, '_')}_registrations.xlsx`
+    fileName: `camp_${camp.name.replace(/[^a-z0-9]/gi, "_")}_registrations.xlsx`,
   };
 };
 
 export const uploadPhoto = async (bloodBankId, localFilePath) => {
-  if (!localFilePath) throw new ApiError(400, 'No file path provided');
-  
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, { lean: false });
-  if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  if (!localFilePath) throw new ApiError(400, "No file path provided");
+
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
+    lean: false,
+  });
+  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
 
   if (bloodBank.profileImagePublicId) {
     await deleteFromCloudinary(bloodBank.profileImagePublicId);
   }
 
-  const cloudinaryResponse = await uploadOnCloudinary(localFilePath, 'blood-bank/profiles');
-  
+  const cloudinaryResponse = await uploadOnCloudinary(
+    localFilePath,
+    "blood-bank/profiles",
+  );
+
   if (!cloudinaryResponse) {
-    throw new ApiError(500, 'Failed to upload photo to Cloudinary');
+    throw new ApiError(500, "Failed to upload photo to Cloudinary");
   }
 
   bloodBank.profileImage = cloudinaryResponse.secure_url;
   bloodBank.profileImagePublicId = cloudinaryResponse.public_id;
-  
+
   await bloodBank.save();
-  
-  return { 
+
+  return {
     photo: bloodBank.profileImage,
-    publicId: cloudinaryResponse.public_id 
+    publicId: cloudinaryResponse.public_id,
   };
 };
 
 export const getDashboard = async (bloodBankId) => {
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: 'name inventory' });
-  if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
+    select: "name inventory",
+  });
+  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
 
   const [requestStats, eventStats] = await Promise.all([
     requestRepository.getDashboardStats(bloodBankId),
-    eventRepository.getEventStats(bloodBankId)
+    eventRepository.getEventStats(bloodBankId),
   ]);
 
   return {
@@ -525,29 +710,45 @@ export const getDashboard = async (bloodBankId) => {
     requests: {
       pending: requestStats[0].pending[0]?.count || 0,
       approved: requestStats[0].approved[0]?.count || 0,
-      thisMonth: requestStats[0].thisMonth[0]?.count || 0
+      thisMonth: requestStats[0].thisMonth[0]?.count || 0,
     },
     events: {
       total: eventStats[0].total[0]?.count || 0,
       upcoming: eventStats[0].upcoming[0]?.count || 0,
-      totalRegistrations: eventStats[0].totalRegistrations[0]?.count || 0
-    }
+      totalRegistrations: eventStats[0].totalRegistrations[0]?.count || 0,
+    },
   };
 };
 
 export const getProfile = async (bloodBankId) => {
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: BLOOD_BANK_SAFE_FIELDS });
-  if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
+    select: BLOOD_BANK_SAFE_FIELDS,
+  });
+  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
   return sanitizeBloodBank(bloodBank);
 };
 
 export const updateProfile = async (bloodBankId, payload) => {
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, { lean: false });
-  if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
+    lean: false,
+  });
+  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
 
-  const allowedUpdates = ['name', 'phone', 'logo', 'imageUrl', 'address', 'location', 'operatingHours', 'services', 'contactPerson', 'establishedYear'];
-  const nameChanged = payload.name !== undefined && payload.name !== bloodBank.name;
-  
+  const allowedUpdates = [
+    "name",
+    "phone",
+    "logo",
+    "imageUrl",
+    "address",
+    "location",
+    "operatingHours",
+    "services",
+    "contactPerson",
+    "establishedYear",
+  ];
+  const nameChanged =
+    payload.name !== undefined && payload.name !== bloodBank.name;
+
   allowedUpdates.forEach((field) => {
     if (payload[field] !== undefined) bloodBank[field] = payload[field];
   });
@@ -560,7 +761,7 @@ export const updateProfile = async (bloodBankId, payload) => {
       await inventoryRepository.model.updateOne(
         { bloodBank: bloodBank._id },
         { $set: { bloodBankName: bloodBank.name } },
-        { session }
+        { session },
       );
       await session.commitTransaction();
     } catch (error) {
@@ -573,87 +774,173 @@ export const updateProfile = async (bloodBankId, payload) => {
     await bloodBank.save();
   }
 
-  const updatedBloodBank = await bloodBankRepository.findById(bloodBank._id, { select: BLOOD_BANK_SAFE_FIELDS });
+  const updatedBloodBank = await bloodBankRepository.findById(bloodBank._id, {
+    select: BLOOD_BANK_SAFE_FIELDS,
+  });
   return sanitizeBloodBank(updatedBloodBank);
 };
 
-export const changePassword = async (bloodBankId, currentPassword, newPassword) => {
-  if (!currentPassword || !newPassword) throw new ApiError(400, 'Please provide current and new password');
-  if (currentPassword === newPassword) throw new ApiError(400, 'New password must be different from current password');
+export const changePassword = async (
+  bloodBankId,
+  currentPassword,
+  newPassword,
+) => {
+  if (!currentPassword || !newPassword)
+    throw new ApiError(400, "Please provide current and new password");
+  if (currentPassword === newPassword)
+    throw new ApiError(
+      400,
+      "New password must be different from current password",
+    );
   validationService.validatePassword(newPassword);
 
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: '+password +tokenVersion', lean: false });
-  if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
+    select: "+password +tokenVersion",
+    lean: false,
+  });
+  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
 
   const isMatch = await bloodBank.comparePassword(currentPassword);
-  if (!isMatch) throw new ApiError(401, 'Current password is incorrect');
+  if (!isMatch) throw new ApiError(401, "Current password is incorrect");
 
   bloodBank.password = newPassword;
   bloodBank.tokenVersion = Number(bloodBank.tokenVersion || 0) + 1;
   bloodBank.passwordChangedAt = new Date();
   await bloodBank.save();
-  await revokeAllPrincipalSessions({ role: 'bloodbank', bloodBankId: bloodBank._id, reason: 'password_change' });
+  await revokeAllPrincipalSessions({
+    role: "bloodbank",
+    bloodBankId: bloodBank._id,
+    reason: "password_change",
+  });
   return { success: true };
 };
 
 export const getInventory = async (bloodBankId) => {
-  const inventory = await inventoryRepository.findOne({ bloodBank: bloodBankId });
+  const inventory = await inventoryRepository.findOne({
+    bloodBank: bloodBankId,
+  });
   if (!inventory) {
-    const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-    return bloodGroups.map((group) => ({ bloodGroup: group, units: 0, lastUpdated: new Date() }));
+    const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+    return bloodGroups.map((group) => ({
+      bloodGroup: group,
+      units: 0,
+      lastUpdated: new Date(),
+    }));
   }
   return inventory.items || [];
 };
 
 export const updateInventory = async (bloodBankId, inventory) => {
-  if (!Array.isArray(inventory)) throw new ApiError(400, 'Inventory must be an array');
+  if (!Array.isArray(inventory))
+    throw new ApiError(400, "Inventory must be an array");
 
   const validatedInventory = inventory.map((item) => ({
     bloodGroup: item.bloodGroup || item.type,
     units: parseInt(item.units, 10) || 0,
-    lastUpdated: new Date()
+    lastUpdated: new Date(),
   }));
 
-  let doc = await inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: false });
-  if (!doc) {
-    const bloodBank = await bloodBankRepository.findById(bloodBankId);
-    if (!bloodBank) throw new ApiError(404, 'Blood bank not found');
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-    doc = await inventoryRepository.create({ bloodBank: bloodBankId, bloodBankName: bloodBank.name, items: validatedInventory });
-  } else {
-    doc.items = validatedInventory;
-    doc.markModified('items');
+  try {
+    let doc = await inventoryRepository.findOne(
+      { bloodBank: bloodBankId },
+      { lean: false, session },
+    );
+    if (!doc) {
+      const bloodBank = await bloodBankRepository.findById(bloodBankId, {
+        session,
+      });
+      if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+
+      doc = await inventoryRepository.create(
+        [
+          {
+            bloodBank: bloodBankId,
+            bloodBankName: bloodBank.name,
+            items: validatedInventory,
+          },
+        ],
+        { session },
+      );
+      doc = doc[0];
+    } else {
+      doc.items = validatedInventory;
+      doc.markModified("items");
+      await doc.save({ session });
+    }
+
+    await auditService.logAction(
+      {
+        action: "INVENTORY_UPDATED",
+        actorId: bloodBankId,
+        actorModel: "BloodBank",
+        targetId: doc._id,
+        targetModel: "Inventory",
+        changes: { inventoryCount: validatedInventory.length },
+        metadata: { inventory: validatedInventory },
+      },
+      { session },
+    );
+
+    await session.commitTransaction();
+    return doc.items;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  const saved = await doc.save();
-
-  await auditService.logAction({
-    action: 'INVENTORY_UPDATED',
-    actorId: bloodBankId,
-    actorModel: 'BloodBank',
-    targetId: doc._id,
-    targetModel: 'Inventory',
-    changes: { inventoryCount: validatedInventory.length },
-    metadata: { inventory: validatedInventory }
-  });
-
-  return saved.items;
 };
 
 export const updateBloodGroupUnits = async (bloodBankId, bloodGroup, units) => {
-  if (units === undefined || units < 0) throw new ApiError(400, 'Please provide valid units (>=0)');
+  if (units === undefined || units < 0)
+    throw new ApiError(400, "Please provide valid units (>=0)");
 
-  const inventory = await inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: false });
-  if (!inventory) throw new ApiError(404, 'Inventory record not found');
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  const itemIndex = inventory.items.findIndex((item) => item.bloodGroup === bloodGroup);
-  if (itemIndex > -1) {
-    inventory.items[itemIndex].units = units;
-    inventory.items[itemIndex].lastUpdated = new Date();
-  } else {
-    inventory.items.push({ bloodGroup, units, lastUpdated: new Date() });
+  try {
+    const inventory = await inventoryRepository.findOne(
+      { bloodBank: bloodBankId },
+      { lean: false, session },
+    );
+    if (!inventory) throw new ApiError(404, "Inventory record not found");
+
+    const itemIndex = inventory.items.findIndex(
+      (item) => item.bloodGroup === bloodGroup,
+    );
+    const oldUnits = itemIndex > -1 ? inventory.items[itemIndex].units : 0;
+
+    if (itemIndex > -1) {
+      inventory.items[itemIndex].units = units;
+      inventory.items[itemIndex].lastUpdated = new Date();
+    } else {
+      inventory.items.push({ bloodGroup, units, lastUpdated: new Date() });
+    }
+
+    await inventory.save({ session });
+
+    await auditService.logAction(
+      {
+        action: "BLOOD_GROUP_UNITS_UPDATED",
+        actorId: bloodBankId,
+        actorModel: "BloodBank",
+        targetId: inventory._id,
+        targetModel: "Inventory",
+        changes: { bloodGroup, oldUnits, newUnits: units },
+        metadata: { bloodGroup, units },
+      },
+      { session },
+    );
+
+    await session.commitTransaction();
+    return inventory.items;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  await inventory.save();
-  return inventory.items;
 };

@@ -35,7 +35,7 @@ export const ROUTE_PATH = {
   // Admin section
   ADMIN_LOGIN: "/admin/login",
   ADMIN_BASE: "/admin",
-  ADMIN_DASHBOARD: "/admin/dashboard", 
+  ADMIN_DASHBOARD: "/admin/dashboard",
   ADMIN_USERS: "/admin/users",
   ADMIN_BLOOD_BANKS: "/admin/bloodbanks",
   ADMIN_BLOOD_BANK_DETAILS: "/admin/bloodbanks/:bankId",

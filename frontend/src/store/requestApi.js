@@ -1,6 +1,6 @@
-import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
-import { REQUEST_API_URLS } from '../enum/apiUrl';
+import { apiSlice } from "./apiSlice";
+import { TAGS, tagById, tagList, tagListWithIds } from "../enum/tagType";
+import { REQUEST_API_URLS } from "../enum/apiUrl";
 
 export const requestApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -10,7 +10,11 @@ export const requestApi = apiSlice.injectEndpoints({
         url: REQUEST_API_URLS.GET_ALL_REQUESTS,
         params,
       }),
-      providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.requests || result?.data),
+      providesTags: (result) =>
+        tagListWithIds(
+          TAGS.REQUEST,
+          result?.requests || result?.data?.data || result?.data,
+        ),
     }),
     getMyRequests: builder.query({
       query: () => REQUEST_API_URLS.GET_MY_REQUESTS,
@@ -23,7 +27,7 @@ export const requestApi = apiSlice.injectEndpoints({
     createRequest: builder.mutation({
       query: (data) => ({
         url: REQUEST_API_URLS.CREATE_REQUEST,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
       invalidatesTags: tagList(TAGS.REQUEST),
@@ -31,7 +35,7 @@ export const requestApi = apiSlice.injectEndpoints({
     updateRequest: builder.mutation({
       query: ({ id, ...data }) => ({
         url: REQUEST_API_URLS.UPDATE_REQUEST(id),
-        method: 'PUT',
+        method: "PUT",
         body: data,
       }),
       invalidatesTags: (result, error, { id }) => [
@@ -42,7 +46,7 @@ export const requestApi = apiSlice.injectEndpoints({
     updateRequestStatus: builder.mutation({
       query: ({ id, status, note }) => ({
         url: REQUEST_API_URLS.UPDATE_REQUEST_STATUS(id),
-        method: 'PATCH',
+        method: "PATCH",
         body: { status, note },
       }),
       invalidatesTags: (result, error, { id }) => [
@@ -53,7 +57,7 @@ export const requestApi = apiSlice.injectEndpoints({
     fulfillRequest: builder.mutation({
       query: ({ id, ...data }) => ({
         url: REQUEST_API_URLS.FULFILL_REQUEST(id),
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
       invalidatesTags: (result, error, { id }) => [
@@ -68,12 +72,16 @@ export const requestApi = apiSlice.injectEndpoints({
         url: REQUEST_API_URLS.GET_BLOOD_BANK_REQUESTS,
         params,
       }),
-      providesTags: (result) => tagListWithIds(TAGS.REQUEST, result?.requests || result?.data),
+      providesTags: (result) =>
+        tagListWithIds(
+          TAGS.REQUEST,
+          result?.requests || result?.data?.data || result?.data,
+        ),
     }),
     createInterBankRequest: builder.mutation({
       query: (data) => ({
         url: REQUEST_API_URLS.CREATE_INTER_BANK_REQUEST,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
       invalidatesTags: tagList(TAGS.REQUEST),

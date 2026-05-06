@@ -4,8 +4,7 @@
 
 ### Real-Time Blood Management System
 
-*Modernizing blood donation and connecting donors with those in need*
-
+_Modernizing blood donation and connecting donors with those in need_
 
 [![React](https://img.shields.io/badge/React-18.2.0-blue.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -29,13 +28,14 @@
 - 🔔 **Instant Notifications**: Real-time toast notifications for all actions
 - 📊 **Comprehensive Dashboard**: Track donations, requests, and health information
 
-**Our Mission**: *No one should suffer due to blood unavailability. Every drop counts, every donor matters.*
+**Our Mission**: _No one should suffer due to blood unavailability. Every drop counts, every donor matters._
 
 ---
 
 ## ✨ Features
 
 ### For Blood Donors 🩸
+
 - ✅ Easy registration with health questionnaire
 - ✅ Donor eligibility assessment
 - ✅ Profile management with photo upload
@@ -45,6 +45,7 @@
 - ✅ Real-time notifications for requests
 
 ### For Blood Recipients 🏥
+
 - ✅ Create urgent blood requests
 - ✅ Search donors by blood group and location
 - ✅ Direct contact with available donors
@@ -53,6 +54,7 @@
 - ✅ Access to nearby blood banks
 
 ### For Blood Banks 🏢
+
 - ✅ Dedicated blood bank dashboard
 - ✅ Manage inventory (add/update blood units)
 - ✅ Create and manage blood donation camps
@@ -61,6 +63,7 @@
 - ✅ Real-time inventory tracking
 
 ### General Features 🌟
+
 - ✅ Google OAuth authentication
 - ✅ Beautiful toast notifications for all actions
 - ✅ Responsive design (mobile & desktop)
@@ -74,6 +77,7 @@
 ## 🛠 Tech Stack
 
 ### Frontend
+
 ```
 React 18.2.0          - UI Library
 React Router 6.20.1   - Navigation
@@ -85,6 +89,7 @@ Custom Toast System  - Notifications
 ```
 
 ### Backend
+
 ```
 Node.js 18+          - Runtime
 Express 4.18.2       - Web Framework
@@ -97,6 +102,7 @@ CORS                - Cross-Origin Resource Sharing
 ```
 
 ### Security & Performance
+
 ```
 ✓ Helmet.js for security headers
 ✓ Rate limiting (100 requests/15min)
@@ -188,6 +194,7 @@ RaktSarthi/
 ## 🚀 Installation & Setup
 
 ### Prerequisites
+
 - Node.js (v18 or higher)
 - npm or yarn
 - MongoDB Atlas account
@@ -235,6 +242,7 @@ CORS_ORIGIN=http://localhost:3000
 ```
 
 **To generate a strong JWT secret:**
+
 ```bash
 # On Linux/Mac
 openssl rand -base64 32
@@ -297,18 +305,18 @@ WDS_SOCKET_PORT=0
    - Register your app and copy the config
 
 4. **Update Firebase Config**
-   
+
    Open `frontend/src/config/firebase.jsx` and replace with your credentials:
 
 ```javascript
 const firebaseConfig = {
-  apiKey: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.firebasestorage.app",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456",
-  measurementId: "G-XXXXXXXXXX"
+  apiKey: 'AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  authDomain: 'your-project.firebaseapp.com',
+  projectId: 'your-project-id',
+  storageBucket: 'your-project.firebasestorage.app',
+  messagingSenderId: '123456789012',
+  appId: '1:123456789012:web:abcdef123456',
+  measurementId: 'G-XXXXXXXXXX',
 };
 ```
 
@@ -371,11 +379,13 @@ npm start
 **Option 2: Using Concurrently (Optional)**
 
 Install concurrently in root:
+
 ```bash
 npm install -g concurrently
 ```
 
 Then run:
+
 ```bash
 concurrently "cd backend && npm start" "cd frontend && npm start"
 ```
@@ -389,24 +399,27 @@ concurrently "cd backend && npm start" "cd frontend && npm start"
 ### Default Accounts for Testing
 
 **Test User Account:**
+
 ```
 Email: donor@test.com
 Password: test123
 ```
 
 **Blood Bank Account:**
+
 ```
 Email: bloodbank@test.com
 Password: bloodbank123
 ```
 
-*(Create these accounts through the signup process)*
+_(Create these accounts through the signup process)_
 
 ---
 
 ## 📱 Features Demo
 
 ### User Registration
+
 1. Visit http://localhost:3000/signup
 2. Fill in your details
 3. Choose if you want to register as a donor
@@ -414,6 +427,7 @@ Password: bloodbank123
 5. Get instant toast notification on success
 
 ### Creating a Blood Request
+
 1. Login to your account
 2. Navigate to **Create Request**
 3. Fill in patient details, blood group, and urgency
@@ -421,6 +435,7 @@ Password: bloodbank123
 5. Request appears in dashboard immediately
 
 ### Finding Donors
+
 1. Go to **Find Donors**
 2. Filter by blood group
 3. View donor profiles with photos
@@ -428,6 +443,7 @@ Password: bloodbank123
 5. Call or email the donor directly
 
 ### Blood Bank Features
+
 1. Login as blood bank
 2. Manage inventory (add/update units)
 3. Create blood donation camps
@@ -439,25 +455,30 @@ Password: bloodbank123
 ## 🎨 Key Features Implemented
 
 ### Toast Notification System
+
 Beautiful, lightweight notifications for all user actions:
+
 - ✅ Success messages (green gradient)
 - ❌ Error messages (red gradient)
 - ℹ️ Info messages (blue gradient)
 - ⚠️ Warning messages (orange gradient)
 
 ### Photo Upload System
+
 - Profile pictures stored in localStorage
 - Automatic loading on profile page
 - Full image display in donor cards
 - Circular avatars in modals
 
 ### Authentication Flow
+
 - JWT-based authentication
 - Firebase Google OAuth
 - Protected routes
 - Persistent sessions
 
 ### Real-Time Updates
+
 - Live blood request status
 - Instant inventory updates
 - Real-time donor availability
@@ -505,13 +526,13 @@ Beautiful, lightweight notifications for all user actions:
 ---
 
 ### Coding Standards
+
 - Follow ESLint rules
 - Write meaningful commit messages
 - Add comments for complex logic
 - Test before submitting PR
 
 ---
-
 
 ## 🙏 Acknowledgments
 
@@ -531,4 +552,3 @@ Made with ❤️ and ☕ for a noble cause
 **Save Lives, Donate Blood** 🩸
 
 </div>
-

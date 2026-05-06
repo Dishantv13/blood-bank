@@ -1,31 +1,35 @@
-import { useState, useEffect } from 'react';
-import { useResetPasswordMutation, useVerifyResetTokenMutation } from '../store/userApi';
-import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { ROUTE_PATH } from '../enum/routePath';
-import { MIN_PASSWORD_LENGTH } from '../enum/constants';
-import { FaCheckCircle } from 'react-icons/fa';
-import '../pages.css/ResetPassword.css';
+import { useState, useEffect } from "react";
+import {
+  useResetPasswordMutation,
+  useVerifyResetTokenMutation,
+} from "../store/userApi";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import { ROUTE_PATH } from "../enum/routePath";
+import { MIN_PASSWORD_LENGTH } from "../enum/constants";
+import { FaCheckCircle } from "react-icons/fa";
+import "../pages.css/ResetPassword.css";
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [tokenValid, setTokenValid] = useState(false);
   const [success, setSuccess] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [verifyToken, { isLoading: validating }] = useVerifyResetTokenMutation();
+  const [verifyToken, { isLoading: validating }] =
+    useVerifyResetTokenMutation();
   const [resetPassword, { isLoading: loading }] = useResetPasswordMutation();
 
   useEffect(() => {
     if (!token) {
-      setError('Invalid reset link');
+      setError("Invalid reset link");
       return;
     }
 
@@ -35,10 +39,10 @@ const ResetPassword = () => {
         const response = await verifyToken(token).unwrap();
         setTokenValid(response.valid);
         if (!response.valid) {
-          setError('Your reset link has expired. Please request a new one.');
+          setError("Your reset link has expired. Please request a new one.");
         }
       } catch (err) {
-        setError('Invalid or expired reset link. Please request a new one.');
+        setError("Invalid or expired reset link. Please request a new one.");
       }
     };
 
@@ -47,26 +51,26 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     // Validate passwords
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError('Password must be at least 6 characters');
+      setError("Password must be at least 6 characters");
       return;
     }
 
     try {
       const response = await resetPassword({
         token,
-        password
+        password,
       }).unwrap();
-      setMessage(response.message || 'Password changed successfully');
+      setMessage(response.message || "Password changed successfully");
       setSuccess(true);
 
       // Redirect to login after 2 seconds
@@ -74,7 +78,7 @@ const ResetPassword = () => {
         navigate(ROUTE_PATH.LOGIN);
       }, 2000);
     } catch (err) {
-      setError(err.data?.message || 'Failed to reset password');
+      setError(err.data?.message || "Failed to reset password");
     }
   };
 
@@ -112,7 +116,9 @@ const ResetPassword = () => {
 
         {success ? (
           <div className="success-message">
-            <div className="success-icon"><FaCheckCircle color="green" /></div>
+            <div className="success-icon">
+              <FaCheckCircle color="green" />
+            </div>
             <p>{message}</p>
             <p className="hint">Redirecting to login...</p>
           </div>
@@ -123,7 +129,7 @@ const ResetPassword = () => {
               <div className="password-input-wrapper">
                 <input
                   id="password"
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter new password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -135,17 +141,31 @@ const ResetPassword = () => {
                   type="button"
                   className="password-toggle"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
                       <path d="M1 1l22 22" />
                       <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
                       <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
                     </svg>
                   ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                       <circle cx="12" cy="12" r="3" />
                     </svg>
@@ -164,7 +184,7 @@ const ResetPassword = () => {
               <div className="password-input-wrapper">
                 <input
                   id="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -176,17 +196,33 @@ const ResetPassword = () => {
                   type="button"
                   className="password-toggle"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  aria-label={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
                 >
                   {showConfirmPassword ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
                       <path d="M1 1l22 22" />
                       <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
                       <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
                     </svg>
                   ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                       <circle cx="12" cy="12" r="3" />
                     </svg>
@@ -203,7 +239,7 @@ const ResetPassword = () => {
               className="submit-button"
               disabled={loading || !password || !confirmPassword}
             >
-              {loading ? 'Resetting...' : 'Reset Password'}
+              {loading ? "Resetting..." : "Reset Password"}
             </button>
 
             <div className="back-link">

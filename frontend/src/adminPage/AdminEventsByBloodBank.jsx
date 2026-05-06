@@ -3,12 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useGetEventsByBloodBankQuery } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
 
-
 const AdminEventsByBloodBank = () => {
   const navigate = useNavigate();
   const { bankId } = useParams();
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState({ search: "", status: "" });
 
   const { data: eventsData, isLoading } = useGetEventsByBloodBankQuery(
@@ -36,7 +35,11 @@ const AdminEventsByBloodBank = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       const trimmedSearch = searchInput.trim();
-      setFilters((prev) => (prev.search === trimmedSearch ? prev : { ...prev, search: trimmedSearch }));
+      setFilters((prev) =>
+        prev.search === trimmedSearch
+          ? prev
+          : { ...prev, search: trimmedSearch },
+      );
       setPage(1);
     }, 350);
 
@@ -68,7 +71,9 @@ const AdminEventsByBloodBank = () => {
     <>
       <div className="dashboard-header-premium">
         <h1 className="page-title">Event Management Details</h1>
-        <p className="page-subtitle">View and monitor blood events for: {bloodBankName}</p>
+        <p className="page-subtitle">
+          View and monitor blood events for: {bloodBankName}
+        </p>
       </div>
 
       <div className="filters-panel">

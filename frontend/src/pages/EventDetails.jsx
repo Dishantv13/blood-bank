@@ -1,28 +1,52 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ROUTE_PATH } from '../enum/routePath';
-import { useGetAllEventsQuery, useRegisterForEventMutation } from '../store/eventApi';
-import { useToast } from '../components/ToastContainer';
-import { useAuth } from '../context/AuthContext';
-import { FaTint, FaBullhorn, FaHospital, FaStethoscope, FaCalendarAlt, FaArrowLeft, FaGlobe, FaUsers, FaClock, FaMapMarkerAlt, FaCheck, FaMobileAlt, FaLink } from 'react-icons/fa';
-import '../pages.css/EventDetails.css';
-import SkeletonLoader from '../components/SkeletonLoader';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ROUTE_PATH } from "../enum/routePath";
+import {
+  useGetAllEventsQuery,
+  useRegisterForEventMutation,
+} from "../store/eventApi";
+import { useToast } from "../components/ToastContainer";
+import { useAuth } from "../context/AuthContext";
+import {
+  FaTint,
+  FaBullhorn,
+  FaHospital,
+  FaStethoscope,
+  FaCalendarAlt,
+  FaArrowLeft,
+  FaGlobe,
+  FaUsers,
+  FaClock,
+  FaMapMarkerAlt,
+  FaCheck,
+  FaMobileAlt,
+  FaLink,
+} from "react-icons/fa";
+import "../pages.css/EventDetails.css";
+import SkeletonLoader from "../components/SkeletonLoader";
 
 const EventDetails = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { success, error } = useToast();
   const { user } = useAuth();
-  
+
   const [currentUserId, setCurrentUserId] = useState(null);
   const [hasJustRegistered, setHasJustRegistered] = useState(false);
 
   // RTK Queries automatically fetch and cache data
-  const { data: eventsResponse, isLoading: loading, refetch: refetchEventDetails } = useGetAllEventsQuery();
-  const [registerForEvent, { isLoading: registering }] = useRegisterForEventMutation();
+  const {
+    data: eventsResponse,
+    isLoading: loading,
+    refetch: refetchEventDetails,
+  } = useGetAllEventsQuery();
+  const [registerForEvent, { isLoading: registering }] =
+    useRegisterForEventMutation();
 
   const events = Array.isArray(eventsResponse?.data) ? eventsResponse.data : [];
-  const eventData = events.find((item) => String(item?._id || item?.id) === String(eventId)) || null;
+  const eventData =
+    events.find((item) => String(item?._id || item?.id) === String(eventId)) ||
+    null;
   const event = eventData || null;
 
   useEffect(() => {
@@ -32,22 +56,23 @@ const EventDetails = () => {
 
   const getRegistrantId = (entry) => {
     if (!entry) return null;
-    if (typeof entry === 'string') return entry;
+    if (typeof entry === "string") return entry;
     return entry.donor?._id || entry.donor || entry._id || entry.id || null;
   };
 
-  const isRegisteredFromServer = eventData?.registeredDonors && currentUserId
-    ? eventData.registeredDonors.some((donor) => {
-        const donorId = getRegistrantId(donor);
-        return donorId && String(donorId) === String(currentUserId);
-      })
-    : false;
+  const isRegisteredFromServer =
+    eventData?.registeredDonors && currentUserId
+      ? eventData.registeredDonors.some((donor) => {
+          const donorId = getRegistrantId(donor);
+          return donorId && String(donorId) === String(currentUserId);
+        })
+      : false;
 
   const isRegistered = hasJustRegistered || isRegisteredFromServer;
 
   const handleRegister = async () => {
     if (!currentUserId) {
-      error('Please login first');
+      error("Please login first");
       navigate(ROUTE_PATH.LOGIN);
       return;
     }
@@ -55,10 +80,10 @@ const EventDetails = () => {
     try {
       await registerForEvent(eventId).unwrap();
       setHasJustRegistered(true);
-      success('Successfully registered for the event!');
+      success("Successfully registered for the event!");
       refetchEventDetails();
     } catch (err) {
-      error(err.data?.message || 'Failed to register for event');
+      error(err.data?.message || "Failed to register for event");
     }
   };
 
@@ -72,7 +97,10 @@ const EventDetails = () => {
         <div className="error-state">
           <h2>Event Not Found</h2>
           <p>The event you're looking for doesn't exist or has been removed.</p>
-          <button className="btn-back" onClick={() => navigate(ROUTE_PATH.EVENTS)}>
+          <button
+            className="btn-back"
+            onClick={() => navigate(ROUTE_PATH.EVENTS)}
+          >
             Back to Events
           </button>
         </div>
@@ -87,20 +115,20 @@ const EventDetails = () => {
 
   const getEventTypeIcon = (type) => {
     const icons = {
-      'blood-drive': <FaTint color="#e63946" />,
-      'awareness': <FaBullhorn />,
-      'donation-camp': <FaHospital />,
-      'health-checkup': <FaStethoscope />
+      "blood-drive": <FaTint color="#e63946" />,
+      awareness: <FaBullhorn />,
+      "donation-camp": <FaHospital />,
+      "health-checkup": <FaStethoscope />,
     };
     return icons[type] || <FaCalendarAlt />;
   };
 
   const getEventTypeLabel = (type) => {
     const labels = {
-      'blood-drive': 'Blood Drive',
-      'awareness': 'Awareness Campaign',
-      'donation-camp': 'Donation Camp',
-      'health-checkup': 'Health Checkup'
+      "blood-drive": "Blood Drive",
+      awareness: "Awareness Campaign",
+      "donation-camp": "Donation Camp",
+      "health-checkup": "Health Checkup",
     };
     return labels[type] || type;
   };
@@ -109,19 +137,33 @@ const EventDetails = () => {
     <div className="event-details-container">
       {/* Hero Section */}
       <div className="event-hero">
-        <button className="btn-back-small" onClick={() => navigate(ROUTE_PATH.EVENTS)}>
-          <FaArrowLeft style={{ marginRight: '6px' }} /> Back to Events
+        <button
+          className="btn-back-small"
+          onClick={() => navigate(ROUTE_PATH.EVENTS)}
+        >
+          <FaArrowLeft style={{ marginRight: "6px" }} /> Back to Events
         </button>
         <div className="hero-content">
           <div className="event-type-badge">
-            {getEventTypeIcon(event.eventType)} {getEventTypeLabel(event.eventType)}
+            {getEventTypeIcon(event.eventType)}{" "}
+            {getEventTypeLabel(event.eventType)}
           </div>
           <h1>{event.title}</h1>
           {event.visibility && (
             <p className="visibility">
-              {event.visibility === 'public' ? <><FaGlobe style={{ marginRight: '4px' }} /> Public Event</> : 
-               event.visibility === 'donors-only' ? <><FaUsers style={{ marginRight: '4px' }} /> For Donors Only</> : 
-               <><FaHospital style={{ marginRight: '4px' }} /> For Patients</>}
+              {event.visibility === "public" ? (
+                <>
+                  <FaGlobe style={{ marginRight: "4px" }} /> Public Event
+                </>
+              ) : event.visibility === "donors-only" ? (
+                <>
+                  <FaUsers style={{ marginRight: "4px" }} /> For Donors Only
+                </>
+              ) : (
+                <>
+                  <FaHospital style={{ marginRight: "4px" }} /> For Patients
+                </>
+              )}
             </p>
           )}
         </div>
@@ -141,30 +183,38 @@ const EventDetails = () => {
             <h2>Event Information</h2>
             <div className="info-grid">
               <div className="info-card">
-                <div className="info-icon"><FaCalendarAlt /></div>
+                <div className="info-icon">
+                  <FaCalendarAlt />
+                </div>
                 <div className="info-content">
                   <h3>Date</h3>
-                  <p>{eventDate.toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}</p>
-                </div>
-              </div>
-
-              <div className="info-card">
-                <div className="info-icon"><FaClock /></div>
-                <div className="info-content">
-                  <h3>Time</h3>
                   <p>
-                    {event.startTime || '09:00'} - {event.endTime || '17:00'}
+                    {eventDate.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                   </p>
                 </div>
               </div>
 
               <div className="info-card">
-                <div className="info-icon"><FaMapMarkerAlt /></div>
+                <div className="info-icon">
+                  <FaClock />
+                </div>
+                <div className="info-content">
+                  <h3>Time</h3>
+                  <p>
+                    {event.startTime || "09:00"} - {event.endTime || "17:00"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="info-card">
+                <div className="info-icon">
+                  <FaMapMarkerAlt />
+                </div>
                 <div className="info-content">
                   <h3>Location</h3>
                   <p>
@@ -176,12 +226,19 @@ const EventDetails = () => {
               </div>
 
               <div className="info-card">
-                <div className="info-icon"><FaUsers /></div>
+                <div className="info-icon">
+                  <FaUsers />
+                </div>
                 <div className="info-content">
                   <h3>Capacity</h3>
-                  <p>{registeredCount} / {event.maxParticipants || 100} registered</p>
+                  <p>
+                    {registeredCount} / {event.maxParticipants || 100}{" "}
+                    registered
+                  </p>
                   <p className="subtext">
-                    {availableSlots > 0 ? `${availableSlots} slots available` : 'Event full'}
+                    {availableSlots > 0
+                      ? `${availableSlots} slots available`
+                      : "Event full"}
                   </p>
                 </div>
               </div>
@@ -195,13 +252,19 @@ const EventDetails = () => {
               <div className="contact-box">
                 <div className="contact-item">
                   <span className="contact-label">Email:</span>
-                  <a href={`mailto:${event.contactInfo.email}`} className="contact-link">
+                  <a
+                    href={`mailto:${event.contactInfo.email}`}
+                    className="contact-link"
+                  >
                     {event.contactInfo.email}
                   </a>
                 </div>
                 <div className="contact-item">
                   <span className="contact-label">Phone:</span>
-                  <a href={`tel:${event.contactInfo.phone}`} className="contact-link">
+                  <a
+                    href={`tel:${event.contactInfo.phone}`}
+                    className="contact-link"
+                  >
                     {event.contactInfo.phone}
                   </a>
                 </div>
@@ -254,7 +317,7 @@ const EventDetails = () => {
           {/* Registration Card */}
           <div className="registration-card">
             <h3>Registration Status</h3>
-            
+
             {isPastEvent ? (
               <div className="status-box completed">
                 <p>This event has already completed.</p>
@@ -262,9 +325,11 @@ const EventDetails = () => {
             ) : isRegistered ? (
               <div className="status-box registered">
                 <svg viewBox="0 0 24 24" fill="currentColor">
-                  <polyline points="20 6 9 17 4 12"/>
+                  <polyline points="20 6 9 17 4 12" />
                 </svg>
-                <p><strong>You're Registered!</strong></p>
+                <p>
+                  <strong>You're Registered!</strong>
+                </p>
                 <p className="subtext">See you at the event</p>
               </div>
             ) : availableSlots <= 0 ? (
@@ -273,24 +338,39 @@ const EventDetails = () => {
               </div>
             ) : (
               <div className="status-box available">
-                <p><strong>{availableSlots} spots available</strong></p>
+                <p>
+                  <strong>{availableSlots} spots available</strong>
+                </p>
               </div>
             )}
 
             <button
-              className={`btn-register ${isRegistered ? 'registered' : ''}`}
+              className={`btn-register ${isRegistered ? "registered" : ""}`}
               onClick={handleRegister}
-              disabled={isRegistered || isPastEvent || availableSlots <= 0 || registering}
+              disabled={
+                isRegistered ||
+                isPastEvent ||
+                availableSlots <= 0 ||
+                registering
+              }
             >
-              {registering ? 'Registering...' : 
-               isRegistered ? <><FaCheck /> Registered</> : 
-               availableSlots <= 0 ? 'Event Full' :
-               'Register for Event'}
+              {registering ? (
+                "Registering..."
+              ) : isRegistered ? (
+                <>
+                  <FaCheck /> Registered
+                </>
+              ) : availableSlots <= 0 ? (
+                "Event Full"
+              ) : (
+                "Register for Event"
+              )}
             </button>
 
             {!currentUserId && !isPastEvent && (
               <p className="login-prompt">
-                <Link to={ROUTE_PATH.LOGIN}>Login</Link> to register for this event
+                <Link to={ROUTE_PATH.LOGIN}>Login</Link> to register for this
+                event
               </p>
             )}
           </div>
@@ -311,28 +391,28 @@ const EventDetails = () => {
           <div className="share-section">
             <h3>Share Event</h3>
             <div className="share-buttons">
-              <button 
+              <button
                 className="share-btn"
                 onClick={() => {
                   if (navigator.share) {
                     navigator.share({
                       title: event.title,
                       text: event.description,
-                      url: window.location.href
+                      url: window.location.href,
                     });
                   }
                 }}
               >
-                <FaMobileAlt style={{ marginRight: '6px' }} /> Share
+                <FaMobileAlt style={{ marginRight: "6px" }} /> Share
               </button>
-              <button 
+              <button
                 className="share-btn"
                 onClick={() => {
                   navigator.clipboard.writeText(window.location.href);
-                  success('Link copied to clipboard!');
+                  success("Link copied to clipboard!");
                 }}
               >
-                <FaLink style={{ marginRight: '6px' }} /> Copy Link
+                <FaLink style={{ marginRight: "6px" }} /> Copy Link
               </button>
             </div>
           </div>

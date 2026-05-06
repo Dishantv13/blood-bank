@@ -1,41 +1,41 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useToast } from '../components/ToastContainer';
-import { useAuth } from '../context/AuthContext';
-import { useCreateRequestMutation } from '../store/requestApi';
-import { ROUTE_PATH } from '../enum/routePath';
-import { BLOOD_GROUPS } from '../enum/constants';
-import CompatibilityChart from '../components/CompatibilityChart';
-import '../pages.css/CreateRequest.css';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "../components/ToastContainer";
+import { useAuth } from "../context/AuthContext";
+import { useCreateRequestMutation } from "../store/requestApi";
+import { ROUTE_PATH } from "../enum/routePath";
+import { BLOOD_GROUPS } from "../enum/constants";
+import CompatibilityChart from "../components/CompatibilityChart";
+import "../pages.css/CreateRequest.css";
 
 const CreateRequest = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
   const [createRequest, { isLoading }] = useCreateRequestMutation();
 
   const [formData, setFormData] = useState({
-    patientName: '',
-    bloodGroup: '',
+    patientName: "",
+    bloodGroup: "",
     units: 1,
-    urgency: 'normal',
+    urgency: "normal",
     hospital: {
-      name: '',
-      address: '',
+      name: "",
+      address: "",
     },
-    contactNumber: '',
-    requiredBy: '',
-    description: '',
+    contactNumber: "",
+    requiredBy: "",
+    description: "",
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
+
+    if (name.includes(".")) {
+      const [parent, child] = name.split(".");
       setFormData({
         ...formData,
         [parent]: {
@@ -49,24 +49,27 @@ const CreateRequest = () => {
         [name]: value,
       });
     }
-    setError('');
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     try {
       await createRequest(formData).unwrap();
-      setSuccess('Blood request created successfully!');
-      toast.success('Blood request created successfully! Help is on the way.');
+      setSuccess("Blood request created successfully!");
+      toast.success("Blood request created successfully! Help is on the way.");
       setTimeout(() => {
         navigate(ROUTE_PATH.DASHBOARD);
       }, 2000);
     } catch (err) {
-      setError(err.data?.message || 'Failed to create request');
-      toast.error(err.data?.message || 'Failed to create blood request. Please try again.');
+      setError(err.data?.message || "Failed to create request");
+      toast.error(
+        err.data?.message ||
+          "Failed to create blood request. Please try again.",
+      );
     }
   };
 
@@ -84,7 +87,7 @@ const CreateRequest = () => {
 
           <div className="form-section">
             <h3>Patient Information</h3>
-            
+
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="patientName">Patient Name *</label>
@@ -118,7 +121,7 @@ const CreateRequest = () => {
                   ))}
                 </select>
                 {formData.bloodGroup && (
-                  <div style={{ marginTop: '1rem' }}>
+                  <div style={{ marginTop: "1rem" }}>
                     <CompatibilityChart bloodGroup={formData.bloodGroup} />
                   </div>
                 )}
@@ -160,7 +163,7 @@ const CreateRequest = () => {
 
           <div className="form-section">
             <h3>Hospital Details</h3>
-            
+
             <div className="form-group">
               <label htmlFor="hospital.name">Hospital Name *</label>
               <input
@@ -192,7 +195,7 @@ const CreateRequest = () => {
 
           <div className="form-section">
             <h3>Contact Information</h3>
-            
+
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="contactNumber">Contact Number *</label>
@@ -218,7 +221,7 @@ const CreateRequest = () => {
                   value={formData.requiredBy}
                   onChange={handleChange}
                   required
-                  min={new Date().toISOString().split('T')[0]}
+                  min={new Date().toISOString().split("T")[0]}
                 />
               </div>
             </div>
@@ -237,8 +240,6 @@ const CreateRequest = () => {
             </div>
           </div>
 
-
-
           <div className="form-actions">
             <button
               type="button"
@@ -252,7 +253,7 @@ const CreateRequest = () => {
               className="btn btn-primary"
               disabled={isLoading}
             >
-              {isLoading ? 'Creating Request...' : 'Create Request'}
+              {isLoading ? "Creating Request..." : "Create Request"}
             </button>
           </div>
         </form>

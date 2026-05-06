@@ -1,125 +1,127 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const BloodCampSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   organizer: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'BloodBank',
-    required: true
+    ref: "BloodBank",
+    required: true,
   },
   organizerName: {
     type: String,
-    required: true
+    required: true,
   },
   date: {
     type: Date,
-    required: true
+    required: true,
   },
   startTime: {
     type: String,
-    required: true
+    required: true,
   },
   endTime: {
     type: String,
-    required: true
+    required: true,
   },
   venue: {
     type: String,
-    required: true
+    required: true,
   },
   address: {
     type: String,
-    required: true
+    required: true,
   },
   city: {
     type: String,
-    required: true
+    required: true,
   },
   state: {
-    type: String
+    type: String,
   },
   pincode: {
-    type: String
+    type: String,
   },
   location: {
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point'
+      enum: ["Point"],
+      default: "Point",
     },
     coordinates: {
       type: [Number],
-      default: [0, 0]
-    }
+      default: [0, 0],
+    },
   },
   targetUnits: {
     type: Number,
     required: true,
-    min: 1
+    min: 1,
   },
   collectedUnits: {
     type: Number,
-    default: 0
+    default: 0,
   },
   description: {
-    type: String
+    type: String,
   },
   contactPhone: {
-    type: String
+    type: String,
   },
   contactEmail: {
-    type: String
+    type: String,
   },
-  registeredDonors: [{
-    donor: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User'
+  registeredDonors: [
+    {
+      donor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+      name: String,
+      phone: String,
+      bloodGroup: String,
+      registeredAt: {
+        type: Date,
+        default: Date.now,
+      },
+      attended: {
+        type: Boolean,
+        default: false,
+      },
     },
-    name: String,
-    phone: String,
-    bloodGroup: String,
-    registeredAt: {
-      type: Date,
-      default: Date.now
-    },
-    attended: {
-      type: Boolean,
-      default: false
-    }
-  }],
+  ],
   status: {
     type: String,
-    enum: ['scheduled', 'upcoming', 'ongoing', 'completed', 'cancelled'],
-    default: 'scheduled'
+    enum: ["scheduled", "upcoming", "ongoing", "completed", "cancelled"],
+    default: "scheduled",
   },
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   isFake: {
     type: Boolean,
-    default: false
+    default: false,
   },
   updatedAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
 // Index for geospatial queries
-BloodCampSchema.index({ location: '2dsphere' });
+BloodCampSchema.index({ location: "2dsphere" });
 BloodCampSchema.index({ date: 1 });
 BloodCampSchema.index({ city: 1 });
 BloodCampSchema.index({ organizer: 1, date: -1 });
 BloodCampSchema.index({ status: 1, date: 1 });
 
 // Update the updatedAt field before saving
-BloodCampSchema.pre('save', async function() {
+BloodCampSchema.pre("save", async function () {
   this.updatedAt = Date.now();
 });
 
-export default mongoose.model('BloodCamp', BloodCampSchema);
+export default mongoose.model("BloodCamp", BloodCampSchema);

@@ -1,33 +1,35 @@
-import { useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useGetBloodBankByIdQuery } from '../store/adminApi.js';
-import MapModal from '../components/MapModal';
-import { ROUTE_PATH } from '../enum/routePath';
+import { useMemo, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useGetBloodBankByIdQuery } from "../store/adminApi.js";
+import MapModal from "../components/MapModal";
+import { ROUTE_PATH } from "../enum/routePath";
 
 const formatAddress = (address) => {
-  if (!address) return 'Address not available';
-  if (typeof address === 'string') return address;
+  if (!address) return "Address not available";
+  if (typeof address === "string") return address;
 
-  return [address.street, address.city, address.state, address.pincode]
-    .filter(Boolean)
-    .join(', ') || 'Address not available';
+  return (
+    [address.street, address.city, address.state, address.pincode]
+      .filter(Boolean)
+      .join(", ") || "Address not available"
+  );
 };
 
 const formatDate = (value) => {
-  if (!value) return 'N/A';
+  if (!value) return "N/A";
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'N/A' : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? "N/A" : date.toLocaleString();
 };
 
 const formatOperatingHours = (operatingHours) => {
-  if (!operatingHours) return 'Not provided';
-  const open = operatingHours.open || 'N/A';
-  const close = operatingHours.close || 'N/A';
+  if (!operatingHours) return "Not provided";
+  const open = operatingHours.open || "N/A";
+  const close = operatingHours.close || "N/A";
   return `${open} - ${close}`;
 };
 
 const getPreviewImage = (bank) => {
-  return bank?.profileImage || bank?.imageUrl || bank?.logo || '';
+  return bank?.profileImage || bank?.imageUrl || bank?.logo || "";
 };
 
 const AdminBloodBankDetails = () => {
@@ -43,8 +45,12 @@ const AdminBloodBankDetails = () => {
     return location.state?.bloodBank || null;
   }, [data, location.state]);
 
-  const services = Array.isArray(bank?.services) ? bank.services.filter(Boolean) : [];
-  const workingDays = Array.isArray(bank?.operatingHours?.days) ? bank.operatingHours.days.filter(Boolean) : [];
+  const services = Array.isArray(bank?.services)
+    ? bank.services.filter(Boolean)
+    : [];
+  const workingDays = Array.isArray(bank?.operatingHours?.days)
+    ? bank.operatingHours.days.filter(Boolean)
+    : [];
   const inventory = Array.isArray(bank?.inventory) ? bank.inventory : [];
   const previewImage = getPreviewImage(bank);
   const hasLocation =
@@ -56,7 +62,9 @@ const AdminBloodBankDetails = () => {
     return (
       <div className="admin-bank-details-page">
         <div className="admin-bank-details-card admin-bank-details-loading">
-          <div className="loading-spinner">Loading blood bank verification details...</div>
+          <div className="loading-spinner">
+            Loading blood bank verification details...
+          </div>
         </div>
       </div>
     );
@@ -67,8 +75,11 @@ const AdminBloodBankDetails = () => {
       <div className="admin-bank-details-page">
         <div className="admin-bank-details-card">
           <h1>Blood Bank Details</h1>
-          <p>{error.data?.message || 'Unable to load blood bank details.'}</p>
-          <button className="admin-bank-back-btn" onClick={() => navigate(ROUTE_PATH.ADMIN_BLOOD_BANKS)}>
+          <p>{error.data?.message || "Unable to load blood bank details."}</p>
+          <button
+            className="admin-bank-back-btn"
+            onClick={() => navigate(ROUTE_PATH.ADMIN_BLOOD_BANKS)}
+          >
             Back to Blood Banks
           </button>
         </div>
@@ -80,8 +91,11 @@ const AdminBloodBankDetails = () => {
     <div className="admin-bank-details-page">
       <div className="admin-bank-header">
         <div>
-          <h1>{bank?.name || 'Blood Bank Verification'}</h1>
-          <p>Review the complete registration details before approving or rejecting this request.</p>
+          <h1>{bank?.name || "Blood Bank Verification"}</h1>
+          <p>
+            Review the complete registration details before approving or
+            rejecting this request.
+          </p>
         </div>
       </div>
 
@@ -89,30 +103,69 @@ const AdminBloodBankDetails = () => {
         <section className="admin-bank-details-card admin-bank-profile-card">
           <div className="admin-bank-card-head">
             <h2>Registration Summary</h2>
-            <span className={`status-badge ${bank?.approvalStatus || bank?.status || 'pending'}`}>
-              {(bank?.approvalStatus || bank?.status || 'pending').toUpperCase()}
+            <span
+              className={`status-badge ${bank?.approvalStatus || bank?.status || "pending"}`}
+            >
+              {(
+                bank?.approvalStatus ||
+                bank?.status ||
+                "pending"
+              ).toUpperCase()}
             </span>
           </div>
 
           <div className="admin-bank-profile">
             <div className="admin-bank-image-wrap">
               {previewImage ? (
-                <img src={previewImage} alt={bank?.name || 'Blood bank'} className="admin-bank-image" />
+                <img
+                  src={previewImage}
+                  alt={bank?.name || "Blood bank"}
+                  className="admin-bank-image"
+                />
               ) : (
-                <div className="admin-bank-image-placeholder">No image uploaded</div>
+                <div className="admin-bank-image-placeholder">
+                  No image uploaded
+                </div>
               )}
             </div>
 
             <div className="admin-bank-meta-list">
-              <div><span>Name</span><strong>{bank?.name || 'N/A'}</strong></div>
-              <div><span>Email</span><strong>{bank?.email || 'N/A'}</strong></div>
-              <div><span>Phone</span><strong>{bank?.phone || 'N/A'}</strong></div>
-              <div><span>License Number</span><strong>{bank?.licenseNumber || 'N/A'}</strong></div>
-              <div><span>Registration Number</span><strong>{bank?.registrationNumber || 'N/A'}</strong></div>
-              <div><span>Established Year</span><strong>{bank?.establishedYear || 'N/A'}</strong></div>
-              <div><span>Created At</span><strong>{formatDate(bank?.createdAt)}</strong></div>
-              <div><span>Reviewed At</span><strong>{formatDate(bank?.reviewedAt)}</strong></div>
-              <div><span>Reviewed By</span><strong>{bank?.reviewedBy || 'N/A'}</strong></div>
+              <div>
+                <span>Name</span>
+                <strong>{bank?.name || "N/A"}</strong>
+              </div>
+              <div>
+                <span>Email</span>
+                <strong>{bank?.email || "N/A"}</strong>
+              </div>
+              <div>
+                <span>Phone</span>
+                <strong>{bank?.phone || "N/A"}</strong>
+              </div>
+              <div>
+                <span>License Number</span>
+                <strong>{bank?.licenseNumber || "N/A"}</strong>
+              </div>
+              <div>
+                <span>Registration Number</span>
+                <strong>{bank?.registrationNumber || "N/A"}</strong>
+              </div>
+              <div>
+                <span>Established Year</span>
+                <strong>{bank?.establishedYear || "N/A"}</strong>
+              </div>
+              <div>
+                <span>Created At</span>
+                <strong>{formatDate(bank?.createdAt)}</strong>
+              </div>
+              <div>
+                <span>Reviewed At</span>
+                <strong>{formatDate(bank?.reviewedAt)}</strong>
+              </div>
+              <div>
+                <span>Reviewed By</span>
+                <strong>{bank?.reviewedBy || "N/A"}</strong>
+              </div>
             </div>
           </div>
 
@@ -127,26 +180,51 @@ const AdminBloodBankDetails = () => {
           <div className="admin-bank-card-head">
             <h2>Address and Live Location</h2>
             {hasLocation ? (
-              <button className="admin-bank-action-btn" onClick={() => setShowMap(true)}>
+              <button
+                className="admin-bank-action-btn"
+                onClick={() => setShowMap(true)}
+              >
                 Open Map
               </button>
             ) : null}
           </div>
 
           <div className="admin-bank-info-grid">
-            <div><span>Full Address</span><strong>{formatAddress(bank?.address)}</strong></div>
-            <div><span>City</span><strong>{bank?.address?.city || 'N/A'}</strong></div>
-            <div><span>State</span><strong>{bank?.address?.state || 'N/A'}</strong></div>
-            <div><span>Pincode</span><strong>{bank?.address?.pincode || 'N/A'}</strong></div>
-            <div><span>Latitude</span><strong>{hasLocation ? bank.location.coordinates[1].toFixed(6) : 'N/A'}</strong></div>
-            <div><span>Longitude</span><strong>{hasLocation ? bank.location.coordinates[0].toFixed(6) : 'N/A'}</strong></div>
+            <div>
+              <span>Full Address</span>
+              <strong>{formatAddress(bank?.address)}</strong>
+            </div>
+            <div>
+              <span>City</span>
+              <strong>{bank?.address?.city || "N/A"}</strong>
+            </div>
+            <div>
+              <span>State</span>
+              <strong>{bank?.address?.state || "N/A"}</strong>
+            </div>
+            <div>
+              <span>Pincode</span>
+              <strong>{bank?.address?.pincode || "N/A"}</strong>
+            </div>
+            <div>
+              <span>Latitude</span>
+              <strong>
+                {hasLocation ? bank.location.coordinates[1].toFixed(6) : "N/A"}
+              </strong>
+            </div>
+            <div>
+              <span>Longitude</span>
+              <strong>
+                {hasLocation ? bank.location.coordinates[0].toFixed(6) : "N/A"}
+              </strong>
+            </div>
           </div>
 
           {hasLocation ? (
             <div className="admin-bank-map-preview">
               <iframe
                 title="Blood bank location"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${bank.location.coordinates[0]-0.01},${bank.location.coordinates[1]-0.01},${bank.location.coordinates[0]+0.01},${bank.location.coordinates[1]+0.01}&layer=mapnik&marker=${bank.location.coordinates[1]},${bank.location.coordinates[0]}`}
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${bank.location.coordinates[0] - 0.01},${bank.location.coordinates[1] - 0.01},${bank.location.coordinates[0] + 0.01},${bank.location.coordinates[1] + 0.01}&layer=mapnik&marker=${bank.location.coordinates[1]},${bank.location.coordinates[0]}`}
                 width="100%"
                 height="100%"
                 frameBorder="0"
@@ -155,7 +233,9 @@ const AdminBloodBankDetails = () => {
               />
             </div>
           ) : (
-            <p className="admin-bank-empty">No live location was stored at registration time.</p>
+            <p className="admin-bank-empty">
+              No live location was stored at registration time.
+            </p>
           )}
         </section>
 
@@ -165,13 +245,36 @@ const AdminBloodBankDetails = () => {
           </div>
 
           <div className="admin-bank-info-grid">
-            <div><span>Operating Hours</span><strong>{formatOperatingHours(bank?.operatingHours)}</strong></div>
-            <div><span>Working Days</span><strong>{workingDays.length ? workingDays.join(', ') : 'Not provided'}</strong></div>
-            <div><span>Contact Person</span><strong>{bank?.contactPerson?.name || 'N/A'}</strong></div>
-            <div><span>Contact Phone</span><strong>{bank?.contactPerson?.phone || 'N/A'}</strong></div>
-            <div><span>Contact Email</span><strong>{bank?.contactPerson?.email || 'N/A'}</strong></div>
-            <div><span>Verified</span><strong>{bank?.isVerified ? 'Yes' : 'No'}</strong></div>
-            <div><span>Portal Active</span><strong>{bank?.isActive ? 'Yes' : 'No'}</strong></div>
+            <div>
+              <span>Operating Hours</span>
+              <strong>{formatOperatingHours(bank?.operatingHours)}</strong>
+            </div>
+            <div>
+              <span>Working Days</span>
+              <strong>
+                {workingDays.length ? workingDays.join(", ") : "Not provided"}
+              </strong>
+            </div>
+            <div>
+              <span>Contact Person</span>
+              <strong>{bank?.contactPerson?.name || "N/A"}</strong>
+            </div>
+            <div>
+              <span>Contact Phone</span>
+              <strong>{bank?.contactPerson?.phone || "N/A"}</strong>
+            </div>
+            <div>
+              <span>Contact Email</span>
+              <strong>{bank?.contactPerson?.email || "N/A"}</strong>
+            </div>
+            <div>
+              <span>Verified</span>
+              <strong>{bank?.isVerified ? "Yes" : "No"}</strong>
+            </div>
+            <div>
+              <span>Portal Active</span>
+              <strong>{bank?.isActive ? "Yes" : "No"}</strong>
+            </div>
           </div>
 
           <div className="admin-bank-pill-section">
@@ -179,11 +282,15 @@ const AdminBloodBankDetails = () => {
             {services.length ? (
               <div className="admin-bank-pills">
                 {services.map((service) => (
-                  <span key={service} className="admin-bank-pill">{service}</span>
+                  <span key={service} className="admin-bank-pill">
+                    {service}
+                  </span>
                 ))}
               </div>
             ) : (
-              <p className="admin-bank-empty">No services were provided during registration.</p>
+              <p className="admin-bank-empty">
+                No services were provided during registration.
+              </p>
             )}
           </div>
         </section>
@@ -196,14 +303,19 @@ const AdminBloodBankDetails = () => {
           {inventory.length ? (
             <div className="admin-bank-inventory-grid">
               {inventory.map((item) => (
-                <div key={item.bloodGroup} className="admin-bank-inventory-item">
+                <div
+                  key={item.bloodGroup}
+                  className="admin-bank-inventory-item"
+                >
                   <span>{item.bloodGroup}</span>
                   <strong>{item.units || 0} units</strong>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="admin-bank-empty">No inventory data is stored for this blood bank.</p>
+            <p className="admin-bank-empty">
+              No inventory data is stored for this blood bank.
+            </p>
           )}
         </section>
       </div>
@@ -211,7 +323,7 @@ const AdminBloodBankDetails = () => {
       {showMap && hasLocation ? (
         <MapModal
           location={bank.location}
-          name={bank.name || 'Blood Bank Location'}
+          name={bank.name || "Blood Bank Location"}
           onClose={() => setShowMap(false)}
         />
       ) : null}

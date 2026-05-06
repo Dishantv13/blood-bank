@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
 import {
   useInitiateBloodBankRegistrationMutation,
   useResendBloodBankRegistrationOtpMutation,
   useVerifyBloodBankRegistrationOtpMutation,
-} from '../store/bloodBankApi';
-import { useToast } from '../components/ToastContainer';
+} from "../store/bloodBankApi";
+import { useToast } from "../components/ToastContainer";
 import ThemeToggle from "../components/ThemeToggle";
-import { ROUTE_PATH } from '../enum/routePath';
+import { ROUTE_PATH } from "../enum/routePath";
 import {
   bloodBankNameValidator,
   emailValidator,
@@ -19,8 +19,8 @@ import {
   pincodeValidator,
   registrationNumberValidator,
   yearValidator,
-} from '../validation/validation';
-import '../pages.css/BloodBankAuth.css';
+} from "../validation/validation";
+import "../pages.css/BloodBankAuth.css";
 
 const BloodBankRegister = () => {
   const navigate = useNavigate();
@@ -29,18 +29,21 @@ const BloodBankRegister = () => {
   const [location, setLocation] = useState(null);
   const [locationShared, setLocationShared] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = useState("");
   const [showPassword, setShowPassword] = useState(true);
   const [showConfirmPassword, setShowConfirmPassword] = useState(true);
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
-  const [otpCode, setOtpCode] = useState('');
+  const [otpCode, setOtpCode] = useState("");
   const [verificationState, setVerificationState] = useState(null);
-  const [otpError, setOtpError] = useState('');
+  const [otpError, setOtpError] = useState("");
 
-  const [initiateRegistration, { isLoading: isInitiatingRegistration }] = useInitiateBloodBankRegistrationMutation();
-  const [verifyRegistrationOtp, { isLoading: isVerifyingOtp }] = useVerifyBloodBankRegistrationOtpMutation();
-  const [resendRegistrationOtp, { isLoading: isResendingOtp }] = useResendBloodBankRegistrationOtpMutation();
+  const [initiateRegistration, { isLoading: isInitiatingRegistration }] =
+    useInitiateBloodBankRegistrationMutation();
+  const [verifyRegistrationOtp, { isLoading: isVerifyingOtp }] =
+    useVerifyBloodBankRegistrationOtpMutation();
+  const [resendRegistrationOtp, { isLoading: isResendingOtp }] =
+    useResendBloodBankRegistrationOtpMutation();
 
   const {
     register,
@@ -54,44 +57,59 @@ const BloodBankRegister = () => {
     formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: {
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-      phone: '',
-      logo: '',
-      licenseNumber: '',
-      registrationNumber: '',
-      establishedYear: '',
-      address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      openTime: '09:00',
-      closeTime: '18:00',
-      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      phone: "",
+      logo: "",
+      licenseNumber: "",
+      registrationNumber: "",
+      establishedYear: "",
+      address: "",
+      city: "",
+      state: "",
+      pincode: "",
+      openTime: "09:00",
+      closeTime: "18:00",
+      workingDays: [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ],
       services: [],
-      contactPersonName: '',
-      contactPersonPhone: '',
-      contactPersonEmail: '',
+      contactPersonName: "",
+      contactPersonPhone: "",
+      contactPersonEmail: "",
     },
-    mode: 'onTouched',
+    mode: "onTouched",
   });
 
-  const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const allServices = [
-    'Whole Blood',
-    'Plasma',
-    'Platelets',
-    'Red Blood Cells',
-    'Blood Testing',
-    'Blood Camp Organization',
-    'Emergency Services',
-    '24/7 Availability'
+  const allDays = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
   ];
-  const watchedWorkingDays = watch('workingDays') || [];
-  const watchedServices = watch('services') || [];
-  const watchedPassword = watch('password');
+  const allServices = [
+    "Whole Blood",
+    "Plasma",
+    "Platelets",
+    "Red Blood Cells",
+    "Blood Testing",
+    "Blood Camp Organization",
+    "Emergency Services",
+    "24/7 Availability",
+  ];
+  const watchedWorkingDays = watch("workingDays") || [];
+  const watchedServices = watch("services") || [];
+  const watchedPassword = watch("password");
   const isOtpFlowActive = Boolean(verificationState?.verificationId);
 
   useEffect(() => {
@@ -101,7 +119,10 @@ const BloodBankRegister = () => {
         if (!prev) return prev;
         return {
           ...prev,
-          resendAvailableInSeconds: Math.max(0, (prev.resendAvailableInSeconds || 0) - 1),
+          resendAvailableInSeconds: Math.max(
+            0,
+            (prev.resendAvailableInSeconds || 0) - 1,
+          ),
           otpExpiresInSeconds: Math.max(0, (prev.otpExpiresInSeconds || 0) - 1),
         };
       });
@@ -110,13 +131,13 @@ const BloodBankRegister = () => {
   }, [isOtpFlowActive]);
 
   useEffect(() => {
-    register('workingDays', {
+    register("workingDays", {
       validate: (value) =>
-        (value && value.length > 0) || 'Please select at least one working day',
+        (value && value.length > 0) || "Please select at least one working day",
     });
-    register('services', {
+    register("services", {
       validate: (value) =>
-        (value && value.length > 0) || 'Please select at least one service',
+        (value && value.length > 0) || "Please select at least one service",
     });
   }, [register]);
 
@@ -152,12 +173,12 @@ const BloodBankRegister = () => {
       ? watchedWorkingDays.filter((d) => d !== day)
       : [...watchedWorkingDays, day];
 
-    setValue('workingDays', updatedDays, {
+    setValue("workingDays", updatedDays, {
       shouldValidate: true,
       shouldDirty: true,
       shouldTouch: true,
     });
-    setFormError('');
+    setFormError("");
   };
 
   const handleServiceToggle = (service) => {
@@ -165,12 +186,12 @@ const BloodBankRegister = () => {
       ? watchedServices.filter((s) => s !== service)
       : [...watchedServices, service];
 
-    setValue('services', updatedServices, {
+    setValue("services", updatedServices, {
       shouldValidate: true,
       shouldDirty: true,
       shouldTouch: true,
     });
-    setFormError('');
+    setFormError("");
   };
 
   const handleLogoChange = (e) => {
@@ -178,12 +199,12 @@ const BloodBankRegister = () => {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Logo file size should not exceed 5MB');
+      toast.error("Logo file size should not exceed 5MB");
       return;
     }
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file for the logo');
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file for the logo");
       return;
     }
 
@@ -196,26 +217,26 @@ const BloodBankRegister = () => {
   };
 
   const validateStep = async () => {
-    setFormError('');
+    setFormError("");
 
     if (step === 1) {
-      return trigger(['name', 'email', 'phone', 'password', 'confirmPassword']);
+      return trigger(["name", "email", "phone", "password", "confirmPassword"]);
     }
 
     if (step === 2) {
       const isValid = await trigger([
-        'licenseNumber',
-        'address',
-        'city',
-        'state',
-        'pincode',
-        'establishedYear',
+        "licenseNumber",
+        "address",
+        "city",
+        "state",
+        "pincode",
+        "establishedYear",
       ]);
 
       if (!isValid) return false;
 
       if (!locationShared) {
-        const message = 'Please share your location';
+        const message = "Please share your location";
         setFormError(message);
         toast.warning(message);
         return false;
@@ -224,21 +245,21 @@ const BloodBankRegister = () => {
       return true;
     }
 
-    const isValid = await trigger(['workingDays', 'services']);
+    const isValid = await trigger(["workingDays", "services"]);
     if (!isValid) return false;
 
-    if ((getValues('workingDays') || []).length === 0) {
-      setError('workingDays', {
-        type: 'manual',
-        message: 'Please select at least one working day',
+    if ((getValues("workingDays") || []).length === 0) {
+      setError("workingDays", {
+        type: "manual",
+        message: "Please select at least one working day",
       });
       return false;
     }
 
-    if ((getValues('services') || []).length === 0) {
-      setError('services', {
-        type: 'manual',
-        message: 'Please select at least one service',
+    if ((getValues("services") || []).length === 0) {
+      setError("services", {
+        type: "manual",
+        message: "Please select at least one service",
       });
       return false;
     }
@@ -250,20 +271,20 @@ const BloodBankRegister = () => {
     const isValid = await validateStep();
     if (isValid) {
       setStep(step + 1);
-      setFormError('');
+      setFormError("");
       toast.info(`Step ${step + 1} of 3`);
     }
   };
 
   const prevStep = () => {
     setStep(step - 1);
-    setFormError('');
+    setFormError("");
   };
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
-      toast.error('Geolocation is not supported by your browser');
+      setError("Geolocation is not supported by your browser");
+      toast.error("Geolocation is not supported by your browser");
       return;
     }
 
@@ -271,33 +292,43 @@ const BloodBankRegister = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const loc = {
-          type: 'Point',
-          coordinates: [position.coords.longitude, position.coords.latitude]
+          type: "Point",
+          coordinates: [position.coords.longitude, position.coords.latitude],
         };
         setLocation(loc);
         setLocationShared(true);
         setGettingLocation(false);
-        clearErrors('location');
-        setFormError('');
-        toast.success('Location captured successfully!');
+        clearErrors("location");
+        setFormError("");
+        toast.success("Location captured successfully!");
       },
       (err) => {
         const message = `Failed to get location: ${err.message}`;
         setFormError(message);
         toast.error(message);
         setGettingLocation(false);
-      }
+      },
     );
   };
 
   const getVerificationPayload = (response) => ({
-    verificationId: response?.verificationId || response?.data?.verificationId || '',
-    maskedEmail: response?.maskedEmail || response?.data?.maskedEmail || '',
-    attemptsRemaining: response?.attemptsRemaining ?? response?.data?.attemptsRemaining ?? 0,
-    resendAttemptsRemaining: response?.resendAttemptsRemaining ?? response?.data?.resendAttemptsRemaining ?? 0,
-    resendAvailableInSeconds: response?.resendAvailableInSeconds ?? response?.data?.resendAvailableInSeconds ?? 0,
-    otpExpiresInSeconds: response?.otpExpiresInSeconds ?? response?.data?.otpExpiresInSeconds ?? 0,
-    maxVerifyAttempts: response?.maxVerifyAttempts ?? response?.data?.maxVerifyAttempts ?? 5,
+    verificationId:
+      response?.verificationId || response?.data?.verificationId || "",
+    maskedEmail: response?.maskedEmail || response?.data?.maskedEmail || "",
+    attemptsRemaining:
+      response?.attemptsRemaining ?? response?.data?.attemptsRemaining ?? 0,
+    resendAttemptsRemaining:
+      response?.resendAttemptsRemaining ??
+      response?.data?.resendAttemptsRemaining ??
+      0,
+    resendAvailableInSeconds:
+      response?.resendAvailableInSeconds ??
+      response?.data?.resendAvailableInSeconds ??
+      0,
+    otpExpiresInSeconds:
+      response?.otpExpiresInSeconds ?? response?.data?.otpExpiresInSeconds ?? 0,
+    maxVerifyAttempts:
+      response?.maxVerifyAttempts ?? response?.data?.maxVerifyAttempts ?? 5,
   });
 
   const onSubmit = async (data) => {
@@ -305,52 +336,68 @@ const BloodBankRegister = () => {
     if (!isValid) return;
 
     if (!locationShared) {
-      const message = 'Please share your location';
+      const message = "Please share your location";
       setFormError(message);
       toast.warning(message);
       return;
     }
 
-    setFormError('');
-    setOtpError('');
+    setFormError("");
+    setOtpError("");
 
     try {
       const formData = new FormData();
 
       Object.keys(data).forEach((key) => {
-        if (!['openTime', 'closeTime', 'workingDays', 'services', 'logo'].includes(key)) {
+        if (
+          ![
+            "openTime",
+            "closeTime",
+            "workingDays",
+            "services",
+            "logo",
+          ].includes(key)
+        ) {
           formData.append(key, data[key]);
         }
       });
 
-      formData.append('operatingHours', JSON.stringify({
-        open: data.openTime,
-        close: data.closeTime,
-        days: data.workingDays
-      }));
+      formData.append(
+        "operatingHours",
+        JSON.stringify({
+          open: data.openTime,
+          close: data.closeTime,
+          days: data.workingDays,
+        }),
+      );
 
-      formData.append('services', JSON.stringify(data.services));
+      formData.append("services", JSON.stringify(data.services));
 
       if (location) {
-        formData.append('location', JSON.stringify(location));
+        formData.append("location", JSON.stringify(location));
       }
 
       if (logoFile) {
-        formData.append('logo', logoFile);
+        formData.append("logo", logoFile);
       }
 
       const response = await initiateRegistration(formData).unwrap();
       const nextVerificationState = getVerificationPayload(response);
       if (!nextVerificationState.verificationId) {
-        throw new Error('Registration verification session was not created');
+        throw new Error("Registration verification session was not created");
       }
 
       setVerificationState(nextVerificationState);
-      setOtpCode('');
-      toast.success(`OTP sent to ${nextVerificationState.maskedEmail || 'your email'}`);
+      setOtpCode("");
+      toast.success(
+        `OTP sent to ${nextVerificationState.maskedEmail || "your email"}`,
+      );
     } catch (err) {
-      console.error('Registration initiation error:', err.data || err.message);
-      const errorMessage = err?.data?.message || err?.error || 'Unable to start registration. Please try again.';
+      console.error("Registration initiation error:", err.data || err.message);
+      const errorMessage =
+        err?.data?.message ||
+        err?.error ||
+        "Unable to start registration. Please try again.";
       setFormError(errorMessage);
       toast.error(errorMessage);
     }
@@ -358,22 +405,26 @@ const BloodBankRegister = () => {
 
   const handleVerifyOtp = async () => {
     if (!verificationState?.verificationId) return;
-    const sanitizedOtp = String(otpCode || '').replace(/\D/g, '').slice(0, 6);
+    const sanitizedOtp = String(otpCode || "")
+      .replace(/\D/g, "")
+      .slice(0, 6);
     if (sanitizedOtp.length !== 6) {
-      setOtpError('Please enter a valid 6-digit OTP');
+      setOtpError("Please enter a valid 6-digit OTP");
       return;
     }
 
-    setOtpError('');
+    setOtpError("");
     try {
       await verifyRegistrationOtp({
         verificationId: verificationState.verificationId,
         otp: sanitizedOtp,
       }).unwrap();
-      toast.success('Email verified. Registration submitted and pending admin approval.');
+      toast.success(
+        "Email verified. Registration submitted and pending admin approval.",
+      );
       navigate(ROUTE_PATH.BLOOD_BANK_LOGIN);
     } catch (err) {
-      const message = err?.data?.message || 'Invalid OTP. Please try again.';
+      const message = err?.data?.message || "Invalid OTP. Please try again.";
       setOtpError(message);
       const refreshed = getVerificationPayload(err?.data || {});
       setVerificationState((prev) => ({ ...prev, ...refreshed }));
@@ -383,7 +434,7 @@ const BloodBankRegister = () => {
 
   const handleResendOtp = async () => {
     if (!verificationState?.verificationId) return;
-    setOtpError('');
+    setOtpError("");
 
     try {
       const response = await resendRegistrationOtp({
@@ -393,10 +444,10 @@ const BloodBankRegister = () => {
         ...prev,
         ...getVerificationPayload(response),
       }));
-      setOtpCode('');
-      toast.success('A new OTP has been sent to your email');
+      setOtpCode("");
+      toast.success("A new OTP has been sent to your email");
     } catch (err) {
-      const message = err?.data?.message || 'Unable to resend OTP right now.';
+      const message = err?.data?.message || "Unable to resend OTP right now.";
       setOtpError(message);
       toast.error(message);
     }
@@ -404,26 +455,38 @@ const BloodBankRegister = () => {
 
   const resetOtpFlow = () => {
     setVerificationState(null);
-    setOtpCode('');
-    setOtpError('');
-    toast.info('OTP flow reset. You can edit registration details and submit again.');
+    setOtpCode("");
+    setOtpError("");
+    toast.info(
+      "OTP flow reset. You can edit registration details and submit again.",
+    );
   };
 
   const renderStepIndicator = () => (
     <div className="step-indicator">
       {[1, 2, 3].map((s) => (
-        <div key={s} className={`step ${step >= s ? 'active' : ''} ${step > s ? 'completed' : ''}`}>
+        <div
+          key={s}
+          className={`step ${step >= s ? "active" : ""} ${step > s ? "completed" : ""}`}
+        >
           <div className="step-number">
             {step > s ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+              >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-            ) : s}
+            ) : (
+              s
+            )}
           </div>
           <span className="step-label">
-            {s === 1 && 'Account'}
-            {s === 2 && 'Details'}
-            {s === 3 && 'Services'}
+            {s === 1 && "Account"}
+            {s === 2 && "Details"}
+            {s === 3 && "Services"}
           </span>
         </div>
       ))}
@@ -434,7 +497,12 @@ const BloodBankRegister = () => {
     <>
       <div className="form-group">
         <label htmlFor="name">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
             <polyline points="9 22 9 12 15 12 15 22" />
           </svg>
@@ -444,14 +512,19 @@ const BloodBankRegister = () => {
           type="text"
           id="name"
           placeholder="Enter blood bank name"
-          {...register('name', { validate: bloodBankNameValidator })}
+          {...register("name", { validate: bloodBankNameValidator })}
         />
         {errors.name && <p className="field-error">{errors.name.message}</p>}
       </div>
 
       <div className="form-group">
         <label htmlFor="email">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
             <polyline points="22,6 12,13 2,6" />
           </svg>
@@ -461,14 +534,19 @@ const BloodBankRegister = () => {
           type="email"
           id="email"
           placeholder="bloodbank@example.com"
-          {...register('email', { validate: emailValidator })}
+          {...register("email", { validate: emailValidator })}
         />
         {errors.email && <p className="field-error">{errors.email.message}</p>}
       </div>
 
       <div className="form-group">
         <label htmlFor="phone">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
           </svg>
           Phone Number *
@@ -480,18 +558,21 @@ const BloodBankRegister = () => {
           inputMode="numeric"
           maxLength={10}
           onInput={(e) => {
-            e.target.value = e.target.value.replace(/\D/g, '');
+            e.target.value = e.target.value.replace(/\D/g, "");
           }}
-          {...register('phone', { validate: phoneValidator })}
+          {...register("phone", { validate: phoneValidator })}
         />
         {errors.phone && <p className="field-error">{errors.phone.message}</p>}
       </div>
 
-
-
       <div className="form-group password-field">
         <label htmlFor="password">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0110 0v4" />
           </svg>
@@ -499,41 +580,61 @@ const BloodBankRegister = () => {
         </label>
         <div className="password-input-wrapper">
           <input
-            type={showPassword ? 'password' : 'text'}
+            type={showPassword ? "password" : "text"}
             id="password"
             placeholder="Min 8 characters"
-            {...register('password', {
-              required: 'Password is required',
-              minLength: { value: 8, message: 'Password must be at least 8 characters' },
+            {...register("password", {
+              required: "Password is required",
+              minLength: {
+                value: 8,
+                message: "Password must be at least 8 characters",
+              },
             })}
           />
           <button
             type="button"
             className="password-toggle"
             onClick={() => setShowPassword((prev) => !prev)}
-            aria-label={showPassword ? 'Show password' : 'Hide password'}
+            aria-label={showPassword ? "Show password" : "Hide password"}
           >
             {showPassword ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
                 <path d="M1 1l22 22" />
                 <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
                 <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
               </svg>
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
             )}
           </button>
         </div>
-        {errors.password && <p className="field-error">{errors.password.message}</p>}
+        {errors.password && (
+          <p className="field-error">{errors.password.message}</p>
+        )}
       </div>
 
       <div className="form-group password-field">
         <label htmlFor="confirmPassword">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
             <path d="M7 11V7a5 5 0 0110 0v4" />
           </svg>
@@ -541,29 +642,44 @@ const BloodBankRegister = () => {
         </label>
         <div className="password-input-wrapper">
           <input
-            type={showConfirmPassword ? 'password' : 'text'}
+            type={showConfirmPassword ? "password" : "text"}
             id="confirmPassword"
             placeholder="Confirm password"
-            {...register('confirmPassword', {
-              required: 'Please confirm your password',
-              validate: (value) => value === watchedPassword || 'Passwords do not match',
+            {...register("confirmPassword", {
+              required: "Please confirm your password",
+              validate: (value) =>
+                value === watchedPassword || "Passwords do not match",
             })}
           />
           <button
             type="button"
             className="password-toggle"
             onClick={() => setShowConfirmPassword((prev) => !prev)}
-            aria-label={showConfirmPassword ? 'Show confirm password' : 'Hide confirm password'}
+            aria-label={
+              showConfirmPassword
+                ? "Show confirm password"
+                : "Hide confirm password"
+            }
           >
             {showConfirmPassword ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
                 <path d="M1 1l22 22" />
                 <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
                 <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
               </svg>
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
@@ -582,7 +698,12 @@ const BloodBankRegister = () => {
       <div className="form-row">
         <div className="form-group">
           <label htmlFor="licenseNumber">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
               <polyline points="14 2 14 8 20 8" />
               <line x1="16" y1="13" x2="8" y2="13" />
@@ -595,7 +716,7 @@ const BloodBankRegister = () => {
             type="text"
             id="licenseNumber"
             placeholder="Enter license number"
-            {...register('licenseNumber', { validate: licenseNumberValidator })}
+            {...register("licenseNumber", { validate: licenseNumberValidator })}
           />
           {errors.licenseNumber && (
             <p className="field-error">{errors.licenseNumber.message}</p>
@@ -604,7 +725,12 @@ const BloodBankRegister = () => {
 
         <div className="form-group">
           <label htmlFor="registrationNumber">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" />
@@ -616,7 +742,9 @@ const BloodBankRegister = () => {
             type="text"
             id="registrationNumber"
             placeholder="Optional"
-            {...register('registrationNumber', { validate: registrationNumberValidator })}
+            {...register("registrationNumber", {
+              validate: registrationNumberValidator,
+            })}
           />
           {errors.registrationNumber && (
             <p className="field-error">{errors.registrationNumber.message}</p>
@@ -626,7 +754,12 @@ const BloodBankRegister = () => {
 
       <div className="form-group">
         <label htmlFor="address">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
@@ -636,9 +769,11 @@ const BloodBankRegister = () => {
           type="text"
           id="address"
           placeholder="Street address"
-          {...register('address', { required: 'Address is required' })}
+          {...register("address", { required: "Address is required" })}
         />
-        {errors.address && <p className="field-error">{errors.address.message}</p>}
+        {errors.address && (
+          <p className="field-error">{errors.address.message}</p>
+        )}
       </div>
 
       <div className="form-row">
@@ -648,7 +783,7 @@ const BloodBankRegister = () => {
             type="text"
             id="city"
             placeholder="City"
-            {...register('city', { required: 'City is required' })}
+            {...register("city", { required: "City is required" })}
           />
           {errors.city && <p className="field-error">{errors.city.message}</p>}
         </div>
@@ -659,9 +794,11 @@ const BloodBankRegister = () => {
             type="text"
             id="state"
             placeholder="State"
-            {...register('state', { required: 'State is required' })}
+            {...register("state", { required: "State is required" })}
           />
-          {errors.state && <p className="field-error">{errors.state.message}</p>}
+          {errors.state && (
+            <p className="field-error">{errors.state.message}</p>
+          )}
         </div>
       </div>
 
@@ -675,14 +812,19 @@ const BloodBankRegister = () => {
             inputMode="numeric"
             maxLength={6}
             onInput={(e) => {
-              e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+              e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
             }}
-            {...register('pincode', {
-              setValueAs: (value) => String(value ?? '').replace(/\D/g, '').slice(0, 6),
+            {...register("pincode", {
+              setValueAs: (value) =>
+                String(value ?? "")
+                  .replace(/\D/g, "")
+                  .slice(0, 6),
               validate: pincodeValidator,
             })}
           />
-          {errors.pincode && <p className="field-error">{errors.pincode.message}</p>}
+          {errors.pincode && (
+            <p className="field-error">{errors.pincode.message}</p>
+          )}
         </div>
 
         <div className="form-group">
@@ -693,7 +835,7 @@ const BloodBankRegister = () => {
             placeholder="e.g., 2010"
             min="1900"
             max={new Date().getFullYear()}
-            {...register('establishedYear', { validate: yearValidator })}
+            {...register("establishedYear", { validate: yearValidator })}
           />
           {errors.establishedYear && (
             <p className="field-error">{errors.establishedYear.message}</p>
@@ -703,7 +845,12 @@ const BloodBankRegister = () => {
 
       <div className="form-group location-section">
         <label>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
@@ -711,7 +858,7 @@ const BloodBankRegister = () => {
         </label>
         <button
           type="button"
-          className={`btn-location ${locationShared ? 'shared' : ''}`}
+          className={`btn-location ${locationShared ? "shared" : ""}`}
           onClick={handleGetLocation}
           disabled={gettingLocation}
         >
@@ -722,14 +869,24 @@ const BloodBankRegister = () => {
             </>
           ) : locationShared ? (
             <>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               Location Shared
             </>
           ) : (
             <>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
@@ -739,17 +896,25 @@ const BloodBankRegister = () => {
         </button>
         {locationShared && location && (
           <div className="location-info">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <polyline points="20 6 9 17 4 12" />
             </svg>
             <span>
-              Location: {location.coordinates[1].toFixed(6)}, {location.coordinates[0].toFixed(6)}
+              Location: {location.coordinates[1].toFixed(6)},{" "}
+              {location.coordinates[0].toFixed(6)}
             </span>
           </div>
         )}
-        {!locationShared && step === 2 && formError === 'Please share your location' && (
-          <p className="field-error">Please share your location</p>
-        )}
+        {!locationShared &&
+          step === 2 &&
+          formError === "Please share your location" && (
+            <p className="field-error">Please share your location</p>
+          )}
       </div>
     </>
   );
@@ -758,7 +923,12 @@ const BloodBankRegister = () => {
     <>
       <div className="form-group">
         <label>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
@@ -767,17 +937,11 @@ const BloodBankRegister = () => {
         <div className="operating-hours-grid">
           <div className="time-input-group">
             <small>Opening Time</small>
-            <input
-              type="time"
-              {...register('openTime')}
-            />
+            <input type="time" {...register("openTime")} />
           </div>
           <div className="time-input-group">
             <small>Closing Time</small>
-            <input
-              type="time"
-              {...register('closeTime')}
-            />
+            <input type="time" {...register("closeTime")} />
           </div>
         </div>
       </div>
@@ -785,7 +949,7 @@ const BloodBankRegister = () => {
       <div className="form-group">
         <label>Working Days *</label>
         <div className="services-grid">
-          {allDays.map(day => (
+          {allDays.map((day) => (
             <label key={day} className="service-checkbox">
               <input
                 type="checkbox"
@@ -796,18 +960,25 @@ const BloodBankRegister = () => {
             </label>
           ))}
         </div>
-        {errors.workingDays && <p className="field-error">{errors.workingDays.message}</p>}
+        {errors.workingDays && (
+          <p className="field-error">{errors.workingDays.message}</p>
+        )}
       </div>
 
       <div className="form-group">
         <label>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
           Services Offered *
         </label>
         <div className="services-grid">
-          {allServices.map(service => (
+          {allServices.map((service) => (
             <label key={service} className="service-checkbox">
               <input
                 type="checkbox"
@@ -818,12 +989,19 @@ const BloodBankRegister = () => {
             </label>
           ))}
         </div>
-        {errors.services && <p className="field-error">{errors.services.message}</p>}
+        {errors.services && (
+          <p className="field-error">{errors.services.message}</p>
+        )}
       </div>
 
       <div className="form-group">
         <label htmlFor="contactPersonName">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
@@ -833,9 +1011,9 @@ const BloodBankRegister = () => {
           type="text"
           id="contactPersonName"
           placeholder="Primary contact name"
-          {...register('contactPersonName', {
+          {...register("contactPersonName", {
             validate: (value) => {
-              if (!String(value ?? '').trim()) return true;
+              if (!String(value ?? "").trim()) return true;
               return nameValidator(value);
             },
           })}
@@ -855,10 +1033,13 @@ const BloodBankRegister = () => {
             inputMode="numeric"
             maxLength={10}
             onInput={(e) => {
-              e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+              e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
             }}
-            {...register('contactPersonPhone', {
-              setValueAs: (value) => String(value ?? '').replace(/\D/g, '').slice(0, 10),
+            {...register("contactPersonPhone", {
+              setValueAs: (value) =>
+                String(value ?? "")
+                  .replace(/\D/g, "")
+                  .slice(0, 10),
               validate: optionalPhoneValidator,
             })}
           />
@@ -870,7 +1051,12 @@ const BloodBankRegister = () => {
 
       <div className="form-group">
         <label>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <circle cx="8.5" cy="8.5" r="1.5" />
             <polyline points="21 15 16 10 5 21" />
@@ -893,8 +1079,16 @@ const BloodBankRegister = () => {
               </button>
             </div>
           ) : (
-            <div className="logo-upload-placeholder" onClick={() => document.getElementById('logo-file').click()}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <div
+              className="logo-upload-placeholder"
+              onClick={() => document.getElementById("logo-file").click()}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
               </svg>
               <span>Click to upload hospital logo</span>
@@ -905,7 +1099,7 @@ const BloodBankRegister = () => {
             type="file"
             id="logo-file"
             accept="image/*"
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             onChange={handleLogoChange}
           />
         </div>
@@ -915,23 +1109,31 @@ const BloodBankRegister = () => {
 
   const renderOtpVerification = () => {
     const attemptsRemaining = verificationState?.attemptsRemaining ?? 0;
-    const resendAttemptsRemaining = verificationState?.resendAttemptsRemaining ?? 0;
-    const resendAvailableInSeconds = verificationState?.resendAvailableInSeconds ?? 0;
+    const resendAttemptsRemaining =
+      verificationState?.resendAttemptsRemaining ?? 0;
+    const resendAvailableInSeconds =
+      verificationState?.resendAvailableInSeconds ?? 0;
     const otpExpiresInSeconds = verificationState?.otpExpiresInSeconds ?? 0;
     const isLocked = attemptsRemaining <= 0;
-    const canResend = resendAttemptsRemaining > 0 && resendAvailableInSeconds === 0 && !isLocked;
+    const canResend =
+      resendAttemptsRemaining > 0 &&
+      resendAvailableInSeconds === 0 &&
+      !isLocked;
 
     return (
       <div className="otp-container">
         <div className="otp-title">Email Verification</div>
         <p className="otp-description">
-          Enter the 6-digit OTP sent to <strong>{verificationState?.maskedEmail || 'your email'}</strong>.
+          Enter the 6-digit OTP sent to{" "}
+          <strong>{verificationState?.maskedEmail || "your email"}</strong>.
         </p>
 
         <div className="otp-meta">
           <span>Attempts left: {attemptsRemaining}</span>
           <span>Resend left: {resendAttemptsRemaining}</span>
-          <span className={`otp-meta-pill-highlight ${otpExpiresInSeconds <= 60 ? 'otp-meta-pill-danger' : ''}`}>
+          <span
+            className={`otp-meta-pill-highlight ${otpExpiresInSeconds <= 60 ? "otp-meta-pill-danger" : ""}`}
+          >
             OTP expires in: {formatCountdown(otpExpiresInSeconds)}
           </span>
         </div>
@@ -946,8 +1148,8 @@ const BloodBankRegister = () => {
             placeholder="Enter 6-digit OTP"
             value={otpCode}
             onChange={(e) => {
-              setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
-              setOtpError('');
+              setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6));
+              setOtpError("");
             }}
             disabled={isLocked || otpExpiresInSeconds <= 0}
           />
@@ -961,7 +1163,11 @@ const BloodBankRegister = () => {
             onClick={handleVerifyOtp}
             disabled={isLocked || otpExpiresInSeconds <= 0 || isVerifyingOtp}
           >
-            {isVerifyingOtp ? <span className="loading-spinner"></span> : 'Verify OTP'}
+            {isVerifyingOtp ? (
+              <span className="loading-spinner"></span>
+            ) : (
+              "Verify OTP"
+            )}
           </button>
         </div>
 
@@ -972,7 +1178,11 @@ const BloodBankRegister = () => {
             onClick={handleResendOtp}
             disabled={!canResend || isResendingOtp || otpExpiresInSeconds <= 0}
           >
-            {isResendingOtp ? 'Sending...' : (resendAvailableInSeconds > 0 ? `Resend in ${formatCountdown(resendAvailableInSeconds)}` : 'Resend OTP')}
+            {isResendingOtp
+              ? "Sending..."
+              : resendAvailableInSeconds > 0
+                ? `Resend in ${formatCountdown(resendAvailableInSeconds)}`
+                : "Resend OTP"}
           </button>
           <button
             type="button"
@@ -996,7 +1206,7 @@ const BloodBankRegister = () => {
     const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
     const minutes = Math.floor(safeSeconds / 60);
     const seconds = safeSeconds % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   };
 
   return (
@@ -1008,8 +1218,16 @@ const BloodBankRegister = () => {
         <div className="auth-left-panel">
           <div className="auth-branding">
             <div className="auth-logo">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor" />
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                  fill="currentColor"
+                />
               </svg>
             </div>
             <h1>Join Our Network</h1>
@@ -1018,20 +1236,35 @@ const BloodBankRegister = () => {
 
           <div className="auth-features">
             <div className="feature-item1">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
               <span>Quick Registration Process</span>
             </div>
             <div className="feature-item1">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
               <span>Verified & Secure Platform</span>
             </div>
             <div className="feature-item1">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
                 <path d="M23 21v-2a4 4 0 00-3-3.87" />
@@ -1053,7 +1286,12 @@ const BloodBankRegister = () => {
 
             {!isOtpFlowActive && getStepError() && (
               <div className="auth-alert auth-alert-error">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -1070,8 +1308,17 @@ const BloodBankRegister = () => {
 
                 <div className="form-navigation">
                   {step > 1 && (
-                    <button type="button" onClick={prevStep} className="auth-btn auth-btn-secondary">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <button
+                      type="button"
+                      onClick={prevStep}
+                      className="auth-btn auth-btn-secondary"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <line x1="19" y1="12" x2="5" y2="12" />
                         <polyline points="12 19 5 12 12 5" />
                       </svg>
@@ -1080,21 +1327,39 @@ const BloodBankRegister = () => {
                   )}
 
                   {step < 3 ? (
-                    <button type="button" onClick={nextStep} className="auth-btn">
+                    <button
+                      type="button"
+                      onClick={nextStep}
+                      className="auth-btn"
+                    >
                       Next
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <line x1="5" y1="12" x2="19" y2="12" />
                         <polyline points="12 5 19 12 12 19" />
                       </svg>
                     </button>
                   ) : (
-                    <button type="submit" className="auth-btn" disabled={isSubmitting || isInitiatingRegistration}>
+                    <button
+                      type="submit"
+                      className="auth-btn"
+                      disabled={isSubmitting || isInitiatingRegistration}
+                    >
                       {isSubmitting || isInitiatingRegistration ? (
                         <span className="loading-spinner"></span>
                       ) : (
                         <>
                           Register
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
                         </>
@@ -1109,7 +1374,7 @@ const BloodBankRegister = () => {
 
             <div className="auth-footer">
               <p>
-                Already have an account?{' '}
+                Already have an account?{" "}
                 <Link to={ROUTE_PATH.BLOOD_BANK_LOGIN}>Sign in here</Link>
               </p>
             </div>

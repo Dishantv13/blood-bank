@@ -4,13 +4,13 @@ import { TAGS, tagList, tagById } from "../enum/tagType.js";
 
 export const adminApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
-    // ===================== DASHBOARD STATS =====================
+    // Dashboard Stats
     getAdminDashboardStats: builder.query({
       query: () => ADMIN_URLS.DASHBOARD.STATS,
       providesTags: tagList(TAGS.ADMIN_STATS),
     }),
 
-    // ===================== USERS ENDPOINTS =====================
+    // Users
     getAdminUsers: builder.query({
       query: ({ page = 1, limit = 10, status, bloodType, search } = {}) => {
         const params = new URLSearchParams();
@@ -41,7 +41,7 @@ export const adminApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // ===================== BLOOD BANKS ENDPOINTS =====================
+    // Blood Banks
     getAdminBloodBanks: builder.query({
       query: ({ page = 1, limit = 10, status, search } = {}) => {
         const params = new URLSearchParams();
@@ -72,7 +72,7 @@ export const adminApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // ===================== CAMPS ENDPOINTS =====================
+    // Camps
     getAdminCamps: builder.query({
       query: ({ page = 1, limit = 10, status, search, bloodBankId } = {}) => {
         const params = new URLSearchParams();
@@ -115,7 +115,7 @@ export const adminApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // ===================== EVENTS ENDPOINTS =====================
+    // Events
     getAdminEvents: builder.query({
       query: ({ page = 1, limit = 10, status, search, bloodBankId } = {}) => {
         const params = new URLSearchParams();
@@ -159,7 +159,7 @@ export const adminApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // ===================== REQUESTS ENDPOINTS =====================
+    // Requests
     getAdminRequests: builder.query({
       query: ({
         page = 1,
@@ -201,7 +201,7 @@ export const adminApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // ===================== DONATIONS ENDPOINTS =====================
+    // Donations
     getAdminDonations: builder.query({
       query: ({
         page = 1,
@@ -241,7 +241,7 @@ export const adminApi = apiSlice.injectEndpoints({
       ],
     }),
 
-    // ===================== INVENTORY ENDPOINTS =====================
+    // Inventory
     getAdminInventoryOverview: builder.query({
       query: ({ page = 1, limit = 10, bloodType, search } = {}) => {
         const params = new URLSearchParams();
@@ -260,7 +260,7 @@ export const adminApi = apiSlice.injectEndpoints({
         tagById(TAGS.ADMIN_INVENTORY, inventoryId),
     }),
 
-    // ===================== EXPORT ENDPOINTS =====================
+    // Export
     exportUsersXlsx: builder.query({
       query: () => ({
         url: ADMIN_URLS.EXPORT.USERS_XLSX,

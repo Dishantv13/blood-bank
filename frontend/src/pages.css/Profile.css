@@ -157,7 +157,7 @@
   font-weight: 500;
 }
 
-.profile-view>.btn {
+.profile-view > .btn {
   margin-top: 1rem;
 }
 
@@ -176,7 +176,7 @@
   color: var(--text-main);
 }
 
-.checkbox-label input[type="checkbox"] {
+.checkbox-label input[type='checkbox'] {
   width: 18px;
   height: 18px;
   cursor: pointer;
@@ -221,7 +221,7 @@
   box-shadow: 0 4px 12px rgba(230, 57, 70, 0.2);
 }
 
-.option-card input[type="radio"] {
+.option-card input[type='radio'] {
   position: absolute;
   opacity: 0;
   cursor: pointer;

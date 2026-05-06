@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const BloodBankRegistrationOtpSchema = new mongoose.Schema(
   {
@@ -18,7 +18,7 @@ const BloodBankRegistrationOtpSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['user', 'bloodbank'],
+      enum: ["user", "bloodbank"],
       required: true,
       index: true,
     },
@@ -34,8 +34,8 @@ const BloodBankRegistrationOtpSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'verified', 'locked', 'expired'],
-      default: 'pending',
+      enum: ["pending", "verified", "locked", "expired"],
+      default: "pending",
       index: true,
     },
     verifyAttemptsUsed: {
@@ -57,8 +57,8 @@ const BloodBankRegistrationOtpSchema = new mongoose.Schema(
       required: true,
     },
     clientMeta: {
-      ip: { type: String, default: '' },
-      userAgent: { type: String, default: '' },
+      ip: { type: String, default: "" },
+      userAgent: { type: String, default: "" },
     },
     expiresAt: {
       type: Date,
@@ -71,9 +71,15 @@ const BloodBankRegistrationOtpSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-BloodBankRegistrationOtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+BloodBankRegistrationOtpSchema.index(
+  { expiresAt: 1 },
+  { expireAfterSeconds: 0 },
+);
 
-export default mongoose.model('BloodBankRegistrationOtp', BloodBankRegistrationOtpSchema);
+export default mongoose.model(
+  "BloodBankRegistrationOtp",
+  BloodBankRegistrationOtpSchema,
+);

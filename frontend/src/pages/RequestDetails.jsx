@@ -1,48 +1,80 @@
-import { useParams, Link } from 'react-router-dom';
-import { useGetRequestByIdQuery, useUpdateRequestStatusMutation } from '../store/requestApi';
-import RequestTimeline from '../components/RequestTimeline';
-import RequestStatusBadge from '../components/RequestStatusBadge';
-import CompatibilityChart from '../components/CompatibilityChart';
-import SkeletonLoader from '../components/SkeletonLoader';
-import { FiMapPin, FiPhone, FiCalendar, FiUser, FiInfo, FiArrowLeft, FiAlertTriangle, FiCheckCircle } from "react-icons/fi";
-import { useAuth } from '../context/AuthContext';
-import { useToast } from '../components/ToastContainer';
-import '../pages.css/RequestDetails.css';
+import { useParams, Link } from "react-router-dom";
+import {
+  useGetRequestByIdQuery,
+  useUpdateRequestStatusMutation,
+} from "../store/requestApi";
+import RequestTimeline from "../components/RequestTimeline";
+import RequestStatusBadge from "../components/RequestStatusBadge";
+import CompatibilityChart from "../components/CompatibilityChart";
+import SkeletonLoader from "../components/SkeletonLoader";
+import ChatWindow from "../components/ChatWindow";
+import {
+  FiMapPin,
+  FiPhone,
+  FiCalendar,
+  FiUser,
+  FiInfo,
+  FiArrowLeft,
+  FiAlertTriangle,
+  FiCheckCircle,
+} from "react-icons/fi";
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../components/ToastContainer";
+import "../pages.css/RequestDetails.css";
 
 const RequestDetails = () => {
   const { requestId } = useParams();
   const { user } = useAuth();
   const toast = useToast();
-  const { data: response, isLoading, error } = useGetRequestByIdQuery(requestId);
-  const [updateStatus, { isLoading: updatingStatus }] = useUpdateRequestStatusMutation();
+  const {
+    data: response,
+    isLoading,
+    error,
+  } = useGetRequestByIdQuery(requestId);
+  const [updateStatus, { isLoading: updatingStatus }] =
+    useUpdateRequestStatusMutation();
 
   const request = response?.data;
-  const isOwner = user && request && String(request.requestedBy?._id || request.requestedBy) === String(user._id);
+  const isOwner =
+    user &&
+    request &&
+    String(request.requestedBy?._id || request.requestedBy) ===
+      String(user._id);
 
   const handleCancelRequest = async () => {
-    if (window.confirm('Are you sure you want to cancel this request?')) {
+    if (window.confirm("Are you sure you want to cancel this request?")) {
       try {
-        await updateStatus({ id: requestId, status: 'cancelled', note: 'Cancelled by requester.' }).unwrap();
-        toast.success('Request cancelled successfully');
+        await updateStatus({
+          id: requestId,
+          status: "cancelled",
+          note: "Cancelled by requester.",
+        }).unwrap();
+        toast.success("Request cancelled successfully");
       } catch (err) {
-        toast.error(err.data?.message || 'Failed to cancel request');
+        toast.error(err.data?.message || "Failed to cancel request");
       }
     }
   };
 
   if (isLoading) return <SkeletonLoader variant="form" />;
-  if (error) return (
-    <div className="request-details-container">
-      <div className="p-10 text-center bg-white rounded-3xl shadow-xl">
-        <FiAlertTriangle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-black text-gray-900">Request Not Found</h2>
-        <p className="text-gray-500 mb-8 max-w-sm mx-auto">The blood request you are looking for might have been removed or is unavailable.</p>
-        <Link to="/dashboard" className="back-link">
-          <FiArrowLeft /> Back to Dashboard
-        </Link>
+  if (error)
+    return (
+      <div className="request-details-container">
+        <div className="p-10 text-center bg-white rounded-3xl shadow-xl">
+          <FiAlertTriangle className="w-16 h-16 text-rose-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-black text-gray-900">
+            Request Not Found
+          </h2>
+          <p className="text-gray-500 mb-8 max-w-sm mx-auto">
+            The blood request you are looking for might have been removed or is
+            unavailable.
+          </p>
+          <Link to="/dashboard" className="back-link">
+            <FiArrowLeft /> Back to Dashboard
+          </Link>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <div className="request-details-container">
@@ -65,14 +97,15 @@ const RequestDetails = () => {
                   <div className="status-row">
                     <RequestStatusBadge status={request.status} />
                     <span className="urgency-indicator">
-                      <FiInfo strokeWidth={3} size={14} /> {request.urgency} Priority
+                      <FiInfo strokeWidth={3} size={14} /> {request.urgency}{" "}
+                      Priority
                     </span>
                   </div>
                 </div>
               </div>
-              
-              {isOwner && request.status === 'pending' && (
-                <button 
+
+              {isOwner && request.status === "pending" && (
+                <button
                   onClick={handleCancelRequest}
                   disabled={updatingStatus}
                   className="btn-cancel-request"
@@ -84,7 +117,9 @@ const RequestDetails = () => {
 
             <div className="info-grid">
               <div className="info-item">
-                <div className="info-icon-box"><FiMapPin /></div>
+                <div className="info-icon-box">
+                  <FiMapPin />
+                </div>
                 <div className="info-content">
                   <span className="label">Location</span>
                   <p className="value">{request.hospital?.name}</p>
@@ -93,15 +128,26 @@ const RequestDetails = () => {
               </div>
 
               <div className="info-item">
-                <div className="info-icon-box"><FiCalendar /></div>
+                <div className="info-icon-box">
+                  <FiCalendar />
+                </div>
                 <div className="info-content">
                   <span className="label">Needed By</span>
-                  <p className="value">{new Date(request.requiredBy).toLocaleDateString(undefined, { dateStyle: 'long' })}</p>
+                  <p className="value">
+                    {new Date(request.requiredBy).toLocaleDateString(
+                      undefined,
+                      {
+                        dateStyle: "long",
+                      },
+                    )}
+                  </p>
                 </div>
               </div>
 
               <div className="info-item">
-                <div className="info-icon-box"><FiUser /></div>
+                <div className="info-icon-box">
+                  <FiUser />
+                </div>
                 <div className="info-content">
                   <span className="label">Quantity</span>
                   <p className="value">{request.units} Units</p>
@@ -109,7 +155,9 @@ const RequestDetails = () => {
               </div>
 
               <div className="info-item">
-                <div className="info-icon-box"><FiPhone /></div>
+                <div className="info-icon-box">
+                  <FiPhone />
+                </div>
                 <div className="info-content">
                   <span className="label">Contact</span>
                   <p className="value">{request.contactNumber}</p>
@@ -120,11 +168,30 @@ const RequestDetails = () => {
             <div className="description-section">
               <h3>Additional Information</h3>
               <p>
-                {request.description || "No additional notes provided for this request."}
+                {request.description ||
+                  "No additional notes provided for this request."}
               </p>
             </div>
           </div>
 
+          {/* Real-time Chat Section */}
+          {(request.bloodBank ||
+            request.targetBloodBank ||
+            request.requestingBloodBank) && (
+            <div className="mt-8">
+              <ChatWindow
+                requestId={requestId}
+                recipientId={
+                  isOwner
+                    ? request.bloodBank?._id ||
+                      request.targetBloodBank?._id ||
+                      request.requestingBloodBank?._id
+                    : request.requestedBy?._id || request.requestedBy
+                }
+                recipientModel={isOwner ? "BloodBank" : "User"}
+              />
+            </div>
+          )}
         </div>
 
         <div className="sidebar-content">
@@ -136,10 +203,12 @@ const RequestDetails = () => {
           <div className="sidebar-card">
             <CompatibilityChart bloodGroup={request.bloodGroup} />
           </div>
-            
-          {request.status === 'fulfilled' && request.fulfillment && (
+
+          {request.status === "fulfilled" && request.fulfillment && (
             <div className="sidebar-card fulfillment-card">
-              <h4><FiCheckCircle /> Fulfillment Recorded</h4>
+              <h4>
+                <FiCheckCircle /> Fulfillment Recorded
+              </h4>
               <div className="fulfillment-details">
                 <div className="fulfillment-row">
                   <span>Provider:</span>
@@ -151,13 +220,19 @@ const RequestDetails = () => {
                 </div>
                 <div className="fulfillment-row">
                   <span>Method:</span>
-                  <span className="capitalize">{request.fulfillment.deliveryMethod}</span>
+                  <span className="capitalize">
+                    {request.fulfillment.deliveryMethod}
+                  </span>
                 </div>
                 {request.fulfillment.fulfilledAt && (
-                   <div className="fulfillment-row">
+                  <div className="fulfillment-row">
                     <span>Date:</span>
-                    <span>{new Date(request.fulfillment.fulfilledAt).toLocaleDateString()}</span>
-                   </div>
+                    <span>
+                      {new Date(
+                        request.fulfillment.fulfilledAt,
+                      ).toLocaleDateString()}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

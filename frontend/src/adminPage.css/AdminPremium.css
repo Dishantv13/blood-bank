@@ -8,14 +8,14 @@
   --admin-surface-dark: rgba(15, 23, 42, 0.85);
   --admin-bg-gradient: radial-gradient(circle at 0% 0%, #fff1f2 0%, #f5f3ff 50%, #ecfeff 100%);
   --admin-bg-dark: radial-gradient(circle at 0% 0%, #1e1b4b 0%, #0f172a 100%);
-  
+
   /* Glassmorphism */
   --admin-glass: rgba(255, 255, 255, 1);
   --admin-glass-border: rgba(15, 23, 42, 0.08);
   --admin-glass-dark: rgba(30, 41, 59, 0.7);
   --admin-glass-border-dark: rgba(255, 255, 255, 0.1);
   --admin-blur: blur(12px);
-  
+
   /* Shadows & Radius */
   --admin-radius-lg: 32px;
   --admin-radius-md: 20px;
@@ -24,7 +24,7 @@
   --admin-shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
   --admin-shadow-lg: 0 20px 50px -10px rgba(244, 63, 94, 0.15);
   --admin-shadow-glow: 0 0 20px var(--admin-primary-glow);
-  
+
   /* Typography */
   --admin-font: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
 }
@@ -55,7 +55,10 @@
 .admin-premium-root::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 1000 1000' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
   opacity: 0.03;
   pointer-events: none;
@@ -145,7 +148,7 @@
 }
 
 .admin-premium-root .sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.1);
+  background: rgba(0, 0, 0, 0.1);
   border-radius: 10px;
 }
 
@@ -225,7 +228,9 @@
   opacity: 0;
   pointer-events: none;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
   z-index: 200;
 }
 
@@ -329,7 +334,8 @@
   border-radius: 8px;
 }
 
-.admin-premium-root .sidebar-toggle, .admin-premium-root .back-btn {
+.admin-premium-root .sidebar-toggle,
+.admin-premium-root .back-btn {
   background: rgba(15, 23, 42, 0.05);
   border: none;
   width: 42px;
@@ -419,7 +425,7 @@
 }
 
 .admin-premium-root .admin-page-body::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.05);
+  background: rgba(0, 0, 0, 0.05);
   border-radius: 10px;
 }
 
@@ -435,7 +441,7 @@
   padding: 2rem;
   background: white;
   border-radius: var(--admin-radius-md);
-  border: 1px solid rgba(0,0,0,0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   position: relative;
   overflow: hidden;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -456,8 +462,10 @@
 .admin-premium-root .stat-card-premium::after {
   content: '';
   position: absolute;
-  top: 0; right: 0;
-  width: 100px; height: 100px;
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 100px;
   background: radial-gradient(circle at top right, var(--admin-primary-glow), transparent);
   opacity: 0.2;
 }
@@ -502,7 +510,9 @@
   gap: 0.5rem;
 }
 
-.admin-premium-root .trend-up { color: #10b981; }
+.admin-premium-root .trend-up {
+  color: #10b981;
+}
 
 /* Section Titles */
 .admin-premium-root .page-title {
@@ -667,8 +677,14 @@
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Tables Next Level */
@@ -720,8 +736,12 @@
   font-weight: 600;
 }
 
-.admin-premium-root .admin-table td:first-child { border-radius: var(--admin-radius-sm) 0 0 var(--admin-radius-sm); }
-.admin-premium-root .admin-table td:last-child { border-radius: 0 var(--admin-radius-sm) var(--admin-radius-sm) 0; }
+.admin-premium-root .admin-table td:first-child {
+  border-radius: var(--admin-radius-sm) 0 0 var(--admin-radius-sm);
+}
+.admin-premium-root .admin-table td:last-child {
+  border-radius: 0 var(--admin-radius-sm) var(--admin-radius-sm) 0;
+}
 
 /* Status Badges */
 .admin-premium-root .status-pill {
@@ -822,7 +842,10 @@
 /* Confirm Dialog Premium */
 .admin-premium-root .confirm-dialog-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(8px);
   display: flex;
@@ -838,7 +861,7 @@
   max-width: 450px;
   width: 90%;
   text-align: center;
-  box-shadow: 0 40px 100px rgba(0,0,0,0.3);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.3);
 }
 
 [data-theme='dark'] .admin-premium-root .confirm-dialog {
@@ -911,7 +934,8 @@
   background: rgba(15, 23, 42, 0.4) !important;
 }
 
-.admin-premium-root .filter-input, .admin-premium-root .filter-select {
+.admin-premium-root .filter-input,
+.admin-premium-root .filter-select {
   flex: 1;
   min-width: 200px;
   padding: 1rem 1.5rem;
@@ -932,7 +956,8 @@
   color: #f1f5f9;
 }
 
-.admin-premium-root .filter-input:focus, .admin-premium-root .filter-select:focus {
+.admin-premium-root .filter-input:focus,
+.admin-premium-root .filter-select:focus {
   border-color: var(--admin-primary);
   background: white !important;
   transform: translateY(-2px);
@@ -989,9 +1014,13 @@
 
 .login-mesh-bg {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: radial-gradient(circle at 20% 30%, rgba(244, 63, 94, 0.15) 0%, transparent 40%),
-              radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.15) 0%, transparent 40%);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(244, 63, 94, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.15) 0%, transparent 40%);
   filter: blur(80px);
   z-index: 1;
 }
@@ -1004,7 +1033,7 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 40px;
-  box-shadow: 0 50px 100px rgba(0,0,0,0.5);
+  box-shadow: 0 50px 100px rgba(0, 0, 0, 0.5);
   text-align: center;
   z-index: 10;
   position: relative;
@@ -1076,7 +1105,9 @@
   justify-content: center;
   border-radius: 999px;
   cursor: pointer;
-  transition: color 0.2s ease, background-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .admin-login-premium-root .admin-password-toggle-premium:hover {
@@ -1131,7 +1162,7 @@
     margin: 0;
     transform: translateX(-120%);
     z-index: 120;
-    box-shadow: 0 0 50px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.2) !important;
   }
 
   .admin-premium-root .admin-sidebar.open {

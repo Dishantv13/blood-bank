@@ -1,45 +1,106 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f9f9f9; }
-        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .header { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); padding: 30px; text-align: center; color: white; }
-        .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
-        .content { padding: 40px; }
-        .hero-icon { font-size: 48px; text-align: center; margin-bottom: 20px; }
-        .message-box { padding: 20px; border-radius: 8px; margin: 25px 0; background: #eff6ff; border: 1px solid #bfdbfe; }
-        .footer { background: #f3f4f6; padding: 20px; text-align: center; color: #6b7280; font-size: 13px; }
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        background-color: #f9f9f9;
+      }
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      }
+      .header {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        padding: 30px;
+        text-align: center;
+        color: white;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+      }
+      .content {
+        padding: 40px;
+      }
+      .hero-icon {
+        font-size: 48px;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .message-box {
+        padding: 20px;
+        border-radius: 8px;
+        margin: 25px 0;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+      }
+      .footer {
+        background: #f3f4f6;
+        padding: 20px;
+        text-align: center;
+        color: #6b7280;
+        font-size: 13px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header" style="background: {{headerColor}};">
-            <h1>RaktSarthi</h1>
-        </div>
-        <div class="content">
-            <div class="hero-icon">{{icon}}</div>
-            <h2>Donation Record Updated</h2>
-            <p>Hello <strong>{{userName}}</strong>,</p>
-            <p>Your blood donation record for the date <strong>{{donationDate}}</strong> has been updated.</p>
-            
-            <div class="message-box" style="background: {{boxColor}}; border-color: {{borderColor}};">
-                <p><strong>Status:</strong> <span style="font-weight: bold; color: {{statusColor}};">{{status}}</span></p>
-                <p>{{message}}</p>
-            </div>
+      <div class="header" style="background: {{headerColor}};">
+        <h1>RaktSarthi</h1>
+      </div>
+      <div class="content">
+        <div class="hero-icon">{{icon}}</div>
+        <h2>Donation Record Updated</h2>
+        <p>Hello <strong>{{userName}}</strong>,</p>
+        <p>
+          Your blood donation record for the date <strong>{{donationDate}}</strong> has been
+          updated.
+        </p>
 
-            <p>Thank you for your incredible contribution to society. Every drop counts!</p>
-            
-            <center>
-                <a href="{{historyUrl}}" class="btn" style="display: inline-block; padding: 12px 28px; background-color: #3b82f6; color: white !important; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 10px 0;">View Donation History</a>
-            </center>
+        <div class="message-box" style="background: {{boxColor}}; border-color: {{borderColor}};">
+          <p>
+            <strong>Status:</strong>
+            <span style="font-weight: bold; color: {{statusColor}};">{{status}}</span>
+          </p>
+          <p>{{message}}</p>
         </div>
-        <div class="footer">
-            <p>© 2026 RaktSarthi. All rights reserved.</p>
-            <p><a href="{{unsubscribeUrl}}">Unsubscribe from donation updates</a></p>
-        </div>
+
+        <p>Thank you for your incredible contribution to society. Every drop counts!</p>
+
+        <center>
+          <a
+            href="{{historyUrl}}"
+            class="btn"
+            style="
+              display: inline-block;
+              padding: 12px 28px;
+              background-color: #3b82f6;
+              color: white !important;
+              text-decoration: none;
+              border-radius: 6px;
+              font-weight: 600;
+              margin: 10px 0;
+            "
+            >View Donation History</a
+          >
+        </center>
+      </div>
+      <div class="footer">
+        <p>© 2026 RaktSarthi. All rights reserved.</p>
+        <p><a href="{{unsubscribeUrl}}">Unsubscribe from donation updates</a></p>
+      </div>
     </div>
-</body>
+  </body>
 </html>

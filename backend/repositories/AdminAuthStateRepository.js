@@ -1,5 +1,5 @@
-import BaseRepository from './BaseRepository.js';
-import AdminAuthState from '../models/AdminAuthState.model.js';
+import BaseRepository from "./BaseRepository.js";
+import AdminAuthState from "../models/AdminAuthState.model.js";
 
 class AdminAuthStateRepository extends BaseRepository {
   constructor() {

@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ROUTE_PATH } from '../enum/routePath';
-import { useGetAllUsersQuery } from '../store/adminApi.js';
-import AdminTable from './AdminTable.jsx';
-
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ROUTE_PATH } from "../enum/routePath";
+import { useGetAllUsersQuery } from "../store/adminApi.js";
+import AdminTable from "./AdminTable.jsx";
 
 const AdminRequests = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState('');
-  const [filters, setFilters] = useState({ search: '', status: '' });
+  const [searchInput, setSearchInput] = useState("");
+  const [filters, setFilters] = useState({ search: "", status: "" });
 
   const { data: usersData, isLoading } = useGetAllUsersQuery({
     page,
@@ -25,7 +24,11 @@ const AdminRequests = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       const trimmedSearch = searchInput.trim();
-      setFilters((prev) => (prev.search === trimmedSearch ? prev : { ...prev, search: trimmedSearch }));
+      setFilters((prev) =>
+        prev.search === trimmedSearch
+          ? prev
+          : { ...prev, search: trimmedSearch },
+      );
       setPage(1);
     }, 350);
 
@@ -33,15 +36,19 @@ const AdminRequests = () => {
   }, [searchInput]);
 
   const columns = [
-    { key: 'name', label: 'User Name', width: '24%' },
-    { key: 'email', label: 'Email', width: '24%' },
-    { key: 'mobileNumber', label: 'Phone', width: '16%' },
-    { key: 'requestCount', label: 'Requests', width: '12%' },
+    { key: "name", label: "User Name", width: "24%" },
+    { key: "email", label: "Email", width: "24%" },
+    { key: "mobileNumber", label: "Phone", width: "16%" },
+    { key: "requestCount", label: "Requests", width: "12%" },
     {
-      key: 'status',
-      label: 'Status',
-      width: '12%',
-      render: (status) => <span className={`status-badge ${status}`}>{status?.toUpperCase()}</span>,
+      key: "status",
+      label: "Status",
+      width: "12%",
+      render: (status) => (
+        <span className={`status-badge ${status}`}>
+          {status?.toUpperCase()}
+        </span>
+      ),
     },
   ];
 
@@ -49,7 +56,9 @@ const AdminRequests = () => {
     <>
       <div className="dashboard-header-premium">
         <h1 className="page-title">Blood Request Management</h1>
-        <p className="page-subtitle">Select a user to view their blood requests</p>
+        <p className="page-subtitle">
+          Select a user to view their blood requests
+        </p>
       </div>
 
       <div className="filters-panel">
@@ -62,7 +71,7 @@ const AdminRequests = () => {
         />
         <select
           value={filters.status}
-          onChange={(e) => handleFilterChange('status', e.target.value)}
+          onChange={(e) => handleFilterChange("status", e.target.value)}
           className="filter-select"
         >
           <option value="">All Statuses</option>
@@ -76,7 +85,11 @@ const AdminRequests = () => {
         columns={columns}
         data={usersData?.data || []}
         isLoading={isLoading}
-        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_REQUESTS_BY_USER.replace(":userId", row._id))}
+        onRowClick={(row) =>
+          navigate(
+            ROUTE_PATH.ADMIN_REQUESTS_BY_USER.replace(":userId", row._id),
+          )
+        }
         pagination={usersData?.pagination}
         onPageChange={setPage}
       />

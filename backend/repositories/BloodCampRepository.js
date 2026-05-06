@@ -1,5 +1,5 @@
-import BaseRepository from './BaseRepository.js';
-import BloodCamp from '../models/BloodCamp.model.js';
+import BaseRepository from "./BaseRepository.js";
+import BloodCamp from "../models/BloodCamp.model.js";
 
 class BloodCampRepository extends BaseRepository {
   constructor() {

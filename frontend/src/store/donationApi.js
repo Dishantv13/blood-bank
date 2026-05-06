@@ -1,6 +1,6 @@
-import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
-import { DONATION_API_URLS } from '../enum/apiUrl';
+import { apiSlice } from "./apiSlice";
+import { TAGS, tagById, tagList, tagListWithIds } from "../enum/tagType";
+import { DONATION_API_URLS } from "../enum/apiUrl";
 
 export const donationApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
@@ -8,7 +8,7 @@ export const donationApi = apiSlice.injectEndpoints({
     requestDonation: builder.mutation({
       query: (data) => ({
         url: DONATION_API_URLS.REQUEST_DONATION,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
       invalidatesTags: tagList(TAGS.DONATION),
@@ -26,7 +26,7 @@ export const donationApi = apiSlice.injectEndpoints({
     recordDonation: builder.mutation({
       query: ({ donationId, volumeDonated }) => ({
         url: DONATION_API_URLS.RECORD_DONATION(donationId),
-        method: 'PUT',
+        method: "PUT",
         body: { volumeDonated },
       }),
       // Invalidate both the specific donation AND the full list so tabs/counts update
@@ -38,7 +38,7 @@ export const donationApi = apiSlice.injectEndpoints({
     updateDonationStatus: builder.mutation({
       query: ({ donationId, status }) => ({
         url: DONATION_API_URLS.UPDATE_DONATION_STATUS(donationId),
-        method: 'PUT',
+        method: "PUT",
         body: { status },
       }),
       // Invalidate both the item and the list so pending/completed tabs re-render
@@ -50,7 +50,7 @@ export const donationApi = apiSlice.injectEndpoints({
     createDonation: builder.mutation({
       query: (data) => ({
         url: DONATION_API_URLS.CREATE_DONATION,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
       invalidatesTags: tagList(TAGS.DONATION),

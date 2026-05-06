@@ -1,158 +1,179 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const BloodRequestSchema = new mongoose.Schema({
-  requestType: {
-    type: String,
-    enum: ['user', 'bloodbank'],
-    default: 'user'
-  },
-  requestedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: function requiredRequestedBy() {
-      return this.requestType === 'user';
-    }
-  },
-  requestingBloodBank: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'BloodBank'
-  },
-  targetBloodBank: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'BloodBank'
-  },
-  patientName: {
-    type: String,
-    required: true,
-    trim: true,
-    maxlength: 120
-  },
-  bloodGroup: {
-    type: String,
-    enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-    required: true
-  },
-  units: {
-    type: Number,
-    required: true,
-    min: 1
-  },
-  urgency: {
-    type: String,
-    enum: ['critical', 'urgent', 'normal'],
-    default: 'normal'
-  },
-  hospital: {
-    name: String,
-    address: String,
-    location: {
-      type: {
-        type: String,
-        enum: ['Point'],
-        default: 'Point'
+const BloodRequestSchema = new mongoose.Schema(
+  {
+    requestType: {
+      type: String,
+      enum: ["user", "bloodbank"],
+      default: "user",
+    },
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: function requiredRequestedBy() {
+        return this.requestType === "user";
       },
-      coordinates: {
-        type: [Number]
-      }
-    }
-  },
-  contactNumber: {
-    type: String,
-    required: true,
-    trim: true,
-    validate: {
-      validator: (value) => /^[0-9]{10}$/.test(String(value).replace(/\D/g, '')),
-      message: 'Contact number must be 10 digits'
-    }
-  },
-  requiredBy: {
-    type: Date,
-    default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // Default: 7 days from now
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'approved', 'in_progress', 'fulfilled', 'completed', 'rejected', 'cancelled'],
-    default: 'pending'
-  },
-  description: {
-    type: String,
-    trim: true,
-    maxlength: 1000
-  },
-  fulfillment: {
-    fulfilledBy: {
+    },
+    requestingBloodBank: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'BloodBank'
+      ref: "BloodBank",
     },
-    fulfilledAt: Date,
-    unitsProvided: Number,
-    deliveryMethod: {
+    targetBloodBank: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BloodBank",
+    },
+    patientName: {
       type: String,
-      enum: ['pickup', 'delivery']
+      required: true,
+      trim: true,
+      maxlength: 120,
     },
-    notes: String
-  },
-  timeline: [{
-    status: {
+    bloodGroup: {
       type: String,
-      required: true
+      enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+      required: true,
     },
-    updatedBy: mongoose.Schema.Types.ObjectId,
-    updatedByModel: {
+    units: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    urgency: {
       type: String,
-      enum: ['User', 'BloodBank']
+      enum: ["critical", "urgent", "normal"],
+      default: "normal",
     },
-    timestamp: {
+    hospital: {
+      name: String,
+      address: String,
+      location: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+        coordinates: {
+          type: [Number],
+        },
+      },
+    },
+    contactNumber: {
+      type: String,
+      required: true,
+      trim: true,
+      validate: {
+        validator: (value) =>
+          /^[0-9]{10}$/.test(String(value).replace(/\D/g, "")),
+        message: "Contact number must be 10 digits",
+      },
+    },
+    requiredBy: {
       type: Date,
-      default: Date.now
+      default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default: 7 days from now
     },
-    note: String
-  }],
-  bloodBank: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'BloodBank'
-  },
-  bloodBankResponse: {
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected']
+      enum: [
+        "pending",
+        "approved",
+        "in_progress",
+        "fulfilled",
+        "completed",
+        "rejected",
+        "cancelled",
+      ],
+      default: "pending",
     },
-    respondedAt: Date,
-    respondedBy: {
+    description: {
+      type: String,
+      trim: true,
+      maxlength: 1000,
+    },
+    fulfillment: {
+      fulfilledBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "BloodBank",
+      },
+      fulfilledAt: Date,
+      unitsProvided: Number,
+      deliveryMethod: {
+        type: String,
+        enum: ["pickup", "delivery"],
+      },
+      notes: String,
+    },
+    timeline: [
+      {
+        status: {
+          type: String,
+          required: true,
+        },
+        updatedBy: mongoose.Schema.Types.ObjectId,
+        updatedByModel: {
+          type: String,
+          enum: ["User", "BloodBank"],
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+        note: String,
+      },
+    ],
+    bloodBank: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'BloodBank'
+      ref: "BloodBank",
     },
-    responseNote: String
+    bloodBankResponse: {
+      status: {
+        type: String,
+        enum: ["pending", "approved", "rejected"],
+      },
+      respondedAt: Date,
+      respondedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "BloodBank",
+      },
+      responseNote: String,
+    },
+    isFake: {
+      type: Boolean,
+      default: false,
+    },
   },
-  isFake: {
-    type: Boolean,
-    default: false
-  }
-}, {
-  timestamps: true
-});
+  {
+    timestamps: true,
+  },
+);
 
 // Automatically add initial "pending" timeline entry on creation
-BloodRequestSchema.pre('save', async function () {
+BloodRequestSchema.pre("save", async function () {
   if (this.isNew && (!this.timeline || this.timeline.length === 0)) {
     this.timeline.push({
-      status: 'pending',
+      status: "pending",
       updatedBy: this.requestedBy || this.requestingBloodBank,
-      updatedByModel: this.requestType === 'user' ? 'User' : 'BloodBank',
+      updatedByModel: this.requestType === "user" ? "User" : "BloodBank",
       timestamp: new Date(),
-      note: 'Blood request created.'
+      note: "Blood request created.",
     });
   }
 });
 
-
 // Indexes for efficient queries
+BloodRequestSchema.index({ "hospital.location": "2dsphere" }); // Crucial for location-based matching
 BloodRequestSchema.index({ status: 1, requestType: 1, createdAt: -1 });
 BloodRequestSchema.index({ bloodBank: 1, status: 1 });
 BloodRequestSchema.index({ targetBloodBank: 1, status: 1 });
 BloodRequestSchema.index({ requestingBloodBank: 1, status: 1 });
 BloodRequestSchema.index({ requestedBy: 1, requestType: 1, createdAt: -1 });
 BloodRequestSchema.index({ createdAt: -1 });
-BloodRequestSchema.index({ status: 1, bloodGroup: 1, urgency: 1, createdAt: -1 });
 
-export default mongoose.model('BloodRequest', BloodRequestSchema);
+BloodRequestSchema.index(
+  { bloodGroup: 1, urgency: 1, createdAt: -1 },
+  { partialFilterExpression: { status: "pending" } },
+);
+
+// Optimization: Compound index for blood bank history/updates
+BloodRequestSchema.index({ bloodBank: 1, updatedAt: -1 });
+
+export default mongoose.model("BloodRequest", BloodRequestSchema);

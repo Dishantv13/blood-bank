@@ -1,4 +1,4 @@
-import auditLogRepository from '../repositories/AuditLogRepository.js';
+import auditLogRepository from "../repositories/AuditLogRepository.js";
 
 export const logAction = async ({
   action,
@@ -8,30 +8,46 @@ export const logAction = async ({
   targetId,
   targetModel,
   changes,
-  metadata
+  metadata,
 }) => {
   try {
     const logEntry = {
       action,
-      actor: actorId || req?.user?.userId || req?.bloodBank?.bloodBankId || req?.admin?.adminId,
-      actorModel: actorModel || (req?.user ? 'User' : req?.bloodBank ? 'BloodBank' : req?.admin ? 'Admin' : 'User'),
+      actor:
+        actorId ||
+        req?.user?.userId ||
+        req?.bloodBank?.bloodBankId ||
+        req?.admin?.adminId,
+      actorModel:
+        actorModel ||
+        (req?.user
+          ? "User"
+          : req?.bloodBank
+            ? "BloodBank"
+            : req?.admin
+              ? "Admin"
+              : "User"),
       target: targetId,
       targetModel,
       changes,
-      ip: req?.ip || req?.headers['x-forwarded-for'],
-      userAgent: req?.get('user-agent'),
+      ip: req?.ip || req?.headers["x-forwarded-for"],
+      userAgent: req?.get("user-agent"),
       metadata,
     };
 
-    // Skip if actor is missing and cannot be inferred
-    if (!logEntry.actor) {
-      console.warn(`[AUDIT] Skipping log: No actor found for action: ${action}`);
+    // Skip if actor is missing and there is no fallback admin identity metadata
+    if (!logEntry.actor && !metadata?.adminEmail) {
+      console.warn(
+        `[AUDIT] Skipping log: No actor found for action: ${action}`,
+      );
       return;
     }
 
     await auditLogRepository.create(logEntry);
-    
-    console.log(`[AUDIT] Action: ${action} | Actor: ${logEntry.actor} | Target: ${logEntry.target}`);
+
+    console.log(
+      `[AUDIT] Action: ${action} | Actor: ${logEntry.actor} | Target: ${logEntry.target}`,
+    );
   } catch (error) {
     // Audit logging should never break the main flow
     console.error(`[AUDIT] Logging failed for action: ${action}`, error);

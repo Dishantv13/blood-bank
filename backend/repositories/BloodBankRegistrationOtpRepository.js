@@ -1,5 +1,5 @@
-import BaseRepository from './BaseRepository.js';
-import BloodBankRegistrationOtp from '../models/BloodBankRegistrationOtp.model.js';
+import BaseRepository from "./BaseRepository.js";
+import BloodBankRegistrationOtp from "../models/BloodBankRegistrationOtp.model.js";
 
 class BloodBankRegistrationOtpRepository extends BaseRepository {
   constructor() {
@@ -12,11 +12,14 @@ class BloodBankRegistrationOtpRepository extends BaseRepository {
 
   async findPendingByEmail(email, options = {}) {
     const now = new Date();
-    return this.findOne({
-      email,
-      status: 'pending',
-      expiresAt: { $gt: now }
-    }, options);
+    return this.findOne(
+      {
+        email,
+        status: "pending",
+        expiresAt: { $gt: now },
+      },
+      options,
+    );
   }
 }
 

@@ -19,7 +19,10 @@ export const withRefreshMutex = async (role, refreshFn) => {
   return refreshPromise;
 };
 
-const authChannel = typeof window !== 'undefined' ? new BroadcastChannel('blood_bank_auth_sync') : null;
+const authChannel =
+  typeof window !== "undefined"
+    ? new BroadcastChannel("blood_bank_auth_sync")
+    : null;
 
 export const syncAuthAction = (role, action, data = null) => {
   if (authChannel) {

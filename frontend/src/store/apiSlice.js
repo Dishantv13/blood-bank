@@ -1,104 +1,134 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
-import { TAGS } from '../enum/tagType';
-import { AUTH_API_URLS, BLOODBANK_API_URLS, DONATION_API_URLS } from '../enum/apiUrl';
-import { ROUTE_PATH } from '../enum/routePath';
-import { withRefreshMutex } from '../enum/authMutex';
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { TAGS } from "../enum/tagType";
+import {
+  AUTH_API_URLS,
+  BLOODBANK_API_URLS,
+  DONATION_API_URLS,
+} from "../enum/apiUrl";
+import { ROUTE_PATH } from "../enum/routePath";
+import { withRefreshMutex } from "../enum/authMutex";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
 
 if (!API_URL) {
-  throw new Error('❌ VITE_API_URL environment variable is not configured. Please set it in your .env file.');
+  throw new Error(
+    "❌ VITE_API_URL environment variable is not configured. Please set it in your .env file.",
+  );
 }
 
 // SECURITY: Enforce HTTPS in production builds
-if (import.meta.env.PROD && !API_URL.startsWith('https://')) {
-  throw new Error('❌ SECURITY VIOLATION: Production API must use HTTPS. Current API_URL: ' + API_URL);
+if (import.meta.env.PROD && !API_URL.startsWith("https://")) {
+  throw new Error(
+    "❌ SECURITY VIOLATION: Production API must use HTTPS. Current API_URL: " +
+      API_URL,
+  );
 }
 
 const getUrlFromArgs = (args) => {
-  if (typeof args === 'string') return args;
-  if (args && typeof args === 'object' && typeof args.url === 'string') return args.url;
-  return '';
+  if (typeof args === "string") return args;
+  if (args && typeof args === "object" && typeof args.url === "string")
+    return args.url;
+  return "";
 };
 
 const getMethodFromArgs = (args) => {
-  if (typeof args === 'object' && args?.method) return String(args.method).toUpperCase();
-  return 'GET';
+  if (typeof args === "object" && args?.method)
+    return String(args.method).toUpperCase();
+  return "GET";
 };
 
-const isStateChangingMethod = (method) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+const isStateChangingMethod = (method) =>
+  ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
 const parseCookie = (name) => {
-  if (typeof document === 'undefined') return null;
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (typeof document === "undefined") return null;
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : null;
 };
 
-const isBloodBankPath = (url = '', method = 'GET') => {
-  const cleanUrl = String(url).split('?')[0].toLowerCase();
-  const cleanMethod = String(method || 'GET').toUpperCase();
-  const bloodBankDashboardPrefix = BLOODBANK_API_URLS.GET_DASHBOARD.toLowerCase().split('/dashboard')[0];
+const isBloodBankPath = (url = "", method = "GET") => {
+  const cleanUrl = String(url).split("?")[0].toLowerCase();
+  const cleanMethod = String(method || "GET").toUpperCase();
+  const bloodBankDashboardPrefix =
+    BLOODBANK_API_URLS.GET_DASHBOARD.toLowerCase().split("/dashboard")[0];
 
-  const isCampPath = cleanUrl.startsWith('/blood-camps');
-  const isCampRegistrationPath = /^\/blood-camps\/[^/]+\/register$/.test(cleanUrl);
+  const isCampPath = cleanUrl.startsWith("/blood-camps");
+  const isCampRegistrationPath = /^\/blood-camps\/[^/]+\/register$/.test(
+    cleanUrl,
+  );
   const isBloodBankCampManagementPath =
-    isCampPath &&
-    cleanMethod !== 'GET' &&
-    !isCampRegistrationPath;
+    isCampPath && cleanMethod !== "GET" && !isCampRegistrationPath;
+
+  const isStatusUpdate =
+    cleanUrl.startsWith("/requests/") && cleanUrl.endsWith("/status");
+  const onBloodBankDashboard =
+    typeof window !== "undefined" &&
+    window.location.pathname.toLowerCase().includes("/blood-bank");
+
+  const isNotificationPath = cleanUrl.startsWith("/notifications");
+  const isChatPath = cleanUrl.startsWith("/chats");
 
   return (
     isBloodBankCampManagementPath ||
     cleanUrl.startsWith(bloodBankDashboardPrefix) ||
-    cleanUrl.startsWith(BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase().split('/login')[0]) ||
-    cleanUrl.startsWith(DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS.toLowerCase()) ||
-    cleanUrl.startsWith('/blood-unit') ||
-    (cleanUrl.startsWith('/requests') && (cleanUrl.includes('blood-bank') || cleanUrl.includes('fulfill')))
+    cleanUrl.startsWith(
+      BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase().split("/login")[0],
+    ) ||
+    cleanUrl.startsWith(
+      DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS.toLowerCase(),
+    ) ||
+    cleanUrl.startsWith("/blood-unit") ||
+    ((isNotificationPath || isChatPath) && onBloodBankDashboard) ||
+    (cleanUrl.startsWith("/requests") &&
+      (cleanUrl.includes("blood-bank") ||
+        cleanUrl.includes("fulfill") ||
+        (isStatusUpdate && onBloodBankDashboard)))
   );
 };
 
-const isAdminPath = (url = '') => {
-  const cleanUrl = String(url).split('?')[0].toLowerCase();
-  return cleanUrl.startsWith('/admin');
+const isAdminPath = (url = "") => {
+  const cleanUrl = String(url).split("?")[0].toLowerCase();
+  return cleanUrl.startsWith("/admin");
 };
 
-const isAdminAuthPath = (url = '') => {
-  const cleanUrl = String(url).split('?')[0].toLowerCase();
-  return cleanUrl.startsWith('/admin-auth');
+const isAdminAuthPath = (url = "") => {
+  const cleanUrl = String(url).split("?")[0].toLowerCase();
+  return cleanUrl.startsWith("/admin-auth");
 };
 
-const getRoleFromUrl = (url = '', method = 'GET') => {
-  if (isBloodBankPath(url, method)) return 'bloodbank';
-  if (isAdminPath(url) || isAdminAuthPath(url)) return 'admin';
-  return 'user';
+const getRoleFromUrl = (url = "", method = "GET") => {
+  if (isBloodBankPath(url, method)) return "bloodbank";
+  if (isAdminPath(url) || isAdminAuthPath(url)) return "admin";
+  return "user";
 };
 
 const getCsrfCookieName = (role) => {
-  if (role === 'admin') return 'bb_admin_csrf';
-  if (role === 'bloodbank') return 'bb_bank_csrf';
-  return 'bb_user_csrf';
+  if (role === "admin") return "bb_admin_csrf";
+  if (role === "bloodbank") return "bb_bank_csrf";
+  return "bb_user_csrf";
 };
 
 const getCsrfEndpoint = (role) => {
-  if (role === 'admin') return AUTH_API_URLS.ADMIN_CSRF_TOKEN;
-  if (role === 'bloodbank') return BLOODBANK_API_URLS.CSRF_TOKEN_BLOOD_BANK;
+  if (role === "admin") return AUTH_API_URLS.ADMIN_CSRF_TOKEN;
+  if (role === "bloodbank") return BLOODBANK_API_URLS.CSRF_TOKEN_BLOOD_BANK;
   return AUTH_API_URLS.CSRF_TOKEN;
 };
 
 const getRefreshEndpoint = (role) => {
-  if (role === 'admin') return AUTH_API_URLS.ADMIN_REFRESH;
-  if (role === 'bloodbank') return BLOODBANK_API_URLS.REFRESH_BLOOD_BANK;
+  if (role === "admin") return AUTH_API_URLS.ADMIN_REFRESH;
+  if (role === "bloodbank") return BLOODBANK_API_URLS.REFRESH_BLOOD_BANK;
   return AUTH_API_URLS.REFRESH;
 };
 
 const getLoginPath = (role) => {
-  if (role === 'admin') return ROUTE_PATH.ADMIN_LOGIN;
-  if (role === 'bloodbank') return ROUTE_PATH.BLOOD_BANK_LOGIN;
+  if (role === "admin") return ROUTE_PATH.ADMIN_LOGIN;
+  if (role === "bloodbank") return ROUTE_PATH.BLOOD_BANK_LOGIN;
   return ROUTE_PATH.LOGIN;
 };
 
-const isLoginOrAuthMutationPath = (url = '') => {
-  const cleanUrl = String(url).split('?')[0].toLowerCase();
+const isLoginOrAuthMutationPath = (url = "") => {
+  const cleanUrl = String(url).split("?")[0].toLowerCase();
   return (
     cleanUrl === AUTH_API_URLS.LOGIN.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.REGISTER.toLowerCase() ||
@@ -111,20 +141,23 @@ const normalizeApiPayload = (rawResponse) => {
   // If result is a Blob (file download), return it as is to avoid wrapping
   if (rawResponse instanceof Blob) return rawResponse;
 
-  const isObject = rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse);
+  const isObject =
+    rawResponse &&
+    typeof rawResponse === "object" &&
+    !Array.isArray(rawResponse);
   const isWrappedSuccess =
     isObject &&
-    Object.prototype.hasOwnProperty.call(rawResponse, 'success') &&
-    Object.prototype.hasOwnProperty.call(rawResponse, 'data');
+    Object.prototype.hasOwnProperty.call(rawResponse, "success") &&
+    Object.prototype.hasOwnProperty.call(rawResponse, "data");
 
   const payload = isWrappedSuccess ? rawResponse.data : rawResponse;
   const meta = isWrappedSuccess
     ? { success: rawResponse.success, message: rawResponse.message }
     : {};
 
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
     let normalizedData;
-    if (Object.prototype.hasOwnProperty.call(payload, 'data')) {
+    if (Object.prototype.hasOwnProperty.call(payload, "data")) {
       normalizedData = payload.data;
     } else if (Array.isArray(payload.requests)) {
       normalizedData = payload.requests;
@@ -153,14 +186,14 @@ const normalizeApiPayload = (rawResponse) => {
 
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
-  credentials: 'include',
+  credentials: "include",
   prepareHeaders: (headers, { arg }) => {
     const method = getMethodFromArgs(arg);
     const url = getUrlFromArgs(arg);
     const isFormData = arg && arg.body instanceof FormData;
 
     if (!isFormData) {
-      headers.set('Content-Type', 'application/json');
+      headers.set("Content-Type", "application/json");
     }
 
     // SECURE: Always attempt to attach the CSRF token from cookies if it exists.
@@ -168,7 +201,7 @@ const baseQuery = fetchBaseQuery({
     const role = getRoleFromUrl(url, method);
     const csrfToken = parseCookie(getCsrfCookieName(role));
     if (csrfToken) {
-      headers.set('x-csrf-token', csrfToken);
+      headers.set("x-csrf-token", csrfToken);
     }
 
     return headers;
@@ -178,16 +211,15 @@ const baseQuery = fetchBaseQuery({
 const removeRoleState = (_role) => {};
 
 const isLogoutInProgress = () =>
-  typeof window !== 'undefined' && window.__AUTH_LOGOUT_IN_PROGRESS__ === true;
+  typeof window !== "undefined" && window.__AUTH_LOGOUT_IN_PROGRESS__ === true;
 
-const isLogoutPath = (url = '') => {
-  const cleanUrl = String(url).split('?')[0].toLowerCase();
+const isLogoutPath = (url = "") => {
+  const cleanUrl = String(url).split("?")[0].toLowerCase();
   return (
     cleanUrl === AUTH_API_URLS.LOGOUT.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.ADMIN_LOGOUT.toLowerCase() ||
     cleanUrl === BLOODBANK_API_URLS.LOGOUT_BLOOD_BANK.toLowerCase()
-
-);
+  );
 };
 
 const buildSkippedDuringLogoutError = () => ({
@@ -195,7 +227,7 @@ const buildSkippedDuringLogoutError = () => ({
     status: 499,
     data: {
       success: false,
-      message: 'Request skipped because logout is in progress.',
+      message: "Request skipped because logout is in progress.",
     },
   },
 });
@@ -204,22 +236,30 @@ const runRefreshForRole = async (role, api, extraOptions) => {
   return withRefreshMutex(role, async () => {
     const csrfCookie = parseCookie(getCsrfCookieName(role));
     if (!csrfCookie) {
-      await baseQuery({ url: getCsrfEndpoint(role), method: 'GET' }, api, extraOptions);
+      await baseQuery(
+        { url: getCsrfEndpoint(role), method: "GET" },
+        api,
+        extraOptions,
+      );
     }
 
     let refreshResult = await baseQuery(
-      { url: getRefreshEndpoint(role), method: 'POST' },
+      { url: getRefreshEndpoint(role), method: "POST" },
       api,
-      extraOptions
+      extraOptions,
     );
 
     // Refresh can itself fail on stale CSRF cookie; renew token and retry once.
     if (isCsrfError(refreshResult)) {
-      await baseQuery({ url: getCsrfEndpoint(role), method: 'GET' }, api, extraOptions);
-      refreshResult = await baseQuery(
-        { url: getRefreshEndpoint(role), method: 'POST' },
+      await baseQuery(
+        { url: getCsrfEndpoint(role), method: "GET" },
         api,
-        extraOptions
+        extraOptions,
+      );
+      refreshResult = await baseQuery(
+        { url: getRefreshEndpoint(role), method: "POST" },
+        api,
+        extraOptions,
       );
     }
 
@@ -229,8 +269,8 @@ const runRefreshForRole = async (role, api, extraOptions) => {
 
 const isCsrfError = (result) => {
   const status = result?.error?.status;
-  const message = String(result?.error?.data?.message || '').toLowerCase();
-  return status === 403 && message.includes('csrf');
+  const message = String(result?.error?.data?.message || "").toLowerCase();
+  return status === 403 && message.includes("csrf");
 };
 
 const baseQueryWithReauth = async (args, api, extraOptions) => {
@@ -249,7 +289,11 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 
   // If CSRF is missing/expired, fetch a new token and retry state-changing calls once.
   if (isStateChangingMethod(requestMethod) && isCsrfError(result)) {
-    await baseQuery({ url: getCsrfEndpoint(requestRole), method: 'GET' }, api, extraOptions);
+    await baseQuery(
+      { url: getCsrfEndpoint(requestRole), method: "GET" },
+      api,
+      extraOptions,
+    );
     result = await baseQuery(args, api, extraOptions);
   }
 
@@ -258,31 +302,45 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
       return result;
     }
 
-    const isRefreshCall = requestUrl.toLowerCase().includes('/refresh');
+    const isRefreshCall = requestUrl.toLowerCase().includes("/refresh");
     const skipReauthForThisCall = isLoginOrAuthMutationPath(requestUrl);
-    const isSessionCheck = requestUrl.toLowerCase().includes('/session');
-    const onAuthPage = 
-      currentPath === ROUTE_PATH.LOGIN.toLowerCase() || 
+    const isSessionCheck = requestUrl.toLowerCase().includes("/session");
+    const onAuthPage =
+      currentPath === ROUTE_PATH.LOGIN.toLowerCase() ||
       currentPath === ROUTE_PATH.BLOOD_BANK_LOGIN.toLowerCase() ||
       currentPath === ROUTE_PATH.ADMIN_LOGIN.toLowerCase();
 
-    if (!isRefreshCall && !skipReauthForThisCall && !(isSessionCheck && onAuthPage)) {
-      const refreshResult = await runRefreshForRole(requestRole, api, extraOptions);
+    if (
+      !isRefreshCall &&
+      !skipReauthForThisCall &&
+      !(isSessionCheck && onAuthPage)
+    ) {
+      const refreshResult = await runRefreshForRole(
+        requestRole,
+        api,
+        extraOptions,
+      );
 
       if (refreshResult.data) {
         result = await baseQuery(args, api, extraOptions);
       } else {
-        const onAdminRoute = currentPath.startsWith('/admin');
-        const onBloodBankRoute = currentPath.startsWith('/blood-bank');
+        const onAdminRoute = currentPath.startsWith("/admin");
+        const onBloodBankRoute = currentPath.startsWith("/blood-bank");
 
         removeRoleState(requestRole);
         api.dispatch(apiSlice.util.resetApiState());
 
-        if ((requestRole === 'admin' && onAdminRoute) ||
-            (requestRole === 'bloodbank' && onBloodBankRoute) ||
-            (requestRole === 'user' && !onAdminRoute && !onBloodBankRoute)) {
+        if (
+          (requestRole === "admin" && onAdminRoute) ||
+          (requestRole === "bloodbank" && onBloodBankRoute) ||
+          (requestRole === "user" && !onAdminRoute && !onBloodBankRoute)
+        ) {
           const target = getLoginPath(requestRole);
-          if (!window.location.pathname.toLowerCase().startsWith(target.toLowerCase())) {
+          if (
+            !window.location.pathname
+              .toLowerCase()
+              .startsWith(target.toLowerCase())
+          ) {
             window.location.replace(target);
           }
         }
@@ -298,7 +356,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 };
 
 export const apiSlice = createApi({
-  reducerPath: 'api',
+  reducerPath: "api",
   baseQuery: baseQueryWithReauth,
   tagTypes: Object.values(TAGS),
   // Keep data reasonably fresh across tabs/devices while still benefiting from cache.

@@ -245,9 +245,18 @@
   background: var(--glass-bg);
 }
 
-.status-badge.completed { color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
-.status-badge.pending { color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
-.status-badge.rejected { color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+.status-badge.completed {
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.status-badge.pending {
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+.status-badge.rejected {
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
 
 .timeline-body h4 {
   font-size: 1.4rem;
@@ -262,7 +271,7 @@
 }
 
 /* Achievements */
-.badges-section h2, 
+.badges-section h2,
 .certificates-section h2 {
   font-size: 1.5rem;
   font-weight: 800;
@@ -270,7 +279,7 @@
   color: var(--text-main);
 }
 
-.badges-section > p, 
+.badges-section > p,
 .certificates-section > p {
   font-size: 0.95rem;
   color: var(--text-muted);
@@ -346,7 +355,7 @@
   font-size: 1.2rem;
 }
 
-.certificates-grid, 
+.certificates-grid,
 .donation-timeline.grid-view {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -498,10 +507,26 @@
 
 /* Responsive Overrides */
 @media (max-width: 768px) {
-  .donation-history-page { padding: 2rem 1rem; }
-  .header-titles h1 { font-size: 2.5rem; }
-  .history-header { flex-direction: column; align-items: flex-start; gap: 2rem; }
-  .stats-mini-grid { width: 100%; flex-wrap: wrap; }
-  .stat-pill { flex: 1; min-width: 140px; }
-  .certificates-grid { grid-template-columns: 1fr; }
+  .donation-history-page {
+    padding: 2rem 1rem;
+  }
+  .header-titles h1 {
+    font-size: 2.5rem;
+  }
+  .history-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2rem;
+  }
+  .stats-mini-grid {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .stat-pill {
+    flex: 1;
+    min-width: 140px;
+  }
+  .certificates-grid {
+    grid-template-columns: 1fr;
+  }
 }

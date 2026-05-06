@@ -1,14 +1,27 @@
-import { useParams, Link } from 'react-router-dom';
-import { useVerifyCertificateQuery } from '../store/donationApi';
-import { FaCheckCircle, FaTimesCircle, FaHeart, FaSpinner, FaHospital, FaCalendarAlt, FaTint } from 'react-icons/fa';
-import { ROUTE_PATH } from '../enum/routePath';
+import { useParams, Link } from "react-router-dom";
+import { useVerifyCertificateQuery } from "../store/donationApi";
+import {
+  FaCheckCircle,
+  FaTimesCircle,
+  FaHeart,
+  FaSpinner,
+  FaHospital,
+  FaCalendarAlt,
+  FaTint,
+} from "react-icons/fa";
+import { ROUTE_PATH } from "../enum/routePath";
 
 const VerifyCertificate = () => {
   const { code } = useParams();
-  const { data: response, isLoading, isSuccess, isError } = useVerifyCertificateQuery(code, {
-    skip: !code
+  const {
+    data: response,
+    isLoading,
+    isSuccess,
+    isError,
+  } = useVerifyCertificateQuery(code, {
+    skip: !code,
   });
-  
+
   const certData = response?.data;
 
   return (
@@ -27,8 +40,11 @@ const VerifyCertificate = () => {
               <FaCheckCircle />
             </div>
             <h1>Certificate Verified</h1>
-            <p className="subtitle">This donation record is authentic and officially recorded in the RaktSarthi network.</p>
-            
+            <p className="subtitle">
+              This donation record is authentic and officially recorded in the
+              RaktSarthi network.
+            </p>
+
             <div className="cert-data-box">
               <div className="data-row">
                 <FaHeart className="icon" />
@@ -37,7 +53,7 @@ const VerifyCertificate = () => {
                   <span className="value">{certData.donorName}</span>
                 </div>
               </div>
-              
+
               <div className="data-row">
                 <FaTint className="icon" />
                 <div className="data-content">
@@ -50,11 +66,16 @@ const VerifyCertificate = () => {
                 <FaCalendarAlt className="icon" />
                 <div className="data-content">
                   <span className="label">Donation Date</span>
-                  <span className="value">{new Date(certData.donationDate).toLocaleDateString(undefined, {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                  })}</span>
+                  <span className="value">
+                    {new Date(certData.donationDate).toLocaleDateString(
+                      undefined,
+                      {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      },
+                    )}
+                  </span>
                 </div>
               </div>
 
@@ -69,7 +90,9 @@ const VerifyCertificate = () => {
 
             <div className="verify-footer">
               <p>Thank you for being a part of this life-saving mission.</p>
-              <Link to={ROUTE_PATH.HOME} className="primary-btn">Join the Network</Link>
+              <Link to={ROUTE_PATH.HOME} className="primary-btn">
+                Join the Network
+              </Link>
             </div>
           </div>
         )}
@@ -80,10 +103,17 @@ const VerifyCertificate = () => {
               <FaTimesCircle />
             </div>
             <h1>Invalid Certificate</h1>
-            <p>We could not find a matching record for this verification code. This certificate may be invalid or forged.</p>
+            <p>
+              We could not find a matching record for this verification code.
+              This certificate may be invalid or forged.
+            </p>
             <div className="verify-actions">
-              <Link to={ROUTE_PATH.HOME} className="primary-btn">Back to Home</Link>
-              <a href="mailto:support@raktsarthi.com" className="secondary-btn">Report an Issue</a>
+              <Link to={ROUTE_PATH.HOME} className="primary-btn">
+                Back to Home
+              </Link>
+              <a href="mailto:support@raktsarthi.com" className="secondary-btn">
+                Report an Issue
+              </a>
             </div>
           </div>
         )}

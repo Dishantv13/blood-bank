@@ -18,6 +18,7 @@ export const validateSecurityConfig = () => {
   required('BLOODBANK_OTP_HASH_SECRET');
   required('ADMIN_EMAIL');
   required('ADMIN_PASSWORD_HASH');
+  required('PII_ENCRYPTION_KEY');
 
   const distinctSecrets = [
     process.env.USER_ACCESS_TOKEN_SECRET,

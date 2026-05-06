@@ -1,49 +1,101 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Welcome to RaktSarthi</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f9f9f9; }
-        .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .header { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); padding: 30px; text-align: center; color: white; }
-        .header h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: 1px; }
-        .content { padding: 40px; }
-        .content h2 { color: #111; margin-top: 0; }
-        .btn { display: inline-block; padding: 12px 28px; background-color: #ef4444; color: white !important; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
-        .footer { background: #f3f4f6; padding: 20px; text-align: center; color: #6b7280; font-size: 13px; }
-        .footer a { color: #ef4444; text-decoration: none; }
-        .social-links { margin-bottom: 15px; }
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        margin: 0;
+        padding: 0;
+        background-color: #f9f9f9;
+      }
+      .container {
+        max-width: 600px;
+        margin: 20px auto;
+        background: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+      }
+      .header {
+        background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+        padding: 30px;
+        text-align: center;
+        color: white;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: 1px;
+      }
+      .content {
+        padding: 40px;
+      }
+      .content h2 {
+        color: #111;
+        margin-top: 0;
+      }
+      .btn {
+        display: inline-block;
+        padding: 12px 28px;
+        background-color: #ef4444;
+        color: white !important;
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        margin: 20px 0;
+      }
+      .footer {
+        background: #f3f4f6;
+        padding: 20px;
+        text-align: center;
+        color: #6b7280;
+        font-size: 13px;
+      }
+      .footer a {
+        color: #ef4444;
+        text-decoration: none;
+      }
+      .social-links {
+        margin-bottom: 15px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <div class="header">
-            <h1>RaktSarthi</h1>
-        </div>
-        <div class="content">
-            <h2>Welcome to the life-saving community, {{name}}!</h2>
-            <p>Thank you for joining RaktSarthi. You are now part of a dedicated network committed to bridging the gap between blood donors and those in need.</p>
-            <p>You can now:</p>
-            <ul>
-                <li>Create blood requests in emergencies</li>
-                <li>Register as a voluntary donor</li>
-                <li>Find nearby blood banks and donation camps</li>
-                <li>Track your donation history</li>
-            </ul>
-            <p>Click below to complete your profile and start your journey with us.</p>
-            <center>
-                <a href="{{dashboardUrl}}" class="btn">Explore Dashboard</a>
-            </center>
-            <p>If you have any questions, feel free to reply to this email.</p>
-            <p>Stay safe, stay heroic!<br><strong>The RaktSarthi Team</strong></p>
-        </div>
-        <div class="footer">
-            <p>© 2026 RaktSarthi. All rights reserved.</p>
-            <p>Sent with ❤️ for humanity.</p>
-            <p><a href="{{unsubscribeUrl}}">Unsubscribe from these emails</a></p>
-        </div>
+      <div class="header">
+        <h1>RaktSarthi</h1>
+      </div>
+      <div class="content">
+        <h2>Welcome to the life-saving community, {{name}}!</h2>
+        <p>
+          Thank you for joining RaktSarthi. You are now part of a dedicated network committed to
+          bridging the gap between blood donors and those in need.
+        </p>
+        <p>You can now:</p>
+        <ul>
+          <li>Create blood requests in emergencies</li>
+          <li>Register as a voluntary donor</li>
+          <li>Find nearby blood banks and donation camps</li>
+          <li>Track your donation history</li>
+        </ul>
+        <p>Click below to complete your profile and start your journey with us.</p>
+        <center>
+          <a href="{{dashboardUrl}}" class="btn">Explore Dashboard</a>
+        </center>
+        <p>If you have any questions, feel free to reply to this email.</p>
+        <p>Stay safe, stay heroic!<br /><strong>The RaktSarthi Team</strong></p>
+      </div>
+      <div class="footer">
+        <p>© 2026 RaktSarthi. All rights reserved.</p>
+        <p>Sent with ❤️ for humanity.</p>
+        <p><a href="{{unsubscribeUrl}}">Unsubscribe from these emails</a></p>
+      </div>
     </div>
-</body>
+  </body>
 </html>

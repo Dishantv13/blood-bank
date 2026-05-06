@@ -93,7 +93,9 @@
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s;
+  transition:
+    background 0.2s,
+    transform 0.2s;
 }
 
 .export-button:hover:not(:disabled) {
@@ -186,8 +188,6 @@
   border-bottom: 1px solid #e5e7eb;
   color: #4b5563;
 }
-
-
 
 [data-theme='dark'] .export-card h2,
 [data-theme='dark'] .export-info h3,

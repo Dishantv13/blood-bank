@@ -1,5 +1,5 @@
-import BaseRepository from './BaseRepository.js';
-import Donation from '../models/Donation.model.js';
+import BaseRepository from "./BaseRepository.js";
+import Donation from "../models/Donation.model.js";
 
 class DonationRepository extends BaseRepository {
   constructor() {

@@ -1,16 +1,20 @@
-import { apiSlice } from './apiSlice';
-import { TAGS, tagById, tagList, tagListWithIds } from '../enum/tagType';
-import { BLOODBANK_API_URLS } from '../enum/apiUrl';
+import { apiSlice } from "./apiSlice";
+import { TAGS, tagById, tagList, tagListWithIds } from "../enum/tagType";
+import { BLOODBANK_API_URLS } from "../enum/apiUrl";
 
 export const bloodBankApi = apiSlice.injectEndpoints({
   endpoints: (builder) => ({
     // Public/User facing endpoints
     getAllBloodBanks: builder.query({
       serializeQueryArgs: ({ endpointName, queryArgs }) => {
-        if (!queryArgs || typeof queryArgs !== 'object') return `${endpointName}:all`;
+        if (!queryArgs || typeof queryArgs !== "object")
+          return `${endpointName}:all`;
 
         const entries = Object.entries(queryArgs)
-          .filter(([, value]) => value !== undefined && value !== null && value !== '')
+          .filter(
+            ([, value]) =>
+              value !== undefined && value !== null && value !== "",
+          )
           .sort(([a], [b]) => a.localeCompare(b));
 
         if (entries.length === 0) return `${endpointName}:all`;
@@ -31,7 +35,7 @@ export const bloodBankApi = apiSlice.injectEndpoints({
     createBloodBank: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.CREATE_BLOOD_BANK,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
       invalidatesTags: tagList(TAGS.BLOOD_BANK),
@@ -41,20 +45,20 @@ export const bloodBankApi = apiSlice.injectEndpoints({
     loginBloodBank: builder.mutation({
       query: (credentials) => ({
         url: BLOODBANK_API_URLS.LOGIN_BLOOD_BANK,
-        method: 'POST',
+        method: "POST",
         body: credentials,
       }),
     }),
     logoutBloodBank: builder.mutation({
       query: () => ({
         url: BLOODBANK_API_URLS.LOGOUT_BLOOD_BANK,
-        method: 'POST',
+        method: "POST",
       }),
     }),
     refreshBloodBankSession: builder.mutation({
       query: () => ({
         url: BLOODBANK_API_URLS.REFRESH_BLOOD_BANK,
-        method: 'POST',
+        method: "POST",
       }),
     }),
     getBloodBankSession: builder.query({
@@ -66,28 +70,28 @@ export const bloodBankApi = apiSlice.injectEndpoints({
     registerBloodBank: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.REGISTER_BLOOD_BANK,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
     }),
     initiateBloodBankRegistration: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.INITIATE_BLOOD_BANK_REGISTRATION,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
     }),
     verifyBloodBankRegistrationOtp: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.VERIFY_BLOOD_BANK_REGISTRATION_OTP,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
     }),
     resendBloodBankRegistrationOtp: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.RESEND_BLOOD_BANK_REGISTRATION_OTP,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
     }),
@@ -97,41 +101,41 @@ export const bloodBankApi = apiSlice.injectEndpoints({
     }),
     getBloodBankProfile: builder.query({
       query: () => BLOODBANK_API_URLS.GET_PROFILE,
-      providesTags: tagList(TAGS.USER), // bb user profile
+      providesTags: tagList(TAGS.BLOOD_BANK), // bb bank profile
     }),
     updateBloodBankProfile: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.UPDATE_PROFILE,
-        method: 'PUT',
+        method: "PUT",
         body: data,
       }),
-      invalidatesTags: tagList(TAGS.USER),
+      invalidatesTags: tagList(TAGS.BLOOD_BANK),
     }),
     changeBloodBankPassword: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.CHANGE_PASSWORD,
-        method: 'PUT',
+        method: "PUT",
         body: data,
       }),
     }),
     forgotBloodBankPassword: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.FORGOT_PASSWORD,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
     }),
     resetBloodBankPassword: builder.mutation({
       query: ({ token, ...data }) => ({
         url: BLOODBANK_API_URLS.RESET_PASSWORD(token),
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
     }),
     verifyBloodBankResetToken: builder.mutation({
       query: (token) => ({
         url: BLOODBANK_API_URLS.VERIFY_RESET_TOKEN,
-        method: 'POST',
+        method: "POST",
         body: { token },
       }),
     }),
@@ -142,19 +146,19 @@ export const bloodBankApi = apiSlice.injectEndpoints({
     updateBloodBankInventory: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.UPDATE_INVENTORY,
-        method: 'PUT',
+        method: "PUT",
         body: data,
       }),
       invalidatesTags: (result, error) => [
         ...tagList(TAGS.INVENTORY_ITEM),
         ...tagList(TAGS.BLOOD_BANK),
-        ...tagList(TAGS.DASHBOARD)
+        ...tagList(TAGS.DASHBOARD),
       ],
     }),
     updateSpecificBloodGroup: builder.mutation({
       query: ({ bloodGroup, units }) => ({
         url: BLOODBANK_API_URLS.UPDATE_BLOOD_GROUP(bloodGroup),
-        method: 'PATCH',
+        method: "PATCH",
         body: { units },
       }),
       invalidatesTags: tagList(TAGS.INVENTORY_ITEM),
@@ -162,10 +166,10 @@ export const bloodBankApi = apiSlice.injectEndpoints({
     uploadBloodBankPhoto: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.UPLOAD_PHOTO,
-        method: 'POST',
+        method: "POST",
         body: data,
       }),
-      invalidatesTags: tagList(TAGS.USER),
+      invalidatesTags: tagList(TAGS.BLOOD_BANK),
     }),
   }),
   overrideExisting: false,

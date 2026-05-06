@@ -19,6 +19,7 @@ export const TAGS = {
   ADMIN_REQUEST: "AdminRequests",
   ADMIN_DONATION: "AdminDonations",
   ADMIN_INVENTORY: "AdminInventory",
+  CHAT: "Chat",
 };
 
 export const TAG_IDS = {

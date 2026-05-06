@@ -1,5 +1,5 @@
-import React from 'react';
-import ErrorFallback from './ErrorFallback';
+import React from "react";
+import ErrorFallback from "./ErrorFallback";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -23,7 +23,12 @@ class ErrorBoundary extends React.Component {
 
   render() {
     if (this.state.hasError) {
-      return <ErrorFallback error={this.state.error} resetErrorBoundary={this.handleReset} />;
+      return (
+        <ErrorFallback
+          error={this.state.error}
+          resetErrorBoundary={this.handleReset}
+        />
+      );
     }
 
     return this.props.children;

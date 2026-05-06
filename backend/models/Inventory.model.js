@@ -1,46 +1,51 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const InventorySchema = new mongoose.Schema({
-  bloodBank: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'BloodBank',
-    required: true,
-    unique: true
-  },
-  bloodBankName: {
-    type: String,
-    required: true
-  },
-  items: [{
-    bloodGroup: {
+const InventorySchema = new mongoose.Schema(
+  {
+    bloodBank: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "BloodBank",
+      required: true,
+      unique: true,
+    },
+    bloodBankName: {
       type: String,
-      enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-      required: true
+      required: true,
     },
-    units: {
-      type: Number,
-      default: 0,
-      min: 0
-    },
-    lastUpdated: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-}, {
-  timestamps: true
-});
+    items: [
+      {
+        bloodGroup: {
+          type: String,
+          enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+          required: true,
+        },
+        units: {
+          type: Number,
+          default: 0,
+          min: 0,
+        },
+        lastUpdated: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+  },
+  {
+    timestamps: true,
+  },
+);
 
 // Update items lastUpdated on save if modified
-InventorySchema.pre('save', function() {
-  if (this.isModified('items')) {
-    this.items.forEach(item => {
+InventorySchema.pre("save", function () {
+  if (this.isModified("items")) {
+    this.items.forEach((item) => {
       item.lastUpdated = new Date();
     });
   }
 });
 
-InventorySchema.index({ 'items.bloodGroup': 1 });
+InventorySchema.index({ "items.bloodGroup": 1 });
 InventorySchema.index({ updatedAt: -1 });
 
-export default mongoose.model('Inventory', InventorySchema);
+export default mongoose.model("Inventory", InventorySchema);

@@ -1,13 +1,13 @@
-import { apiSlice } from './apiSlice';
-import { AUTH_API_URLS } from '../enum/apiUrl';
+import { apiSlice } from "./apiSlice";
+import { AUTH_API_URLS } from "../enum/apiUrl";
 
-const isBloodBankPortalPath = (path = '') => {
-  const currentPath = String(path || '').toLowerCase();
+const isBloodBankPortalPath = (path = "") => {
+  const currentPath = String(path || "").toLowerCase();
   return (
-    currentPath === '/blood-bank/dashboard' ||
-    currentPath === '/bloodbank/dashboard' ||
-    currentPath === '/blood-bank/change-password' ||
-    currentPath === '/bloodbank/change-password'
+    currentPath === "/blood-bank/dashboard" ||
+    currentPath === "/bloodbank/dashboard" ||
+    currentPath === "/blood-bank/change-password" ||
+    currentPath === "/bloodbank/change-password"
   );
 };
 
@@ -16,69 +16,70 @@ export const authApi = apiSlice.injectEndpoints({
     adminLogin: builder.mutation({
       query: (credentials) => ({
         url: AUTH_API_URLS.ADMIN_LOGIN,
-        method: 'POST',
+        method: "POST",
         body: credentials,
       }),
     }),
     login: builder.mutation({
       query: (credentials) => ({
         url: AUTH_API_URLS.LOGIN,
-        method: 'POST',
+        method: "POST",
         body: credentials,
       }),
     }),
     register: builder.mutation({
       query: (userData) => ({
         url: AUTH_API_URLS.REGISTER,
-        method: 'POST',
+        method: "POST",
         body: userData,
       }),
     }),
     verifyOtp: builder.mutation({
       query: (otpData) => ({
         url: AUTH_API_URLS.VERIFY_OTP,
-        method: 'POST',
+        method: "POST",
         body: otpData,
       }),
     }),
     resendOtp: builder.mutation({
       query: (otpData) => ({
         url: AUTH_API_URLS.RESEND_OTP,
-        method: 'POST',
+        method: "POST",
         body: otpData,
       }),
     }),
     logout: builder.mutation({
       query: () => ({
         url: AUTH_API_URLS.LOGOUT,
-        method: 'POST',
+        method: "POST",
       }),
     }),
     refreshSession: builder.mutation({
       query: () => ({
         url: AUTH_API_URLS.REFRESH,
-        method: 'POST',
+        method: "POST",
       }),
     }),
     adminLogout: builder.mutation({
       query: () => ({
         url: AUTH_API_URLS.ADMIN_LOGOUT,
-        method: 'POST',
+        method: "POST",
       }),
     }),
     refreshAdminSession: builder.mutation({
       query: () => ({
         url: AUTH_API_URLS.ADMIN_REFRESH,
-        method: 'POST',
+        method: "POST",
       }),
     }),
     getUserSession: builder.query({
       async queryFn(_arg, _api, _extraOptions, baseQuery) {
-        const currentPath = typeof window !== 'undefined'
-          ? window.location.pathname.toLowerCase()
-          : '';
+        const currentPath =
+          typeof window !== "undefined"
+            ? window.location.pathname.toLowerCase()
+            : "";
         const isNonUserRoute =
-          currentPath.startsWith('/admin') ||
+          currentPath.startsWith("/admin") ||
           isBloodBankPortalPath(currentPath);
 
         if (isNonUserRoute) {
@@ -90,10 +91,11 @@ export const authApi = apiSlice.injectEndpoints({
     }),
     getAdminSession: builder.query({
       async queryFn(_arg, _api, _extraOptions, baseQuery) {
-        const currentPath = typeof window !== 'undefined'
-          ? window.location.pathname.toLowerCase()
-          : '';
-        if (!currentPath.startsWith('/admin')) {
+        const currentPath =
+          typeof window !== "undefined"
+            ? window.location.pathname.toLowerCase()
+            : "";
+        if (!currentPath.startsWith("/admin")) {
           return { data: null };
         }
 
@@ -106,7 +108,6 @@ export const authApi = apiSlice.injectEndpoints({
     getAdminCsrfToken: builder.query({
       query: () => AUTH_API_URLS.ADMIN_CSRF_TOKEN,
     }),
-
   }),
   overrideExisting: false,
 });

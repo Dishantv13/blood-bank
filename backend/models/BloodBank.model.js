@@ -1,178 +1,196 @@
-import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const BloodBankSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
   },
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
   },
   password: {
     type: String,
     required: true,
     minlength: 8,
-    select: false
+    select: false,
   },
   phone: {
     type: String,
     required: true,
     trim: true,
     validate: {
-      validator: (value) => /^[0-9]{10}$/.test(String(value).replace(/\D/g, '')),
-      message: 'Phone number must be 10 digits'
-    }
+      validator: (value) =>
+        /^[0-9]{10}$/.test(String(value).replace(/\D/g, "")),
+      message: "Phone number must be 10 digits",
+    },
   },
   logo: {
     type: String,
-    default: '',
-    trim: true
+    default: "",
+    trim: true,
   },
   imageUrl: {
     type: String,
-    default: '',
-    trim: true
+    default: "",
+    trim: true,
   },
   licenseNumber: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
   },
   registrationNumber: {
-    type: String
+    type: String,
   },
   establishedYear: {
-    type: Number
+    type: Number,
   },
   address: {
     street: String,
     city: String,
     state: String,
-    pincode: String
+    pincode: String,
   },
   profileImage: {
     type: String,
-    default: '',
-    trim: true
+    default: "",
+    trim: true,
   },
   profileImagePublicId: {
     type: String,
-    default: '',
-    trim: true
+    default: "",
+    trim: true,
   },
   location: {
     type: {
       type: String,
-      enum: ['Point'],
-      default: 'Point'
+      enum: ["Point"],
+      default: "Point",
     },
     coordinates: {
       type: [Number],
       default: [0, 0],
       validate: {
-        validator: (coords) => Array.isArray(coords) && coords.length === 2 && coords.every((value) => Number.isFinite(value)),
-        message: 'Location coordinates must contain valid longitude and latitude values'
-      }
-    }
+        validator: (coords) =>
+          Array.isArray(coords) &&
+          coords.length === 2 &&
+          coords.every((value) => Number.isFinite(value)),
+        message:
+          "Location coordinates must contain valid longitude and latitude values",
+      },
+    },
   },
   operatingHours: {
     open: {
       type: String,
-      default: '09:00'
+      default: "09:00",
     },
     close: {
       type: String,
-      default: '18:00'
+      default: "18:00",
     },
-    days: [{
-      type: String,
-      enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    }]
+    days: [
+      {
+        type: String,
+        enum: [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ],
+      },
+    ],
   },
-  services: [{
-    type: String
-  }],
+  services: [
+    {
+      type: String,
+    },
+  ],
   contactPerson: {
     name: String,
     phone: String,
-    email: String
+    email: String,
   },
   isActive: {
     type: Boolean,
-    default: false
+    default: false,
   },
   isVerified: {
     type: Boolean,
-    default: false
+    default: false,
   },
   approvalStatus: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
-    default: 'pending',
-    index: true
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+    index: true,
   },
   reviewedAt: {
-    type: Date
+    type: Date,
   },
   reviewedBy: {
     type: String,
     trim: true,
-    default: ''
+    default: "",
   },
   rejectionReason: {
     type: String,
     trim: true,
-    default: ''
+    default: "",
   },
   loginAttempts: {
     type: Number,
     default: 0,
-    select: false
+    select: false,
   },
   lockUntil: {
     type: Date,
-    select: false
+    select: false,
   },
   passwordReset: {
     token: { type: String, select: false },
-    expiresAt: { type: Date, select: false }
+    expiresAt: { type: Date, select: false },
   },
   tokenVersion: {
     type: Number,
     default: 0,
     min: 0,
-    select: false
+    select: false,
   },
   passwordChangedAt: {
     type: Date,
     default: null,
-    select: false
+    select: false,
   },
 
   createdAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
   },
   isFake: {
     type: Boolean,
-    default: false
-  }
+    default: false,
+  },
 });
 
 // Index for geospatial queries
-BloodBankSchema.index({ location: '2dsphere' });
+BloodBankSchema.index({ location: "2dsphere" });
 BloodBankSchema.index({ isActive: 1, approvalStatus: 1, isVerified: 1 });
+BloodBankSchema.index({ approvalStatus: 1, createdAt: -1 });
 BloodBankSchema.index({ createdAt: -1 });
 
 // Hash password before saving
-BloodBankSchema.pre('save', async function() {
-  if (!this.isModified('password')) {
+BloodBankSchema.pre("save", async function () {
+  if (!this.isModified("password")) {
     return;
   }
   // Allow pre-hashed bcrypt passwords from secure migration/verification flows.
@@ -184,8 +202,8 @@ BloodBankSchema.pre('save', async function() {
 });
 
 // Compare password method
-BloodBankSchema.methods.comparePassword = async function(candidatePassword) {
+BloodBankSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-export default mongoose.model('BloodBank', BloodBankSchema);
+export default mongoose.model("BloodBank", BloodBankSchema);

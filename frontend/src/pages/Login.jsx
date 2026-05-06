@@ -149,7 +149,12 @@ const Login = () => {
               <div className="form-group">
                 <label htmlFor="email">
                   <span className="label-icon">
-                    <svg width="16" height="16" viewBox="0 -2 20 20" fill="none">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 -2 20 20"
+                      fill="none"
+                    >
                       <path
                         d="M3 4H17C18.1 4 19 4.9 19 6V14C19 15.1 18.1 16 17 16H3C1.9 16 1 15.1 1 14V6C1 4.9 1.9 4 3 4Z"
                         stroke="currentColor"
@@ -217,24 +222,39 @@ const Login = () => {
                     type="button"
                     className="password-toggle"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? "Show password" : "Hide password"}
+                    aria-label={
+                      showPassword ? "Show password" : "Hide password"
+                    }
                   >
                     {showPassword ? (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <path d="M17.94 17.94A10.94 10.94 0 0112 20c-5 0-9.27-3.11-11-8 1.05-2.96 3-5.27 5.47-6.78" />
                         <path d="M1 1l22 22" />
                         <path d="M9.9 4.24A10.94 10.94 0 0112 4c5 0 9.27 3.11 11 8a11.83 11.83 0 01-3.11 4.86" />
                         <path d="M14.12 14.12a3 3 0 01-4.24-4.24" />
                       </svg>
                     ) : (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                         <circle cx="12" cy="12" r="3" />
                       </svg>
                     )}
                   </button>
                 </div>
-                <Link to={ROUTE_PATH.FORGOT_PASSWORD} className="forgot-password-link">
+                <Link
+                  to={ROUTE_PATH.FORGOT_PASSWORD}
+                  className="forgot-password-link"
+                >
                   Forgot Password?
                 </Link>
               </div>
@@ -303,13 +323,22 @@ const Login = () => {
 
             <div className="features-info">
               <div className="feature-item">
-                <span><FaCheck /></span> Secure Authentication
+                <span>
+                  <FaCheck />
+                </span>{" "}
+                Secure Authentication
               </div>
               <div className="feature-item">
-                <span><FaCheck /></span> Real-time Updates
+                <span>
+                  <FaCheck />
+                </span>{" "}
+                Real-time Updates
               </div>
               <div className="feature-item">
-                <span><FaCheck /></span> 24/7 Support
+                <span>
+                  <FaCheck />
+                </span>{" "}
+                24/7 Support
               </div>
             </div>
           </div>

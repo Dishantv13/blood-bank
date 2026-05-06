@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useGetCampsByBloodBankQuery } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
 
-
 const AdminCampsByBloodBank = () => {
   const navigate = useNavigate();
   const { bankId } = useParams();
@@ -36,7 +35,11 @@ const AdminCampsByBloodBank = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       const trimmedSearch = searchInput.trim();
-      setFilters((prev) => (prev.search === trimmedSearch ? prev : { ...prev, search: trimmedSearch }));
+      setFilters((prev) =>
+        prev.search === trimmedSearch
+          ? prev
+          : { ...prev, search: trimmedSearch },
+      );
       setPage(1);
     }, 350);
 
@@ -68,7 +71,9 @@ const AdminCampsByBloodBank = () => {
     <>
       <div className="dashboard-header-premium">
         <h1 className="page-title">Camp Management Details</h1>
-        <p className="page-subtitle">View and monitor blood camps for: {bloodBankName}</p>
+        <p className="page-subtitle">
+          View and monitor blood camps for: {bloodBankName}
+        </p>
       </div>
 
       <div className="filters-panel">

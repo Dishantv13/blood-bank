@@ -1,19 +1,19 @@
-import mongoose from 'mongoose';
-import bloodBankRepository from '../repositories/BloodBankRepository.js';
-import inventoryRepository from '../repositories/InventoryRepository.js';
-import cacheManager from '../utils/cacheManager.js';
-import bloodBankRegistrationOtpRepository from '../repositories/BloodBankRegistrationOtpRepository.js';
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
+import mongoose from "mongoose";
+import bloodBankRepository from "../repositories/BloodBankRepository.js";
+import inventoryRepository from "../repositories/InventoryRepository.js";
+import cacheManager from "../utils/cacheManager.js";
+import bloodBankRegistrationOtpRepository from "../repositories/BloodBankRegistrationOtpRepository.js";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import {
   sendPasswordResetEmail,
   sendBloodBankApprovalEmail,
   sendBloodBankRejectionEmail,
-  sendBloodBankRegistrationOtpEmail
-} from '../utils/emailService.js';
-import * as fileUploadService from './fileUploadService.js';
-import * as validationService from './validationService.js';
-import { ApiError } from '../utils/apiError.js';
+  sendBloodBankRegistrationOtpEmail,
+} from "../utils/emailService.js";
+import * as fileUploadService from "./fileUploadService.js";
+import * as validationService from "./validationService.js";
+import { ApiError } from "../utils/apiError.js";
 import {
   clearAuthCookies,
   generateCsrfToken,
@@ -26,11 +26,16 @@ import {
   getPublicCookieOptions,
   getAccessTokenFromRequest,
   verifyAccessToken,
-} from '../utils/authCookies.js';
-import { enforceCsrfForRole } from '../middleware/csrf.js';
-import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from '../config/authConfig.js';
-import { sanitizeBloodBank, BLOOD_BANK_LIST_FIELDS, BLOOD_BANK_SAFE_FIELDS } from '../utils/serializers.js';
-import { ensureValidObjectId } from '../utils/dbGuards.js';
+} from "../utils/authCookies.js";
+import { enforceCsrfForRole } from "../middleware/csrf.js";
+import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from "../config/authConfig.js";
+import {
+  sanitizeBloodBank,
+  sanitizeBloodBankSummary,
+  BLOOD_BANK_LIST_FIELDS,
+  BLOOD_BANK_SAFE_FIELDS,
+} from "../utils/serializers.js";
+import { ensureValidObjectId } from "../utils/dbGuards.js";
 import {
   createAuthSession,
   getAuthSessionForRefresh,
@@ -39,13 +44,16 @@ import {
   revokeAuthSession,
   rotateAuthSession,
   updateCsrfToken,
-} from './sessionService.js';
-import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
+} from "./sessionService.js";
+import {
+  getPaginationParams,
+  buildPaginatedResponse,
+} from "../utils/pagination.js";
 
 const buildBloodBankClaims = (bloodBank) => ({
   bloodBankId: String(bloodBank.id),
-  type: 'bloodbank',
-  role: 'bloodbank',
+  type: "bloodbank",
+  role: "bloodbank",
   email: bloodBank.email,
   sid: bloodBank.sessionId,
   tokenVersion: Number(bloodBank.tokenVersion || 0),
@@ -54,23 +62,39 @@ const buildBloodBankClaims = (bloodBank) => ({
 const PUBLIC_BANKS_CACHE_TTL_MS = 30 * 1000;
 const PUBLIC_BANKS_CACHE_TTL_SECONDS = 30; // Redis uses seconds for TTL in set options
 const CACHE_KEYS = {
-  PUBLIC_BANKS: 'public_banks'
+  PUBLIC_BANKS: "public_banks",
 };
 
-const BLOODBANK_OTP_EXPIRY_MINUTES = Math.max(1, Number(process.env.BLOODBANK_OTP_EXPIRY_MINUTES) || 10);
-const BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS = Math.max(1, Number(process.env.BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS) || 5);
-const BLOODBANK_OTP_MAX_RESEND_ATTEMPTS = Math.max(1, Number(process.env.BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) || 5);
-const BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS = Math.max(10, Number(process.env.BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS) || 60);
-const BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES = Math.max(5, Number(process.env.BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES) || 60);
+const BLOODBANK_OTP_EXPIRY_MINUTES = Math.max(
+  1,
+  Number(process.env.BLOODBANK_OTP_EXPIRY_MINUTES) || 10,
+);
+const BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS = Math.max(
+  1,
+  Number(process.env.BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS) || 5,
+);
+const BLOODBANK_OTP_MAX_RESEND_ATTEMPTS = Math.max(
+  1,
+  Number(process.env.BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) || 5,
+);
+const BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS = Math.max(
+  10,
+  Number(process.env.BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS) || 60,
+);
+const BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES = Math.max(
+  5,
+  Number(process.env.BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES) || 60,
+);
 
 const getOtpHashSecret = () => {
   const secret = process.env.BLOODBANK_OTP_HASH_SECRET;
-  if (!secret) throw new ApiError(500, 'BLOODBANK_OTP_HASH_SECRET is not configured');
+  if (!secret)
+    throw new ApiError(500, "BLOODBANK_OTP_HASH_SECRET is not configured");
   return secret;
 };
 
-const maskEmail = (email = '') => {
-  const [localPart, domain = ''] = String(email).split('@');
+const maskEmail = (email = "") => {
+  const [localPart, domain = ""] = String(email).split("@");
   if (!localPart || !domain) return email;
   if (localPart.length <= 2) return `${localPart[0]}***@${domain}`;
   return `${localPart.slice(0, 2)}***${localPart.slice(-1)}@${domain}`;
@@ -78,8 +102,15 @@ const maskEmail = (email = '') => {
 
 const normalizeRegistrationPayload = (rawData = {}) => {
   const normalized = { ...rawData };
-  ['operatingHours', 'location', 'services', 'contactPerson', 'inventory', 'address'].forEach((field) => {
-    if (typeof normalized[field] === 'string') {
+  [
+    "operatingHours",
+    "location",
+    "services",
+    "contactPerson",
+    "inventory",
+    "address",
+  ].forEach((field) => {
+    if (typeof normalized[field] === "string") {
       try {
         normalized[field] = JSON.parse(normalized[field]);
       } catch (_e) {
@@ -88,7 +119,7 @@ const normalizeRegistrationPayload = (rawData = {}) => {
     }
   });
 
-  if (typeof normalized.email === 'string') {
+  if (typeof normalized.email === "string") {
     normalized.email = normalized.email.trim().toLowerCase();
   }
 
@@ -96,16 +127,13 @@ const normalizeRegistrationPayload = (rawData = {}) => {
 };
 
 const validateRegistrationData = (data) => {
-  const {
-    name,
-    email,
-    password,
-    phone,
-    licenseNumber,
-  } = data;
+  const { name, email, password, phone, licenseNumber } = data;
 
   if (!name || !email || !password || !phone || !licenseNumber) {
-    throw new ApiError(400, 'Please provide all required fields: name, email, password, phone, and license number');
+    throw new ApiError(
+      400,
+      "Please provide all required fields: name, email, password, phone, and license number",
+    );
   }
 
   validationService.validateEmail(email);
@@ -114,7 +142,10 @@ const validateRegistrationData = (data) => {
 };
 
 const hashOtp = (otp) =>
-  crypto.createHash('sha256').update(`${String(otp)}:${getOtpHashSecret()}`).digest('hex');
+  crypto
+    .createHash("sha256")
+    .update(`${String(otp)}:${getOtpHashSecret()}`)
+    .digest("hex");
 
 const generateOtp = () => String(crypto.randomInt(100000, 1000000));
 
@@ -123,19 +154,28 @@ const buildOtpMeta = (record) => {
   const resendAvailableInSeconds = Math.max(
     0,
     Math.ceil(
-      (new Date(record.lastOtpSentAt).getTime() + BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 - now) / 1000
-    )
+      (new Date(record.lastOtpSentAt).getTime() +
+        BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 -
+        now) /
+        1000,
+    ),
   );
   const otpExpiresInSeconds = Math.max(
     0,
-    Math.ceil((new Date(record.otpExpiresAt).getTime() - now) / 1000)
+    Math.ceil((new Date(record.otpExpiresAt).getTime() - now) / 1000),
   );
 
   return {
     verificationId: record.verificationId,
     maskedEmail: maskEmail(record.email),
-    attemptsRemaining: Math.max(0, BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS - (record.verifyAttemptsUsed || 0)),
-    resendAttemptsRemaining: Math.max(0, BLOODBANK_OTP_MAX_RESEND_ATTEMPTS - (record.resendCount || 0)),
+    attemptsRemaining: Math.max(
+      0,
+      BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS - (record.verifyAttemptsUsed || 0),
+    ),
+    resendAttemptsRemaining: Math.max(
+      0,
+      BLOODBANK_OTP_MAX_RESEND_ATTEMPTS - (record.resendCount || 0),
+    ),
     resendAvailableInSeconds,
     otpExpiresInSeconds,
     maxVerifyAttempts: BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS,
@@ -148,7 +188,11 @@ const getCachedPublicBanks = async (key) => {
 };
 
 const setCachedPublicBanks = async (key, payload) => {
-  return cacheManager.set(`${CACHE_KEYS.PUBLIC_BANKS}:${key}`, payload, PUBLIC_BANKS_CACHE_TTL_SECONDS);
+  return cacheManager.set(
+    `${CACHE_KEYS.PUBLIC_BANKS}:${key}`,
+    payload,
+    PUBLIC_BANKS_CACHE_TTL_SECONDS,
+  );
 };
 
 export const invalidatePublicBloodBanksCache = async () => {
@@ -157,19 +201,30 @@ export const invalidatePublicBloodBanksCache = async () => {
 
 const createBloodBankSession = async (req, res, bloodBank) => {
   const tokenVersion =
-    typeof bloodBank?.tokenVersion === 'number'
+    typeof bloodBank?.tokenVersion === "number"
       ? Number(bloodBank.tokenVersion)
-      : Number((await bloodBankRepository.findById(bloodBank.id, { select: '+tokenVersion' }))?.tokenVersion || 0);
+      : Number(
+          (
+            await bloodBankRepository.findById(bloodBank.id, {
+              select: "+tokenVersion",
+            })
+          )?.tokenVersion || 0,
+        );
   const sessionId = crypto.randomUUID();
-  const { refreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
+  const {
+    refreshToken,
+    refreshTokenExpiresAt,
+    csrfToken,
+    accessTokenExpiresAt,
+  } = setAuthCookies(
     res,
-    'bloodbank',
-    buildBloodBankClaims({ ...bloodBank, sessionId, tokenVersion })
+    "bloodbank",
+    buildBloodBankClaims({ ...bloodBank, sessionId, tokenVersion }),
   );
 
   await createAuthSession({
     sessionId,
-    role: 'bloodbank',
+    role: "bloodbank",
     bloodBankId: bloodBank.id,
     refreshTokenHash: hashToken(refreshToken),
     refreshTokenExpiresAt,
@@ -181,40 +236,43 @@ const createBloodBankSession = async (req, res, bloodBank) => {
   return { csrfToken, accessTokenExpiresAt };
 };
 
-const incrementBloodBankTokenVersion = async (bloodBankId, reason = 'security_event') => {
+const incrementBloodBankTokenVersion = async (
+  bloodBankId,
+  reason = "security_event",
+) => {
   const updatedBank = await bloodBankRepository.updateOne(
     { _id: bloodBankId },
     {
       $inc: { tokenVersion: 1 },
       $set: { passwordChangedAt: new Date() },
     },
-    { returnDocument: 'after', select: '_id email +tokenVersion' }
+    { returnDocument: "after", select: "_id email +tokenVersion" },
   );
 
   if (!updatedBank) {
-    throw new ApiError(401, 'Blood bank session is invalid');
+    throw new ApiError(401, "Blood bank session is invalid");
   }
 
-  await revokeAllPrincipalSessions({ role: 'bloodbank', bloodBankId, reason });
+  await revokeAllPrincipalSessions({ role: "bloodbank", bloodBankId, reason });
   return updatedBank;
 };
 
 export const issueBloodBankCsrfToken = async (req, res) => {
-  const { csrfCookie } = getCookieNamesForRole('bloodbank');
+  const { csrfCookie } = getCookieNamesForRole("bloodbank");
   const csrfToken = generateCsrfToken();
 
   res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
 
   // Sync with active session if one exists
-  const accessToken = getAccessTokenFromRequest(req, 'bloodbank');
+  const accessToken = getAccessTokenFromRequest(req, "bloodbank");
   if (accessToken) {
     try {
-      const decoded = verifyAccessToken('bloodbank', accessToken);
+      const decoded = verifyAccessToken("bloodbank", accessToken);
       if (decoded.sid) {
-        await updateCsrfToken({ 
-          role: 'bloodbank', 
-          sessionId: decoded.sid, 
-          csrfTokenHash: hashToken(csrfToken) 
+        await updateCsrfToken({
+          role: "bloodbank",
+          sessionId: decoded.sid,
+          csrfTokenHash: hashToken(csrfToken),
         });
       }
     } catch (_e) {}
@@ -223,24 +281,27 @@ export const issueBloodBankCsrfToken = async (req, res) => {
   return { csrfToken };
 };
 
-const buildInitialInventory = () => ([
-  { bloodGroup: 'A+', units: 0 },
-  { bloodGroup: 'A-', units: 0 },
-  { bloodGroup: 'B+', units: 0 },
-  { bloodGroup: 'B-', units: 0 },
-  { bloodGroup: 'AB+', units: 0 },
-  { bloodGroup: 'AB-', units: 0 },
-  { bloodGroup: 'O+', units: 0 },
-  { bloodGroup: 'O-', units: 0 }
-]);
+const buildInitialInventory = () => [
+  { bloodGroup: "A+", units: 0 },
+  { bloodGroup: "A-", units: 0 },
+  { bloodGroup: "B+", units: 0 },
+  { bloodGroup: "B-", units: 0 },
+  { bloodGroup: "AB+", units: 0 },
+  { bloodGroup: "AB-", units: 0 },
+  { bloodGroup: "O+", units: 0 },
+  { bloodGroup: "O-", units: 0 },
+];
 
 const assertBloodBankNotExists = async (email, licenseNumber) => {
   const existingBloodBank = await bloodBankRepository.findOne({
-    $or: [{ email }, { licenseNumber }]
+    $or: [{ email }, { licenseNumber }],
   });
 
   if (existingBloodBank) {
-    throw new ApiError(400, 'Blood bank with this email or license number already exists');
+    throw new ApiError(
+      400,
+      "Blood bank with this email or license number already exists",
+    );
   }
 };
 
@@ -263,7 +324,7 @@ const createBloodBankAndInventory = async (data) => {
     contactPersonPhone,
     contactPersonEmail,
     location,
-    logo
+    logo,
   } = data;
 
   const initialInventory = buildInitialInventory();
@@ -280,37 +341,52 @@ const createBloodBankAndInventory = async (data) => {
       street: address,
       city,
       state,
-      pincode
+      pincode,
     },
-    operatingHours: operatingHours || { open: '09:00', close: '18:00', days: [] },
+    operatingHours: operatingHours || {
+      open: "09:00",
+      close: "18:00",
+      days: [],
+    },
     services: services || [],
     contactPerson: {
       name: contactPersonName,
       phone: contactPersonPhone,
-      email: contactPersonEmail
+      email: contactPersonEmail,
     },
     location: location || undefined,
-    logo: logo || '',
-    imageUrl: logo || '',
-    profileImage: logo || '',
-    profileImagePublicId: data.profileImagePublicId || '',
+    logo: logo || "",
+    imageUrl: logo || "",
+    profileImage: logo || "",
+    profileImagePublicId: data.profileImagePublicId || "",
     isActive: false,
     isVerified: false,
-    approvalStatus: 'pending',
-    rejectionReason: ''
+    approvalStatus: "pending",
+    rejectionReason: "",
   };
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const [bloodBank] = await bloodBankRepository.model.create([bloodBankData], { session });
+    const [bloodBank] = await bloodBankRepository.model.create(
+      [bloodBankData],
+      { session },
+    );
 
-    await inventoryRepository.model.create([{
-      bloodBank: bloodBank._id,
-      bloodBankName: bloodBank.name,
-      items: initialInventory.map((item) => ({ ...item, lastUpdated: new Date() }))
-    }], { session });
+    await inventoryRepository.model.create(
+      [
+        {
+          bloodBank: bloodBank._id,
+          bloodBankName: bloodBank.name,
+          items: initialInventory.map((item) => ({
+            ...item,
+            lastUpdated: new Date(),
+          })),
+        },
+      ],
+      { session },
+    );
 
     await session.commitTransaction();
 
@@ -331,7 +407,10 @@ const buildRegistrationDataFromRequest = async (req) => {
   const body = normalizeRegistrationPayload(req.body || {});
 
   if (req.file) {
-    const uploadResult = await fileUploadService.handleSingleUpload(req.file.path, 'blood-bank/profiles');
+    const uploadResult = await fileUploadService.handleSingleUpload(
+      req.file.path,
+      "blood-bank/profiles",
+    );
     body.logo = uploadResult.url;
     body.profileImagePublicId = uploadResult.publicId;
   }
@@ -343,26 +422,43 @@ const buildRegistrationDataFromRequest = async (req) => {
 
 export const initiateBloodBankRegistrationWithOtp = async (req) => {
   const registrationData = await buildRegistrationDataFromRequest(req);
-  await assertBloodBankNotExists(registrationData.email, registrationData.licenseNumber);
+  await assertBloodBankNotExists(
+    registrationData.email,
+    registrationData.licenseNumber,
+  );
 
   const now = new Date();
   const otp = generateOtp();
   const otpHash = hashOtp(otp);
-  const verificationId = crypto.randomBytes(24).toString('hex');
-  const otpExpiresAt = new Date(now.getTime() + BLOODBANK_OTP_EXPIRY_MINUTES * 60 * 1000);
-  const recordExpiresAt = new Date(now.getTime() + BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES * 60 * 1000);
+  const verificationId = crypto.randomBytes(24).toString("hex");
+  const otpExpiresAt = new Date(
+    now.getTime() + BLOODBANK_OTP_EXPIRY_MINUTES * 60 * 1000,
+  );
+  const recordExpiresAt = new Date(
+    now.getTime() + BLOODBANK_PENDING_REGISTRATION_TTL_MINUTES * 60 * 1000,
+  );
   const hashedPassword = await bcrypt.hash(registrationData.password, 12);
 
-  const existingPending = await bloodBankRegistrationOtpRepository.findPendingByEmail(registrationData.email, {
-    select: '+otpHash'
-  });
+  const existingPending =
+    await bloodBankRegistrationOtpRepository.findPendingByEmail(
+      registrationData.email,
+      {
+        select: "+otpHash",
+      },
+    );
 
   if (existingPending && existingPending.lastOtpSentAt) {
     const remainingSeconds = Math.ceil(
-      (existingPending.lastOtpSentAt.getTime() + BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000
+      (existingPending.lastOtpSentAt.getTime() +
+        BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 -
+        Date.now()) /
+        1000,
     );
     if (remainingSeconds > 0) {
-      const error = new ApiError(429, `Please wait ${remainingSeconds} seconds before requesting another OTP`);
+      const error = new ApiError(
+        429,
+        `Please wait ${remainingSeconds} seconds before requesting another OTP`,
+      );
       error.data = buildOtpMeta(existingPending);
       throw error;
     }
@@ -373,7 +469,7 @@ export const initiateBloodBankRegistrationWithOtp = async (req) => {
     email: registrationData.email,
     otpHash,
     otpExpiresAt,
-    status: 'pending',
+    status: "pending",
     verifyAttemptsUsed: 0,
     resendCount: 0,
     lastOtpSentAt: now,
@@ -383,15 +479,18 @@ export const initiateBloodBankRegistrationWithOtp = async (req) => {
       passwordIsHashed: true,
     },
     clientMeta: {
-      ip: String(req.ip || ''),
-      userAgent: String(req.get('user-agent') || ''),
+      ip: String(req.ip || ""),
+      userAgent: String(req.get("user-agent") || ""),
     },
     expiresAt: recordExpiresAt,
     verifiedAt: null,
   };
 
   if (existingPending) {
-    await bloodBankRegistrationOtpRepository.updateOne({ _id: existingPending._id }, pendingData);
+    await bloodBankRegistrationOtpRepository.updateOne(
+      { _id: existingPending._id },
+      pendingData,
+    );
   } else {
     await bloodBankRegistrationOtpRepository.create(pendingData);
   }
@@ -402,127 +501,192 @@ export const initiateBloodBankRegistrationWithOtp = async (req) => {
     });
   } catch (_error) {
     await bloodBankRegistrationOtpRepository.deleteOne({ verificationId });
-    throw new ApiError(500, 'Unable to send OTP email. Please try again later.');
+    throw new ApiError(
+      500,
+      "Unable to send OTP email. Please try again later.",
+    );
   }
 
-  const record = await bloodBankRegistrationOtpRepository.findByVerificationId(verificationId, { lean: true });
+  const record = await bloodBankRegistrationOtpRepository.findByVerificationId(
+    verificationId,
+    {
+      lean: true,
+    },
+  );
   return {
     ...buildOtpMeta(record),
-    nextStep: 'verify_otp',
+    nextStep: "verify_otp",
   };
 };
 
 export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
   if (!verificationId || !otp) {
-    throw new ApiError(400, 'verificationId and otp are required');
+    throw new ApiError(400, "verificationId and otp are required");
   }
 
   const now = new Date();
-  const pendingRegistration = await bloodBankRegistrationOtpRepository.findByVerificationId(verificationId, {
-    select: '+otpHash',
-    lean: false
-  });
+  const pendingRegistration =
+    await bloodBankRegistrationOtpRepository.findByVerificationId(
+      verificationId,
+      {
+        select: "+otpHash",
+        lean: false,
+      },
+    );
 
   if (!pendingRegistration) {
-    throw new ApiError(400, 'Invalid or expired verification session');
+    throw new ApiError(400, "Invalid or expired verification session");
   }
 
-  if (pendingRegistration.status === 'locked') {
-    const error = new ApiError(429, 'Maximum OTP attempts reached. Please restart registration.');
+  if (pendingRegistration.status === "locked") {
+    const error = new ApiError(
+      429,
+      "Maximum OTP attempts reached. Please restart registration.",
+    );
     error.data = buildOtpMeta(pendingRegistration);
     throw error;
   }
 
-  if (pendingRegistration.status !== 'pending' || pendingRegistration.expiresAt <= now || pendingRegistration.otpExpiresAt <= now) {
-    pendingRegistration.status = 'expired';
+  if (
+    pendingRegistration.status !== "pending" ||
+    pendingRegistration.expiresAt <= now ||
+    pendingRegistration.otpExpiresAt <= now
+  ) {
+    pendingRegistration.status = "expired";
     await pendingRegistration.save();
-    const error = new ApiError(400, 'OTP is invalid or expired. Please restart registration.');
+    const error = new ApiError(
+      400,
+      "OTP is invalid or expired. Please restart registration.",
+    );
     error.data = buildOtpMeta(pendingRegistration);
     throw error;
   }
 
-  if (pendingRegistration.verifyAttemptsUsed >= BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS) {
-    pendingRegistration.status = 'locked';
+  if (
+    pendingRegistration.verifyAttemptsUsed >= BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS
+  ) {
+    pendingRegistration.status = "locked";
     await pendingRegistration.save();
-    const error = new ApiError(429, 'Maximum OTP attempts reached. Please restart registration.');
+    const error = new ApiError(
+      429,
+      "Maximum OTP attempts reached. Please restart registration.",
+    );
     error.data = buildOtpMeta(pendingRegistration);
     throw error;
   }
 
-  const isOtpValid = pendingRegistration.otpHash === hashOtp(String(otp).trim());
+  const isOtpValid =
+    pendingRegistration.otpHash === hashOtp(String(otp).trim());
   if (!isOtpValid) {
     pendingRegistration.verifyAttemptsUsed += 1;
-    if (pendingRegistration.verifyAttemptsUsed >= BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS) {
-      pendingRegistration.status = 'locked';
+    if (
+      pendingRegistration.verifyAttemptsUsed >=
+      BLOODBANK_OTP_MAX_VERIFY_ATTEMPTS
+    ) {
+      pendingRegistration.status = "locked";
     }
     await pendingRegistration.save();
 
     const meta = buildOtpMeta(pendingRegistration);
     const error = new ApiError(
-      pendingRegistration.status === 'locked' ? 429 : 400,
-      pendingRegistration.status === 'locked'
-        ? 'Maximum OTP attempts reached. Please restart registration.'
-        : `Invalid OTP. ${meta.attemptsRemaining} attempts remaining.`
+      pendingRegistration.status === "locked" ? 429 : 400,
+      pendingRegistration.status === "locked"
+        ? "Maximum OTP attempts reached. Please restart registration."
+        : `Invalid OTP. ${meta.attemptsRemaining} attempts remaining.`,
     );
     error.data = meta;
     throw error;
   }
 
-  const registrationData = normalizeRegistrationPayload(pendingRegistration.registrationData || {});
+  const registrationData = normalizeRegistrationPayload(
+    pendingRegistration.registrationData || {},
+  );
   if (registrationData.passwordIsHashed !== true) {
-    throw new ApiError(400, 'Registration payload is invalid. Please restart registration.');
+    throw new ApiError(
+      400,
+      "Registration payload is invalid. Please restart registration.",
+    );
   }
 
-  await assertBloodBankNotExists(registrationData.email, registrationData.licenseNumber);
+  await assertBloodBankNotExists(
+    registrationData.email,
+    registrationData.licenseNumber,
+  );
 
   const result = await createBloodBankAndInventory({
     ...registrationData,
     password: registrationData.password,
   });
 
-  await bloodBankRegistrationOtpRepository.deleteOne({ _id: pendingRegistration._id });
+  await bloodBankRegistrationOtpRepository.deleteOne({
+    _id: pendingRegistration._id,
+  });
+
+  // NEW: Notify Admin about new Blood Bank registration
+  const { notifyAdmins } = await import("./notificationService.js");
+  notifyAdmins({
+    title: "New Blood Bank Registered",
+    message: `${registrationData.name} has registered and is awaiting approval.`,
+    type: "system",
+    actionUrl: `/admin/blood-banks`,
+  }).catch((err) => console.error("Admin notification failed:", err));
 
   return {
     ...result,
-    nextStep: 'await_admin_approval',
+    nextStep: "await_admin_approval",
   };
 };
 
 export const resendBloodBankRegistrationOtp = async (verificationId) => {
   if (!verificationId) {
-    throw new ApiError(400, 'verificationId is required');
+    throw new ApiError(400, "verificationId is required");
   }
 
   const now = new Date();
-  const pendingRegistration = await bloodBankRegistrationOtpRepository.findPendingByEmail(verificationId, {
-    select: '+otpHash',
-    lean: false
-  });
+  const pendingRegistration =
+    await bloodBankRegistrationOtpRepository.findPendingByEmail(
+      verificationId,
+      {
+        select: "+otpHash",
+        lean: false,
+      },
+    );
 
   if (!pendingRegistration || pendingRegistration.expiresAt <= now) {
-    throw new ApiError(400, 'Invalid or expired verification session');
+    throw new ApiError(400, "Invalid or expired verification session");
   }
 
   if (pendingRegistration.resendCount >= BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) {
-    pendingRegistration.status = 'locked';
+    pendingRegistration.status = "locked";
     await pendingRegistration.save();
-    const error = new ApiError(429, 'Maximum OTP resend attempts reached. Please restart registration.');
+    const error = new ApiError(
+      429,
+      "Maximum OTP resend attempts reached. Please restart registration.",
+    );
     error.data = buildOtpMeta(pendingRegistration);
     throw error;
   }
 
   const remainingSeconds = Math.ceil(
-    (pendingRegistration.lastOtpSentAt.getTime() + BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 - Date.now()) / 1000
+    (pendingRegistration.lastOtpSentAt.getTime() +
+      BLOODBANK_OTP_RESEND_COOLDOWN_SECONDS * 1000 -
+      Date.now()) /
+      1000,
   );
   if (remainingSeconds > 0) {
-    const error = new ApiError(429, `Please wait ${remainingSeconds} seconds before resending OTP`);
+    const error = new ApiError(
+      429,
+      `Please wait ${remainingSeconds} seconds before resending OTP`,
+    );
     error.data = buildOtpMeta(pendingRegistration);
     throw error;
   }
 
   const otp = generateOtp();
   pendingRegistration.otpHash = hashOtp(otp);
-  pendingRegistration.otpExpiresAt = new Date(Date.now() + BLOODBANK_OTP_EXPIRY_MINUTES * 60 * 1000);
+  pendingRegistration.otpExpiresAt = new Date(
+    Date.now() + BLOODBANK_OTP_EXPIRY_MINUTES * 60 * 1000,
+  );
   pendingRegistration.resendCount += 1;
   pendingRegistration.lastOtpSentAt = new Date();
 
@@ -533,47 +697,57 @@ export const resendBloodBankRegistrationOtp = async (verificationId) => {
       expiresInMinutes: BLOODBANK_OTP_EXPIRY_MINUTES,
     });
   } catch (_error) {
-    throw new ApiError(500, 'Unable to send OTP email. Please try again later.');
+    throw new ApiError(
+      500,
+      "Unable to send OTP email. Please try again later.",
+    );
   }
 
   return {
     ...buildOtpMeta(pendingRegistration),
-    nextStep: 'verify_otp',
+    nextStep: "verify_otp",
   };
 };
 
-export const registerBloodBankFromRequest = async (req) => initiateBloodBankRegistrationWithOtp(req);
+export const registerBloodBankFromRequest = async (req) =>
+  initiateBloodBankRegistrationWithOtp(req);
 
 export const loginBloodBankWithSession = async (req, res) => {
   const { email, password } = req.body;
   const result = await loginBloodBank(email, password);
-  const { csrfToken, accessTokenExpiresAt } = await createBloodBankSession(req, res, result.bloodBank);
+  const { csrfToken, accessTokenExpiresAt } = await createBloodBankSession(
+    req,
+    res,
+    result.bloodBank,
+  );
   return { bloodBank: result.bloodBank, csrfToken, accessTokenExpiresAt };
 };
 
 export const refreshBloodBankSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, 'bloodbank')) {
-    throw new ApiError(403, 'Invalid or missing CSRF token');
+  if (!enforceCsrfForRole(req, "bloodbank")) {
+    throw new ApiError(403, "Invalid or missing CSRF token");
   }
 
-  const refreshToken = getRefreshTokenFromRequest(req, 'bloodbank');
+  const refreshToken = getRefreshTokenFromRequest(req, "bloodbank");
   if (!refreshToken) {
-    throw new ApiError(401, 'Refresh token missing');
+    throw new ApiError(401, "Refresh token missing");
   }
 
-  const decoded = verifyRefreshToken('bloodbank', refreshToken);
+  const decoded = verifyRefreshToken("bloodbank", refreshToken);
   const [bloodBankSession, sessionRecord] = await Promise.all([
     bloodBankRepository.findById(decoded.bloodBankId, {
-      select: '_id email +tokenVersion'
+      select: "_id email +tokenVersion",
     }),
-    getAuthSessionForRefresh({ role: 'bloodbank', sessionId: decoded.sid }),
+    getAuthSessionForRefresh({ role: "bloodbank", sessionId: decoded.sid }),
   ]);
 
   const incomingRefreshHash = hashToken(refreshToken);
-  const isCurrentMatch = sessionRecord?.refreshTokenHash === incomingRefreshHash;
-  const isGraceMatch = sessionRecord?.rotatedAt && 
-                       (Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 10000) &&
-                       sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
+  const isCurrentMatch =
+    sessionRecord?.refreshTokenHash === incomingRefreshHash;
+  const isGraceMatch =
+    sessionRecord?.rotatedAt &&
+    Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 10000 &&
+    sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
 
   const isTokenValid = isCurrentMatch || isGraceMatch;
 
@@ -582,58 +756,70 @@ export const refreshBloodBankSession = async (req, res) => {
     !sessionRecord ||
     sessionRecord.revokedAt ||
     new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
-    Number(decoded.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
-    Number(sessionRecord.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
+    Number(decoded.tokenVersion) !==
+      Number(bloodBankSession.tokenVersion || 0) ||
+    Number(sessionRecord.tokenVersion) !==
+      Number(bloodBankSession.tokenVersion || 0) ||
     !isTokenValid;
 
   if (requiresSessionRevoke) {
     if (sessionRecord?.sessionId) {
-      await revokeAuthSession({ 
-        role: 'bloodbank', 
-        sessionId: sessionRecord.sessionId, 
-        reason: 'refresh_token_mismatch' 
+      await revokeAuthSession({
+        role: "bloodbank",
+        sessionId: sessionRecord.sessionId,
+        reason: "refresh_token_mismatch",
       });
     }
 
-    const suspectSeriousBreach = bloodBankSession && (
-      Number(decoded.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0) ||
-      Number(sessionRecord?.tokenVersion) !== Number(bloodBankSession.tokenVersion || 0)
-    );
+    const suspectSeriousBreach =
+      bloodBankSession &&
+      (Number(decoded.tokenVersion) !==
+        Number(bloodBankSession.tokenVersion || 0) ||
+        Number(sessionRecord?.tokenVersion) !==
+          Number(bloodBankSession.tokenVersion || 0));
 
     if (suspectSeriousBreach && bloodBankSession?._id) {
-      await incrementBloodBankTokenVersion(bloodBankSession._id, 'security_breach_detected');
+      await incrementBloodBankTokenVersion(
+        bloodBankSession._id,
+        "security_breach_detected",
+      );
     }
 
     logRefreshReuseDetected({
-      role: 'bloodbank',
+      role: "bloodbank",
       sessionId: decoded.sid,
       principal: decoded.bloodBankId,
       ip: req.ip,
-      userAgent: req.get('user-agent'),
+      userAgent: req.get("user-agent"),
     });
-    
-    clearAuthCookies(res, 'bloodbank');
-    throw new ApiError(401, 'Refresh token is invalid or has been reused');
+
+    clearAuthCookies(res, "bloodbank");
+    throw new ApiError(401, "Refresh token is invalid or has been reused");
   }
 
   const sessionId = decoded.sid || crypto.randomUUID();
   const isTransitioningFromLegacy = !decoded.sid || !sessionRecord;
 
   const result = await getSessionBloodBank(decoded.bloodBankId);
-  const { refreshToken: nextRefreshToken, refreshTokenExpiresAt, csrfToken, accessTokenExpiresAt } = setAuthCookies(
+  const {
+    refreshToken: nextRefreshToken,
+    refreshTokenExpiresAt,
+    csrfToken,
+    accessTokenExpiresAt,
+  } = setAuthCookies(
     res,
-    'bloodbank',
+    "bloodbank",
     buildBloodBankClaims({
       ...result.bloodBank,
       sessionId: sessionId,
       tokenVersion: Number(bloodBankSession.tokenVersion || 0),
-    })
+    }),
   );
 
   if (isTransitioningFromLegacy) {
     await createAuthSession({
       sessionId: sessionId,
-      role: 'bloodbank',
+      role: "bloodbank",
       bloodBankId: bloodBankSession._id,
       refreshTokenHash: hashToken(nextRefreshToken),
       refreshTokenExpiresAt,
@@ -643,7 +829,7 @@ export const refreshBloodBankSession = async (req, res) => {
     });
   } else {
     await rotateAuthSession({
-      role: 'bloodbank',
+      role: "bloodbank",
       sessionId: sessionId,
       refreshTokenHash: hashToken(nextRefreshToken),
       refreshTokenExpiresAt,
@@ -658,68 +844,89 @@ export const refreshBloodBankSession = async (req, res) => {
 
 export const logoutBloodBankSession = async (req, res) => {
   try {
-    if (!enforceCsrfForRole(req, 'bloodbank')) {
-      console.warn('[AUTH] CSRF validation failed during bloodbank logout attempt');
+    if (!enforceCsrfForRole(req, "bloodbank")) {
+      console.warn(
+        "[AUTH] CSRF validation failed during bloodbank logout attempt",
+      );
     }
 
-    const refreshToken = getRefreshTokenFromRequest(req, 'bloodbank');
+    const refreshToken = getRefreshTokenFromRequest(req, "bloodbank");
     if (refreshToken) {
       try {
-        const decoded = verifyRefreshToken('bloodbank', refreshToken);
+        const decoded = verifyRefreshToken("bloodbank", refreshToken);
         if (decoded?.sid) {
-          await revokeAuthSession({ role: 'bloodbank', sessionId: decoded.sid, reason: 'logout' });
+          await revokeAuthSession({
+            role: "bloodbank",
+            sessionId: decoded.sid,
+            reason: "logout",
+          });
         }
       } catch (_error) {
         // Ignore revocation errors
       }
     }
   } finally {
-    clearAuthCookies(res, 'bloodbank');
+    clearAuthCookies(res, "bloodbank");
   }
-  
+
   return { success: true };
 };
 
 export const registerBloodBank = async (data) => {
   const registrationData = normalizeRegistrationPayload(data);
   validateRegistrationData(registrationData);
-  await assertBloodBankNotExists(registrationData.email, registrationData.licenseNumber);
+  await assertBloodBankNotExists(
+    registrationData.email,
+    registrationData.licenseNumber,
+  );
   return createBloodBankAndInventory(registrationData);
 };
 
 // Login blood bank
 export const loginBloodBank = async (email, password) => {
   if (!email || !password) {
-    throw new ApiError(400, 'Email and password are required');
+    throw new ApiError(400, "Email and password are required");
   }
 
   // Find blood bank (include lockout fields alongside password)
-  const bloodBank = await bloodBankRepository.findOne({ email }, { 
-    select: '+password +loginAttempts +lockUntil +tokenVersion',
-    lean: false 
-  });
+  const bloodBank = await bloodBankRepository.findOne(
+    { email },
+    {
+      select: "+password +loginAttempts +lockUntil +tokenVersion",
+      lean: false,
+    },
+  );
   if (!bloodBank) {
-    throw new ApiError(401, 'Invalid credentials');
+    throw new ApiError(401, "Invalid credentials");
   }
 
-  if (bloodBank.approvalStatus === 'pending') {
-    throw new ApiError(403, 'Your registration request is still pending admin approval. Please wait for the approval email before logging in.');
+  if (bloodBank.approvalStatus === "pending") {
+    throw new ApiError(
+      403,
+      "Your registration request is still pending admin approval. Please wait for the approval email before logging in.",
+    );
   }
 
-  if (bloodBank.approvalStatus === 'rejected') {
+  if (bloodBank.approvalStatus === "rejected") {
     const rejectionReason = bloodBank.rejectionReason
       ? ` Reason: ${bloodBank.rejectionReason}`
-      : '';
-    throw new ApiError(403, `Your registration request was rejected by the admin.${rejectionReason}`);
+      : "";
+    throw new ApiError(
+      403,
+      `Your registration request was rejected by the admin.${rejectionReason}`,
+    );
   }
 
   if (!bloodBank.isActive || !bloodBank.isVerified) {
-    throw new ApiError(403, 'Your blood bank account is not active. Please contact the admin.');
+    throw new ApiError(
+      403,
+      "Your blood bank account is not active. Please contact the admin.",
+    );
   }
 
   // Check if account is temporarily locked
   if (bloodBank.lockUntil && bloodBank.lockUntil > Date.now()) {
-    throw new ApiError(401, 'Invalid credentials');
+    throw new ApiError(401, "Invalid credentials");
   }
 
   // Check password
@@ -731,7 +938,7 @@ export const loginBloodBank = async (email, password) => {
       bloodBank.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
     }
     await bloodBank.save();
-    throw new ApiError(401, 'Invalid credentials');
+    throw new ApiError(401, "Invalid credentials");
   }
 
   // Successful login – clear lockout state
@@ -742,7 +949,7 @@ export const loginBloodBank = async (email, password) => {
   }
 
   return {
-    bloodBank: sanitizeBloodBank(bloodBank)
+    bloodBank: sanitizeBloodBank(bloodBank),
   };
 };
 
@@ -750,16 +957,16 @@ export const loginBloodBank = async (email, password) => {
 export const getAllBloodBanks = async (query) => {
   const { latitude, longitude, maxDistance, bloodGroup } = query;
   const { page, limit, skip } = getPaginationParams({ query });
-  
+
   const cacheKey = JSON.stringify({
     latitude: latitude || null,
     longitude: longitude || null,
     maxDistance: maxDistance || null,
     bloodGroup: bloodGroup || null,
     page,
-    limit
+    limit,
   });
-  
+
   const cached = await getCachedPublicBanks(cacheKey);
   if (cached) {
     return cached;
@@ -772,112 +979,149 @@ export const getAllBloodBanks = async (query) => {
     const bloodBanks = await bloodBankRepository.findApprovedBanksInRange(
       [parseFloat(longitude), parseFloat(latitude)],
       maxDistance ? parseInt(maxDistance) : 50000,
-      bloodGroup
+      bloodGroup,
     );
-    
+
     // We filter by bloodGroup later so we use the count of approved banks for base
     rawBanks = bloodBanks;
-    rawTotal = await bloodBankRepository.count({ isActive: true, approvalStatus: 'approved' });
+    rawTotal = await bloodBankRepository.count({
+      isActive: true,
+      approvalStatus: "approved",
+    });
   } else {
-    const baseQuery = { isActive: true, approvalStatus: 'approved' };
+    const baseQuery = { isActive: true, approvalStatus: "approved" };
     const [bloodBanks, total] = await Promise.all([
-      bloodBankRepository.find(baseQuery, { select: BLOOD_BANK_LIST_FIELDS, skip, limit }),
-      bloodBankRepository.count(baseQuery)
+      bloodBankRepository.find(baseQuery, {
+        select: BLOOD_BANK_LIST_FIELDS,
+        skip,
+        limit,
+      }),
+      bloodBankRepository.count(baseQuery),
     ]);
     rawBanks = bloodBanks;
     rawTotal = total;
   }
 
   // Batch fetch inventories (avoid N+1)
-  const bankIds = rawBanks.map(bank => bank._id);
+  const bankIds = rawBanks.map((bank) => bank._id);
   const inventories = bankIds.length
-    ? await inventoryRepository.find({ bloodBank: { $in: bankIds } }, {
-        select: 'bloodBank items.bloodGroup items.units'
-      })
+    ? await inventoryRepository.find(
+        { bloodBank: { $in: bankIds } },
+        {
+          select: "bloodBank items.bloodGroup items.units",
+        },
+      )
     : [];
-  const inventoryMap = new Map(inventories.map(inv => [inv.bloodBank.toString(), inv.items || []]));
+  const inventoryMap = new Map(
+    inventories.map((inv) => [inv.bloodBank.toString(), inv.items || []]),
+  );
 
   const resolveLightweightLogo = (bank) => {
-    const imageCandidate = typeof bank.imageUrl === 'string' ? bank.imageUrl.trim() : '';
-    if (imageCandidate && !imageCandidate.startsWith('data:')) {
+    const imageCandidate =
+      typeof bank.imageUrl === "string" ? bank.imageUrl.trim() : "";
+    if (imageCandidate && !imageCandidate.startsWith("data:")) {
       return imageCandidate;
     }
 
-    const logoCandidate = typeof bank.logo === 'string' ? bank.logo.trim() : '';
-    if (!logoCandidate || logoCandidate.startsWith('data:')) {
-      return '';
+    const logoCandidate = typeof bank.logo === "string" ? bank.logo.trim() : "";
+    if (!logoCandidate || logoCandidate.startsWith("data:")) {
+      return "";
     }
 
     return logoCandidate;
   };
 
-  const bloodBanksWithInventory = rawBanks.map(bank => ({
-    ...sanitizeBloodBank(bank),
+  const bloodBanksWithInventory = rawBanks.map((bank) => ({
+    ...sanitizeBloodBankSummary(bank),
     logo: resolveLightweightLogo(bank),
-    inventory: inventoryMap.get(bank._id.toString()) || []
+    inventory: inventoryMap.get(bank._id.toString()) || [],
   }));
 
   // Filter by blood group availability if specified
   if (bloodGroup) {
     validationService.validateBloodGroup(bloodGroup);
-    const filteredBanks = bloodBanksWithInventory.filter(bank =>
-      bank.inventory.some(item => item.bloodGroup === bloodGroup && item.units > 0)
+    const filteredBanks = bloodBanksWithInventory.filter((bank) =>
+      bank.inventory.some(
+        (item) => item.bloodGroup === bloodGroup && item.units > 0,
+      ),
     );
-    const response = buildPaginatedResponse(filteredBanks, rawTotal, page, limit); // Note: total might be slightly off if locally filtered
+    const response = buildPaginatedResponse(
+      filteredBanks,
+      rawTotal,
+      page,
+      limit,
+    ); // Note: total might be slightly off if locally filtered
     await setCachedPublicBanks(cacheKey, response);
     return response;
   }
 
-  const response = buildPaginatedResponse(bloodBanksWithInventory, rawTotal, page, limit);
+  const response = buildPaginatedResponse(
+    bloodBanksWithInventory,
+    rawTotal,
+    page,
+    limit,
+  );
   await setCachedPublicBanks(cacheKey, response);
   return response;
 };
 
 // Get blood bank by ID
 export const getBloodBankById = async (bloodBankId) => {
-  ensureValidObjectId(bloodBankId, 'blood bank id');
+  ensureValidObjectId(bloodBankId, "blood bank id");
   const [bloodBank, inventory] = await Promise.all([
-    bloodBankRepository.findById(bloodBankId, { select: BLOOD_BANK_SAFE_FIELDS }),
-    inventoryRepository.findOne({ bloodBank: bloodBankId })
+    bloodBankRepository.findById(bloodBankId, {
+      select: BLOOD_BANK_SAFE_FIELDS,
+    }),
+    inventoryRepository.findOne({ bloodBank: bloodBankId }),
   ]);
 
-  if (!bloodBank || bloodBank.approvalStatus !== 'approved' || !bloodBank.isActive) {
-    throw new ApiError(404, 'Blood bank not found');
+  if (
+    !bloodBank ||
+    bloodBank.approvalStatus !== "approved" ||
+    !bloodBank.isActive
+  ) {
+    throw new ApiError(404, "Blood bank not found");
   }
 
   return sanitizeBloodBank({
     ...bloodBank,
-    inventory: inventory?.items || []
+    inventory: inventory?.items || [],
   });
 };
 
 // Get blood bank profile (for authenticated blood bank)
 export const getBloodBankProfile = async (bloodBankId) => {
-  ensureValidObjectId(bloodBankId, 'blood bank id');
+  ensureValidObjectId(bloodBankId, "blood bank id");
   const [bloodBank, inventory] = await Promise.all([
-    bloodBankRepository.findById(bloodBankId, { select: BLOOD_BANK_SAFE_FIELDS, lean: true }),
-    inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: true })
+    bloodBankRepository.findById(bloodBankId, {
+      select: BLOOD_BANK_SAFE_FIELDS,
+      lean: true,
+    }),
+    inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: true }),
   ]);
 
   if (!bloodBank) {
-    throw new ApiError(404, 'Blood bank not found');
+    throw new ApiError(404, "Blood bank not found");
   }
 
   return sanitizeBloodBank({
     ...bloodBank,
-    inventory: inventory?.items || []
+    inventory: inventory?.items || [],
   });
 };
 
 export const getSessionBloodBank = async (bloodBankId) => {
-  ensureValidObjectId(bloodBankId, 'blood bank id');
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, { select: BLOOD_BANK_SAFE_FIELDS, lean: true });
+  ensureValidObjectId(bloodBankId, "blood bank id");
+  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
+    select: BLOOD_BANK_SAFE_FIELDS,
+    lean: true,
+  });
   if (!bloodBank) {
-    throw new ApiError(401, 'Blood bank session is invalid');
+    throw new ApiError(401, "Blood bank session is invalid");
   }
 
   return {
-    bloodBank: sanitizeBloodBank(bloodBank)
+    bloodBank: sanitizeBloodBank(bloodBank),
   };
 };
 
@@ -885,13 +1129,23 @@ export const getSessionBloodBankWithExpiry = async (req, bloodBankId) => {
   const result = await getSessionBloodBank(bloodBankId);
   return {
     ...result,
-    accessTokenExpiresAt: getAccessTokenExpiryFromRequest(req, 'bloodbank'),
+    accessTokenExpiresAt: getAccessTokenExpiryFromRequest(req, "bloodbank"),
   };
 };
 
 // Update blood bank profile
 export const updateBloodBankProfile = async (bloodBankId, updateData) => {
-  const { name, phone, address, city, state, pincode, operatingHours, services, logo } = updateData;
+  const {
+    name,
+    phone,
+    address,
+    city,
+    state,
+    pincode,
+    operatingHours,
+    services,
+    logo,
+  } = updateData;
 
   const [bloodBank, inventory] = await Promise.all([
     bloodBankRepository.updateOne(
@@ -903,39 +1157,43 @@ export const updateBloodBankProfile = async (bloodBankId, updateData) => {
         operatingHours,
         services,
         logo,
-        imageUrl: logo
+        imageUrl: logo,
       },
-      { new: true, lean: true, select: BLOOD_BANK_SAFE_FIELDS }
+      { new: true, lean: true, select: BLOOD_BANK_SAFE_FIELDS },
     ),
-    inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: true })
+    inventoryRepository.findOne({ bloodBank: bloodBankId }, { lean: true }),
   ]);
 
   if (!bloodBank) {
-    throw new ApiError(404, 'Blood bank not found');
+    throw new ApiError(404, "Blood bank not found");
   }
 
   invalidatePublicBloodBanksCache();
 
   return sanitizeBloodBank({
     ...bloodBank,
-    inventory: inventory?.items || []
+    inventory: inventory?.items || [],
   });
 };
 
 // Create a new blood bank (Admin only)
 export const createBloodBank = async (data) => {
-  const { name, email, phone, address, location, inventory, operatingHours } = data;
+  const { name, email, phone, address, location, inventory, operatingHours } =
+    data;
 
   if (!name || !email) {
-    throw new ApiError(400, 'Name and email are required');
+    throw new ApiError(400, "Name and email are required");
   }
 
   validationService.validateEmail(email);
   validationService.validatePhone(phone);
 
-  const existingBloodBank = await bloodBankRepository.findOne({ email }, { lean: true });
+  const existingBloodBank = await bloodBankRepository.findOne(
+    { email },
+    { lean: true },
+  );
   if (existingBloodBank) {
-    throw new ApiError(400, 'Blood bank with this email already exists');
+    throw new ApiError(400, "Blood bank with this email already exists");
   }
 
   const bloodBank = await bloodBankRepository.create({
@@ -948,43 +1206,47 @@ export const createBloodBank = async (data) => {
     operatingHours,
     isActive: true,
     isVerified: true,
-    approvalStatus: 'approved',
+    approvalStatus: "approved",
     reviewedAt: new Date(),
-    reviewedBy: 'admin'
+    reviewedBy: "admin",
   });
   invalidatePublicBloodBanksCache();
   return sanitizeBloodBank(bloodBank);
 };
 
 // Update blood bank inventory by blood group
-export const updateBloodBankInventory = async (bloodBankId, bloodGroup, units) => {
-  ensureValidObjectId(bloodBankId, 'blood bank id');
+export const updateBloodBankInventory = async (
+  bloodBankId,
+  bloodGroup,
+  units,
+) => {
+  ensureValidObjectId(bloodBankId, "blood bank id");
   validationService.validateBloodGroup(bloodGroup);
   validationService.validateUnits(units);
 
   const inventory = await inventoryRepository.updateOne(
-    { bloodBank: bloodBankId, 'items.bloodGroup': bloodGroup },
+    { bloodBank: bloodBankId, "items.bloodGroup": bloodGroup },
     {
       $set: {
-        'items.$.units': units,
-        'items.$.lastUpdated': new Date()
-      }
+        "items.$.units": units,
+        "items.$.lastUpdated": new Date(),
+      },
     },
-    { new: true, lean: true }
+    { new: true, lean: true },
   );
 
   if (!inventory) {
-    throw new ApiError(404, 'Blood bank inventory not found');
+    throw new ApiError(404, "Blood bank inventory not found");
   }
 
   await bloodBankRepository.updateOne(
-    { _id: bloodBankId, 'inventory.bloodGroup': bloodGroup },
+    { _id: bloodBankId, "inventory.bloodGroup": bloodGroup },
     {
       $set: {
-        'inventory.$.units': units,
-        'inventory.$.lastUpdated': new Date()
-      }
-    }
+        "inventory.$.units": units,
+        "inventory.$.lastUpdated": new Date(),
+      },
+    },
   );
 
   invalidatePublicBloodBanksCache();
@@ -993,30 +1255,39 @@ export const updateBloodBankInventory = async (bloodBankId, bloodGroup, units) =
 
 // Request password reset
 export const requestPasswordReset = async (email) => {
-  const bloodBank = await bloodBankRepository.findOne({ email }, { lean: false });
+  const bloodBank = await bloodBankRepository.findOne(
+    { email },
+    { lean: false },
+  );
   if (!bloodBank) {
     // Don't reveal if email exists or not for security
     return { success: true };
   }
 
   // Generate reset token
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetTokenHash = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
 
   // Set token and expiration (1 hour)
   bloodBank.passwordReset = {
     token: resetTokenHash,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000)
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
   };
 
   await bloodBank.save();
 
   // Send email with reset token
   try {
-    await sendPasswordResetEmail(email, resetToken, 'bloodbank');
+    await sendPasswordResetEmail(email, resetToken, "bloodbank");
   } catch (emailError) {
-    console.error('Email sending failed:', emailError);
-    throw new ApiError(500, 'Failed to send reset email. Please try again later.');
+    console.error("Email sending failed:", emailError);
+    throw new ApiError(
+      500,
+      "Failed to send reset email. Please try again later.",
+    );
   }
 
   return { success: true };
@@ -1025,22 +1296,28 @@ export const requestPasswordReset = async (email) => {
 // Reset password with token
 export const resetPassword = async (token, password) => {
   if (!token || !password) {
-    throw new ApiError(400, 'Token and password are required');
+    throw new ApiError(400, "Token and password are required");
   }
 
   validationService.validatePassword(password);
 
   // Hash the provided token
-  const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const resetTokenHash = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
 
   // Find blood bank with valid reset token
-  const bloodBank = await bloodBankRepository.findOne({
-    'passwordReset.token': resetTokenHash,
-    'passwordReset.expiresAt': { $gt: new Date() }
-  }, { lean: false });
+  const bloodBank = await bloodBankRepository.findOne(
+    {
+      "passwordReset.token": resetTokenHash,
+      "passwordReset.expiresAt": { $gt: new Date() },
+    },
+    { lean: false },
+  );
 
   if (!bloodBank) {
-    throw new ApiError(400, 'Invalid or expired reset token');
+    throw new ApiError(400, "Invalid or expired reset token");
   }
 
   // Hash new password
@@ -1054,7 +1331,11 @@ export const resetPassword = async (token, password) => {
   bloodBank.passwordChangedAt = new Date();
 
   await bloodBank.save();
-  await revokeAllPrincipalSessions({ role: 'bloodbank', bloodBankId: bloodBank._id, reason: 'password_reset' });
+  await revokeAllPrincipalSessions({
+    role: "bloodbank",
+    bloodBankId: bloodBank._id,
+    reason: "password_reset",
+  });
 
   return { success: true };
 };
@@ -1062,20 +1343,26 @@ export const resetPassword = async (token, password) => {
 // Verify reset token
 export const verifyResetToken = async (token) => {
   if (!token) {
-    throw new ApiError(400, 'Reset token is required');
+    throw new ApiError(400, "Reset token is required");
   }
 
   // Hash the provided token
-  const resetTokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const resetTokenHash = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
 
   // Check if token exists and is not expired
-  const bloodBank = await bloodBankRepository.findOne({
-    'passwordReset.token': resetTokenHash,
-    'passwordReset.expiresAt': { $gt: new Date() }
-  }, { lean: true });
+  const bloodBank = await bloodBankRepository.findOne(
+    {
+      "passwordReset.token": resetTokenHash,
+      "passwordReset.expiresAt": { $gt: new Date() },
+    },
+    { lean: true },
+  );
 
   if (!bloodBank) {
-    throw new ApiError(400, 'Invalid or expired reset token');
+    throw new ApiError(400, "Invalid or expired reset token");
   }
 
   return { valid: true };
@@ -1085,7 +1372,13 @@ export const sendBloodBankRegistrationApprovedEmail = async (bloodBank) => {
   await sendBloodBankApprovalEmail(bloodBank.email, bloodBank.name);
 };
 
-export const sendBloodBankRegistrationRejectedEmail = async (bloodBank, rejectionReason) => {
-  await sendBloodBankRejectionEmail(bloodBank.email, bloodBank.name, rejectionReason);
+export const sendBloodBankRegistrationRejectedEmail = async (
+  bloodBank,
+  rejectionReason,
+) => {
+  await sendBloodBankRejectionEmail(
+    bloodBank.email,
+    bloodBank.name,
+    rejectionReason,
+  );
 };
-

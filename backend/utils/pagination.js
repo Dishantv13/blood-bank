@@ -2,7 +2,7 @@ export const getPaginationParams = (req) => {
   const page = Math.max(1, parseInt(req.query.page) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
   const skip = (page - 1) * limit;
-  
+
   return { page, limit, skip };
 };
 
@@ -11,7 +11,7 @@ export const getPaginationMetadata = (page, limit, total) => {
   const totalPages = Math.ceil(total / limit);
   const hasNextPage = page < totalPages;
   const hasPrevPage = page > 1;
-  
+
   return {
     page,
     limit,
@@ -20,7 +20,7 @@ export const getPaginationMetadata = (page, limit, total) => {
     hasNextPage,
     hasPrevPage,
     nextPage: hasNextPage ? page + 1 : null,
-    prevPage: hasPrevPage ? page - 1 : null
+    prevPage: hasPrevPage ? page - 1 : null,
   };
 };
 
@@ -28,6 +28,6 @@ export const getPaginationMetadata = (page, limit, total) => {
 export const buildPaginatedResponse = (data, total, page, limit) => {
   return {
     data,
-    pagination: getPaginationMetadata(page, limit, total)
+    pagination: getPaginationMetadata(page, limit, total),
   };
 };

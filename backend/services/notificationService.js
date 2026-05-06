@@ -1,63 +1,123 @@
-import notificationRepository from '../repositories/NotificationRepository.js';
-import User from '../models/User.model.js';
-import { ApiError } from '../utils/apiError.js';
-import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
-import { emitToUser, emitToRole } from '../utils/socket.js';
+import notificationRepository from "../repositories/NotificationRepository.js";
+import User from "../models/User.model.js";
+import BloodBank from "../models/BloodBank.model.js";
+import { ApiError } from "../utils/apiError.js";
+import {
+  getPaginationParams,
+  buildPaginatedResponse,
+} from "../utils/pagination.js";
+import { emitToUser, emitToRole } from "../utils/socket.js";
 
 export const createNotification = async (data) => {
   const notificationData = {
     recipient: data.recipient,
-    recipientModel: data.recipientModel || 'User',
+    recipientModel: data.recipientModel || "User",
     title: data.title,
     message: data.message,
-    type: data.type || 'system',
-    actionUrl: data.actionUrl || ''
+    type: data.type || "system",
+    actionUrl: data.actionUrl || "",
   };
 
   const notification = await notificationRepository.create(notificationData);
-  emitToUser(data.recipient, 'notification', notification);
+  emitToUser(data.recipient, "notification", notification);
   return notification;
 };
 
 export const broadcastNotification = async (data) => {
-  const users = await User.find({ role: 'user' }).select('_id').lean();
-  
+  const users = await User.find({ role: "user" }).select("_id").lean();
+
   if (!users.length) return { success: true, count: 0 };
 
-  const notifications = users.map(user => ({
+  const notifications = users.map((user) => ({
     recipient: user._id,
-    recipientModel: 'User',
+    recipientModel: "User",
     title: data.title,
     message: data.message,
-    type: data.type || 'system',
-    actionUrl: data.actionUrl || ''
+    type: data.type || "system",
+    actionUrl: data.actionUrl || "",
   }));
 
-  const createdNotifications = await notificationRepository.model.insertMany(notifications);
+  const createdNotifications =
+    await notificationRepository.model.insertMany(notifications);
 
   users.forEach((user, index) => {
-    emitToUser(user._id, 'notification', createdNotifications[index]);
+    emitToUser(user._id, "notification", createdNotifications[index]);
   });
 
   return { success: true, count: users.length };
 };
 
+export const notifyAllBloodBanks = async (data) => {
+  const bloodBanks = await BloodBank.find({}).select("_id").lean();
+
+  if (!bloodBanks.length) return { success: true, count: 0 };
+
+  const notifications = bloodBanks.map((bank) => ({
+    recipient: bank._id,
+    recipientModel: "BloodBank",
+    title: data.title,
+    message: data.message,
+    type: data.type || "request",
+    actionUrl: data.actionUrl || "",
+  }));
+
+  const createdNotifications =
+    await notificationRepository.model.insertMany(notifications);
+
+  emitToRole("bloodbank", "notification", {
+    title: data.title,
+    message: data.message,
+    type: "request",
+    actionUrl: data.actionUrl,
+  });
+
+  return { success: true, count: bloodBanks.length };
+};
+
+// Notifies all admins about critical system events (e.g., new registrations)
+export const notifyAdmins = async (data) => {
+  const admins = await User.find({ role: "admin" }).select("_id").lean();
+
+  if (!admins.length) return { success: true, count: 0 };
+
+  const notifications = admins.map((admin) => ({
+    recipient: admin._id,
+    recipientModel: "User",
+    title: data.title,
+    message: data.message,
+    type: data.type || "system",
+    actionUrl: data.actionUrl || "",
+  }));
+
+  const createdNotifications =
+    await notificationRepository.model.insertMany(notifications);
+
+  // Broadcast via socket to all admins instantly
+  emitToRole("admin", "notification", {
+    title: data.title,
+    message: data.message,
+    type: data.type || "system",
+    actionUrl: data.actionUrl,
+  });
+
+  return { success: true, count: admins.length };
+};
 
 export const getNotifications = async (recipientId, query) => {
   const { page, limit, skip } = getPaginationParams({ query });
-  
+
   const filter = { recipient: recipientId };
   if (query.isRead !== undefined) {
-    filter.isRead = query.isRead === 'true';
+    filter.isRead = query.isRead === "true";
   }
 
   const [notifications, total] = await Promise.all([
     notificationRepository.find(filter, {
       sort: { createdAt: -1 },
       skip,
-      limit
+      limit,
     }),
-    notificationRepository.count(filter)
+    notificationRepository.count(filter),
   ]);
 
   return buildPaginatedResponse(notifications, total, page, limit);
@@ -67,30 +127,34 @@ export const markAsRead = async (notificationId, recipientId) => {
   const notification = await notificationRepository.updateOne(
     { _id: notificationId, recipient: recipientId },
     { $set: { isRead: true } },
-    { new: true }
+    { new: true },
   );
 
   if (!notification) {
-    throw new ApiError(404, 'Notification not found');
+    throw new ApiError(404, "Notification not found");
   }
 
   return notification;
 };
 
 export const markAllAsRead = async (recipientId) => {
-  await notificationRepository.markAllAsRead(recipientId);
-  
-  return { success: true };
+  const result = await notificationRepository.markAllAsRead(recipientId);
+
+  return {
+    success: true,
+    matchedCount: result.matchedCount,
+    modifiedCount: result.modifiedCount,
+  };
 };
 
 export const deleteNotification = async (notificationId, recipientId) => {
   const result = await notificationRepository.deleteOne({
     _id: notificationId,
-    recipient: recipientId
+    recipient: recipientId,
   });
 
   if (!result) {
-    throw new ApiError(404, 'Notification not found');
+    throw new ApiError(404, "Notification not found");
   }
 
   return { success: true };
@@ -98,6 +162,6 @@ export const deleteNotification = async (notificationId, recipientId) => {
 
 export const getUnreadCount = async (recipientId) => {
   const count = await notificationRepository.countUnread(recipientId);
-  
+
   return { unreadCount: count };
 };

@@ -1,7 +1,6 @@
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from "../config/redis.js";
 
-const CACHE_PREFIX = 'bb_cache:';
-
+const CACHE_PREFIX = "bb_cache:";
 
 class CacheManager {
   constructor() {
@@ -25,7 +24,7 @@ class CacheManager {
   async get(key) {
     try {
       const client = await getRedisClient();
-      
+
       // Try Redis first
       if (client?.isReady) {
         const value = await client.get(this._buildKey(key));
@@ -37,7 +36,7 @@ class CacheManager {
       if (local && local.expires > Date.now()) {
         return local.value;
       }
-      
+
       return null;
     } catch (err) {
       console.error(`Cache Get Error [${key}]:`, err.message);
@@ -48,20 +47,20 @@ class CacheManager {
   async set(key, value, ttlSeconds = 3600) {
     try {
       const client = await getRedisClient();
-      
+
       this._evictLocal();
       this.localCache.set(key, {
         value,
-        expires: Date.now() + (ttlSeconds * 1000)
+        expires: Date.now() + ttlSeconds * 1000,
       });
 
       // Try setting in Redis for distribution
       if (client?.isReady) {
         await client.set(this._buildKey(key), JSON.stringify(value), {
-          EX: ttlSeconds
+          EX: ttlSeconds,
         });
       }
-      
+
       return true;
     } catch (err) {
       console.error(`Cache Set Error [${key}]:`, err.message);
@@ -88,9 +87,9 @@ class CacheManager {
   async invalidatePattern(pattern) {
     try {
       const client = await getRedisClient();
-      
+
       // Clear local memory matching pattern
-      const regex = new RegExp(`^${pattern.replace(/\*/g, '.*')}$`);
+      const regex = new RegExp(`^${pattern.replace(/\*/g, ".*")}$`);
       for (const key of this.localCache.keys()) {
         if (regex.test(key)) this.localCache.delete(key);
       }

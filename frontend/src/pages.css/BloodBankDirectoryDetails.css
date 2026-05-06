@@ -41,7 +41,9 @@
   font-weight: 600;
   padding: 0.75rem 1.1rem;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .details-back-btn:hover {
@@ -227,7 +229,9 @@
   font-weight: 700;
   padding: 0.55rem 0.7rem;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .request-blood-btn:hover {
@@ -832,9 +836,21 @@
   letter-spacing: 1px;
 }
 
-.stock-item-premium.good { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
-.stock-item-premium.low { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-.stock-item-premium.critical { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+.stock-item-premium.good {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+.stock-item-premium.low {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+.stock-item-premium.critical {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
 
 .btn-request-main {
   width: 100%;
@@ -875,19 +891,30 @@
     flex-direction: column;
     text-align: center;
   }
-  
+
   .title-row {
     flex-direction: column;
     gap: 0.5rem;
   }
-  
+
   .hero-pills {
     flex-wrap: wrap;
     justify-content: center;
   }
 }
 
-[data-theme='dark'] .stock-item-premium.good { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); }
-[data-theme='dark'] .stock-item-premium.low { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
-[data-theme='dark'] .stock-item-premium.critical { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); }
-[data-theme='dark'] .icon-wrap { background: rgba(230, 57, 70, 0.1); }
+[data-theme='dark'] .stock-item-premium.good {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+[data-theme='dark'] .stock-item-premium.low {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+[data-theme='dark'] .stock-item-premium.critical {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+[data-theme='dark'] .icon-wrap {
+  background: rgba(230, 57, 70, 0.1);
+}

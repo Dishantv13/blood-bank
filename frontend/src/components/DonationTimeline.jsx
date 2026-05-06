@@ -1,4 +1,4 @@
-import '../App.css';
+import "../App.css";
 
 const DonationTimeline = ({ donations }) => {
   if (!donations || donations.length === 0) {
@@ -15,10 +15,12 @@ const DonationTimeline = ({ donations }) => {
         <div key={donation._id || index} className="timeline-card">
           <div className="card-header">
             <span className="card-date">
-              {new Date(donation.donationDate || donation.createdAt).toLocaleDateString(undefined, {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
+              {new Date(
+                donation.donationDate || donation.createdAt,
+              ).toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
               })}
             </span>
             <span className={`status-badge ${donation.status}`}>
@@ -26,7 +28,11 @@ const DonationTimeline = ({ donations }) => {
             </span>
           </div>
           <div className="card-body">
-            <h4>{donation.bloodBank?.name || donation.camp?.name || 'Authorized Center'}</h4>
+            <h4>
+              {donation.bloodBank?.name ||
+                donation.camp?.name ||
+                "Authorized Center"}
+            </h4>
             <div className="card-metrics">
               <div className="metric">
                 <span className="label">Group</span>
@@ -39,9 +45,7 @@ const DonationTimeline = ({ donations }) => {
                 </div>
               )}
             </div>
-            {donation.notes && (
-              <p className="card-notes">"{donation.notes}"</p>
-            )}
+            {donation.notes && <p className="card-notes">"{donation.notes}"</p>}
           </div>
         </div>
       ))}

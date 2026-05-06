@@ -216,7 +216,6 @@
 }
 
 @media (max-width: 768px) {
-
   .grid-2,
   .grid-3 {
     grid-template-columns: 1fr;
@@ -345,7 +344,9 @@
 }
 
 @keyframes page-loader-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Skeleton Loader */
@@ -371,26 +372,20 @@
   width: 100%;
   height: 100%;
   animation: skeleton-loading 1.5s infinite;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.4),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
 }
 
 [data-theme='dark'] .skeleton-shimmer-wrapper {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.1),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
 }
 
 @keyframes skeleton-loading {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .skeleton-title {
@@ -549,7 +544,7 @@
 }
 
 .btn-loading::after {
-  content: "";
+  content: '';
   position: absolute;
   width: 20px;
   height: 20px;
@@ -568,7 +563,9 @@
 }
 
 @keyframes button-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Loading Spinner */
@@ -670,7 +667,6 @@
 }
 
 @keyframes pulse-badge {
-
   0%,
   100% {
     transform: scale(1);
@@ -833,7 +829,6 @@
 }
 
 @keyframes pulse-dot {
-
   0%,
   100% {
     opacity: 1;

@@ -1,13 +1,24 @@
-import donationRepository from '../repositories/DonationRepository.js';
-import userRepository from '../repositories/UserRepository.js';
-import mongoose from 'mongoose';
-import { validateDonation, validateBloodGroup } from './validationService.js';
-import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
-import { ApiError } from '../utils/apiError.js';
-import { sendDonationUpdateEmail, sendCertificateNotificationEmail } from '../utils/emailService.js';
-import { createNotification } from './notificationService.js';
-import { generateVerificationCode, generateDonationCertificate } from './certificateService.js';
-import { createBloodUnit } from './bloodUnitService.js';
+import donationRepository from "../repositories/DonationRepository.js";
+import userRepository from "../repositories/UserRepository.js";
+import mongoose from "mongoose";
+import { validateDonation } from "./validationService.js";
+import {
+  getPaginationParams,
+  buildPaginatedResponse,
+} from "../utils/pagination.js";
+import { ApiError } from "../utils/apiError.js";
+import {
+  sendDonationUpdateEmail,
+  sendCertificateNotificationEmail,
+} from "../utils/emailService.js";
+import { createNotification } from "./notificationService.js";
+import {
+  generateVerificationCode,
+  generateDonationCertificate,
+} from "./certificateService.js";
+import { createBloodUnit } from "./bloodUnitService.js";
+import cacheManager from "../utils/cacheManager.js";
+import Donation from "../models/Donation.model.js";
 
 const DONATION_ELIGIBILITY_PERIOD = 90 * 24 * 60 * 60 * 1000; // 90 days in ms
 
@@ -17,11 +28,11 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
 
   // Get user with optimized query
   const user = await userRepository.findById(donorId, {
-    select: '_id name bloodGroup isDonor donorInfo'
+    select: "_id name bloodGroup isDonor donorInfo",
   });
-  
+
   if (!user || !user.isDonor) {
-    throw new ApiError(403, 'Only registered donors can request to donate');
+    throw new ApiError(403, "Only registered donors can request to donate");
   }
 
   // Check 3-month donation rule
@@ -30,7 +41,10 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
     const threeMonthsAgo = new Date(Date.now() - DONATION_ELIGIBILITY_PERIOD);
 
     if (lastDate > threeMonthsAgo) {
-      throw new ApiError(400, 'You must wait 3 months after your last donation to donate again');
+      throw new ApiError(
+        400,
+        "You must wait 3 months after your last donation to donate again",
+      );
     }
   }
 
@@ -39,13 +53,14 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
     donor: donorId,
     bloodBank: bloodBankId,
     camp: data.campId || null,
-    type: data.campId ? 'camp' : 'request',
+    type: data.campId ? "camp" : "request",
     bloodGroup: data.bloodGroup || user.bloodGroup,
     donationDate: data.date || new Date(),
-    notes: data.notes || '',
-    status: 'pending'
+    notes: data.notes || "",
+    status: "pending",
   });
 
+  cacheManager.del("admin:dashboard_stats");
   return donation;
 };
 
@@ -55,17 +70,21 @@ export const getUserDonations = async (donorId, query) => {
 
   // Optimized queries - parallel execution
   const [donations, total] = await Promise.all([
-    donationRepository.find({ donor: donorId }, {
-      select: '_id bloodGroup status volumeDonated donationDate type createdAt certificateCode certificateIssuedAt',
-      populate: [
-        { path: 'bloodBank', select: 'name phone' },
-        { path: 'camp', select: 'name date' }
-      ],
-      sort: { createdAt: -1 },
-      skip,
-      limit
-    }),
-    donationRepository.count({ donor: donorId })
+    donationRepository.find(
+      { donor: donorId },
+      {
+        select:
+          "_id bloodGroup status volumeDonated donationDate type createdAt certificateCode certificateIssuedAt",
+        populate: [
+          { path: "bloodBank", select: "name phone" },
+          { path: "camp", select: "name date" },
+        ],
+        sort: { createdAt: -1 },
+        skip,
+        limit,
+      },
+    ),
+    donationRepository.count({ donor: donorId }),
   ]);
 
   return buildPaginatedResponse(donations, total, page, limit);
@@ -77,171 +96,216 @@ export const getBloodBankDonations = async (bloodBankId, query) => {
 
   // Optimized queries - parallel execution
   const [donations, total] = await Promise.all([
-    donationRepository.find({ bloodBank: bloodBankId }, {
-      select: '_id donor bloodGroup status volumeDonated donationDate type createdAt',
-      populate: [
-        { path: 'donor', select: 'name phone email bloodGroup' },
-        { path: 'camp', select: 'name date' }
-      ],
-      sort: { createdAt: -1 },
-      skip,
-      limit
-    }),
-    donationRepository.count({ bloodBank: bloodBankId })
+    donationRepository.find(
+      { bloodBank: bloodBankId },
+      {
+        select:
+          "_id donor bloodGroup status volumeDonated donationDate type createdAt",
+        populate: [
+          { path: "donor", select: "name phone email bloodGroup" },
+          { path: "camp", select: "name date" },
+        ],
+        sort: { createdAt: -1 },
+        skip,
+        limit,
+      },
+    ),
+    donationRepository.count({ bloodBank: bloodBankId }),
   ]);
 
   return buildPaginatedResponse(donations, total, page, limit);
 };
 
 // Record/approve donation (atomic operation)
-export const recordDonation = async (donationId, bloodBankId, volumeDonated) => {
+export const recordDonation = async (
+  donationId,
+  bloodBankId,
+  volumeDonated,
+) => {
   if (!volumeDonated || volumeDonated <= 0) {
-    throw new ApiError(400, 'Volume donated must be greater than 0');
+    throw new ApiError(400, "Volume donated must be greater than 0");
   }
 
-  // Get donation with optimized query
-  const donation = await donationRepository.findById(donationId, {
-    select: '_id bloodBank status donor'
-  });
-  
-  if (!donation) {
-    throw new ApiError(404, 'Donation record not found');
-  }
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (donation.bloodBank.toString() !== bloodBankId.toString()) {
-    throw new ApiError(403, 'Not authorized to record this donation');
-  }
+  try {
+    // Get donation with optimized query
+    const donation = await donationRepository.findById(donationId, {
+      select: "_id bloodBank status donor",
+      session,
+    });
 
-  if (donation.status === 'completed') {
-    throw new ApiError(400, 'This donation has already been recorded');
-  }
+    if (!donation) {
+      throw new ApiError(404, "Donation record not found");
+    }
 
-  const updatedDonation = await donationRepository.updateOne(
-    { _id: donationId },
-    {
-      $set: {
-        status: 'completed',
-        volumeDonated,
-        donationDate: new Date(),
-        certificateCode: generateVerificationCode(),
-        certificateIssuedAt: new Date()
-      }
-    },
-    { returnDocument: 'after', runValidators: true, populate: [{ path: 'donor', select: 'name email' }, { path: 'bloodBank', select: 'name' }] }
-  );
+    if (donation.bloodBank.toString() !== bloodBankId.toString()) {
+      throw new ApiError(403, "Not authorized to record this donation");
+    }
 
-  // Send donation completion email (async) - ONLY for personal requests, not camps
-  if (updatedDonation && updatedDonation.donor && updatedDonation.type === 'request') {
-    sendDonationUpdateEmail(
-      updatedDonation.donor, 
-      updatedDonation, 
-      `Your donation of ${volumeDonated} units was successfully completed and recorded.`
-    ).catch(err => console.error('Donation record email failed:', err));
+    if (donation.status === "completed") {
+      throw new ApiError(400, "This donation has already been recorded");
+    }
 
-    // Send certificate notification email
-    sendCertificateNotificationEmail(updatedDonation.donor, updatedDonation)
-      .catch(err => console.error('Certificate email failed:', err));
+    const updatedDonation = await donationRepository.updateOne(
+      { _id: donationId },
+      {
+        $set: {
+          status: "completed",
+          volumeDonated,
+          donationDate: new Date(),
+          certificateCode: generateVerificationCode(),
+          certificateIssuedAt: new Date(),
+        },
+      },
+      {
+        session,
+        returnDocument: "after",
+        runValidators: true,
+        populate: [
+          { path: "donor", select: "name email" },
+          { path: "bloodBank", select: "name" },
+        ],
+      },
+    );
 
-    // Create in-app notification
-    createNotification({
-      recipient: updatedDonation.donor._id,
-      recipientModel: 'User',
-      title: 'Donation Completed ✨',
-      message: `Your blood donation of ${volumeDonated} units has been successfully recorded. Your certificate is ready!`,
-      type: 'donation',
-      actionUrl: '/donation-history'
-    }).catch(err => console.error('In-app notification failed:', err));
-  }
-
-  // Update donor info — awaited via Promise.allSettled to prevent silent data loss
-  const [donorUpdateResult] = await Promise.allSettled([
-    userRepository.updateOne(
+    // Update donor info
+    await userRepository.updateOne(
       { _id: donation.donor },
       {
-        $set: { 'donorInfo.lastDonationDate': new Date() },
+        $set: { "donorInfo.lastDonationDate": new Date() },
         $inc: {
-          'donorInfo.totalDonations': 1,
-          'donorInfo.totalDonatedVolume': volumeDonated
-        }
-      }
-    )
-  ]);
-  if (donorUpdateResult.status === 'rejected') {
-    console.error('Failed to update donor info:', donorUpdateResult.reason);
-  }
+          "donorInfo.totalDonations": 1,
+          "donorInfo.totalDonatedVolume": volumeDonated,
+        },
+      },
+      { session },
+    );
 
-  // NEW: Create Individual Blood Unit tracking record
-  try {
-    await createBloodUnit(updatedDonation);
-  } catch (err) {
-    console.error('Failed to create individual blood unit:', err);
-  }
+    await createBloodUnit(updatedDonation, session);
 
-  return updatedDonation;
+    await session.commitTransaction();
+
+    // Async tasks (Email/Notifications) - outside transaction
+    if (
+      updatedDonation &&
+      updatedDonation.donor &&
+      updatedDonation.type === "request"
+    ) {
+      sendDonationUpdateEmail(
+        updatedDonation.donor,
+        updatedDonation,
+        `Your donation of ${volumeDonated} units was successfully completed and recorded.`,
+      ).catch((err) => console.error("Donation record email failed:", err));
+
+      sendCertificateNotificationEmail(
+        updatedDonation.donor,
+        updatedDonation,
+      ).catch((err) => console.error("Certificate email failed:", err));
+
+      createNotification({
+        recipient: updatedDonation.donor._id,
+        recipientModel: "User",
+        title: "Donation Completed ✨",
+        message: `Your blood donation of ${volumeDonated} units has been successfully recorded. Your certificate is ready!`,
+        type: "donation",
+        actionUrl: "/donation-history",
+      }).catch((err) => console.error("In-app notification failed:", err));
+    }
+
+    cacheManager.del("admin:dashboard_stats");
+    return updatedDonation;
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 // Update donation status
 export const updateDonationStatus = async (donationId, bloodBankId, status) => {
-  const validStatuses = ['pending', 'approved', 'rejected', 'completed'];
-  
+  const validStatuses = ["pending", "approved", "rejected", "completed"];
+
   if (!validStatuses.includes(status)) {
-    throw new ApiError(400, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+    throw new ApiError(
+      400,
+      `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
+    );
   }
 
   const donation = await donationRepository.findById(donationId, {
-    select: 'bloodBank status type'
+    select: "bloodBank status type",
   });
-  
+
   if (!donation) {
-    throw new ApiError(404, 'Donation record not found');
+    throw new ApiError(404, "Donation record not found");
   }
 
   if (donation.bloodBank.toString() !== bloodBankId.toString()) {
-    throw new ApiError(403, 'Not authorized to update this donation');
+    throw new ApiError(403, "Not authorized to update this donation");
   }
 
   // Atomic update
   const updatedDonation = await donationRepository.updateOne(
     { _id: donationId },
     { $set: { status, updatedAt: new Date() } },
-    { returnDocument: 'after', runValidators: true, populate: [{ path: 'donor', select: 'name email' }, { path: 'bloodBank', select: 'name' }] }
+    {
+      returnDocument: "after",
+      runValidators: true,
+      populate: [
+        { path: "donor", select: "name email" },
+        { path: "bloodBank", select: "name" },
+      ],
+    },
   );
 
   // Send status update email (async) - ONLY for personal requests, not camps
-  if (updatedDonation && updatedDonation.donor && updatedDonation.status !== 'completed' && updatedDonation.type === 'request') {
-    const message = status === 'rejected' 
-      ? 'Unfortunately, your donation request was not approved at this time. Please contact the blood bank for details.'
-      : `Your donation request has been marked as ${status}.`;
-      
-    sendDonationUpdateEmail(updatedDonation.donor, updatedDonation, message)
-      .catch(err => console.error('Donation status email failed:', err));
+  if (
+    updatedDonation &&
+    updatedDonation.donor &&
+    updatedDonation.status !== "completed" &&
+    updatedDonation.type === "request"
+  ) {
+    const message =
+      status === "rejected"
+        ? "Unfortunately, your donation request was not approved at this time. Please contact the blood bank for details."
+        : `Your donation request has been marked as ${status}.`;
+
+    sendDonationUpdateEmail(
+      updatedDonation.donor,
+      updatedDonation,
+      message,
+    ).catch((err) => console.error("Donation status email failed:", err));
 
     // Create in-app notification
     createNotification({
       recipient: updatedDonation.donor._id,
-      recipientModel: 'User',
-      title: 'Donation Request Update',
+      recipientModel: "User",
+      title: "Donation Request Update",
       message: `Your donation request status has been updated to ${status}.`,
-      type: 'donation',
-      actionUrl: '/dashboard'
-    }).catch(err => console.error('In-app notification failed:', err));
+      type: "donation",
+      actionUrl: "/dashboard",
+    }).catch((err) => console.error("In-app notification failed:", err));
   }
 
+  cacheManager.del("admin:dashboard_stats");
   return updatedDonation;
 };
 
 // Check donor eligibility
 export const checkDonorEligibility = async (donorId) => {
   const user = await userRepository.findById(donorId, {
-    select: 'donorInfo isDonor'
+    select: "donorInfo isDonor",
   });
-  
+
   if (!user || !user.isDonor) {
-    throw new ApiError(403, 'User is not a registered donor');
+    throw new ApiError(403, "User is not a registered donor");
   }
 
   if (!user.donorInfo?.lastDonationDate) {
-    return { eligible: true, message: 'Eligible to donate' };
+    return { eligible: true, message: "Eligible to donate" };
   }
 
   const lastDate = new Date(user.donorInfo.lastDonationDate);
@@ -249,16 +313,17 @@ export const checkDonorEligibility = async (donorId) => {
 
   if (lastDate > threeMonthsAgo) {
     const daysRemaining = Math.ceil(
-      (lastDate.getTime() + DONATION_ELIGIBILITY_PERIOD - Date.now()) / (24 * 60 * 60 * 1000)
+      (lastDate.getTime() + DONATION_ELIGIBILITY_PERIOD - Date.now()) /
+        (24 * 60 * 60 * 1000),
     );
     return {
       eligible: false,
       message: `You can donate again in ${daysRemaining} days`,
-      daysRemaining
+      daysRemaining,
     };
   }
 
-  return { eligible: true, message: 'Eligible to donate' };
+  return { eligible: true, message: "Eligible to donate" };
 };
 
 // Get donation statistics
@@ -267,11 +332,11 @@ export const getDonationStats = async (bloodBankId, query) => {
     { $match: { bloodBank: new mongoose.Types.ObjectId(bloodBankId) } },
     {
       $group: {
-        _id: '$status',
+        _id: "$status",
         count: { $sum: 1 },
-        totalVolume: { $sum: '$volumeDonated' }
-      }
-    }
+        totalVolume: { $sum: "$volumeDonated" },
+      },
+    },
   ]);
 
   const formattedStats = {
@@ -279,10 +344,10 @@ export const getDonationStats = async (bloodBankId, query) => {
     completed: 0,
     pending: 0,
     rejected: 0,
-    totalVolume: 0
+    totalVolume: 0,
   };
 
-  stats.forEach(stat => {
+  stats.forEach((stat) => {
     formattedStats.total += stat.count;
     formattedStats[stat._id] = stat.count;
     formattedStats.totalVolume += stat.totalVolume || 0;
@@ -295,26 +360,32 @@ export const getDonationStats = async (bloodBankId, query) => {
 export const getDonationCertificate = async (donationId, user) => {
   const donation = await donationRepository.findById(donationId, {
     populate: [
-      { path: 'donor', select: 'name' },
-      { path: 'bloodBank', select: 'name address' },
-      { path: 'camp', select: 'name address' }
+      { path: "donor", select: "name" },
+      { path: "bloodBank", select: "name address" },
+      { path: "camp", select: "name address" },
     ],
-    lean: false
+    lean: false,
   });
 
   if (!donation) {
-    throw new ApiError(404, 'Donation record not found');
+    throw new ApiError(404, "Donation record not found");
   }
 
   const userId = user.userId || user._id || user.id;
 
   // Security check: Only the donor or an admin can download the certificate
-  if (donation.donor._id.toString() !== userId.toString() && user.role !== 'admin') {
-    throw new ApiError(403, 'Unauthorized to download this certificate');
+  if (
+    donation.donor._id.toString() !== userId.toString() &&
+    user.role !== "admin"
+  ) {
+    throw new ApiError(403, "Unauthorized to download this certificate");
   }
 
-  if (donation.status !== 'completed') {
-    throw new ApiError(400, 'Donation is not completed yet. Certificate not available.');
+  if (donation.status !== "completed") {
+    throw new ApiError(
+      400,
+      "Donation is not completed yet. Certificate not available.",
+    );
   }
 
   const pdfBuffer = await generateDonationCertificate(donation);

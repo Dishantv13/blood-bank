@@ -4,7 +4,15 @@ export default class BaseRepository {
   }
 
   async find(filter = {}, options = {}) {
-    const { sort, skip, limit, populate, select, lean = true, session } = options;
+    const {
+      sort,
+      skip,
+      limit,
+      populate,
+      select,
+      lean = true,
+      session,
+    } = options;
     let query = this.model.find(filter);
 
     if (select) query = query.select(select);
@@ -13,29 +21,29 @@ export default class BaseRepository {
     if (limit) query = query.limit(limit);
     if (populate) query = query.populate(populate);
     if (session) query = query.session(session);
-    
+
     return lean ? query.lean() : query;
   }
 
   async findOne(filter = {}, options = {}) {
     const { populate, select, lean = true, session } = options;
     let query = this.model.findOne(filter);
-    
+
     if (select) query = query.select(select);
     if (populate) query = query.populate(populate);
     if (session) query = query.session(session);
-    
+
     return lean ? query.lean() : query;
   }
 
   async findById(id, options = {}) {
     const { populate, select, lean = true, session } = options;
     let query = this.model.findById(id);
-    
+
     if (select) query = query.select(select);
     if (populate) query = query.populate(populate);
     if (session) query = query.session(session);
-    
+
     return lean ? query.lean() : query;
   }
 
@@ -51,10 +59,10 @@ export default class BaseRepository {
   async updateOne(filter, data, options = { new: true, lean: true }) {
     const { session, lean = true } = options;
     let query = this.model.findOneAndUpdate(filter, data, options);
-    
+
     if (session) query = query.session(session);
     if (lean) query = query.lean();
-    
+
     return query;
   }
 

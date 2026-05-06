@@ -1,16 +1,25 @@
-import { useEffect } from 'react';
-import { useGetNotificationsQuery, useMarkAsReadMutation, useMarkAllAsReadMutation, useDeleteNotificationMutation } from '../store/notificationApi';
-import { useAuth } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
-import EmptyState from './EmptyState';
-import { useSocket } from '../context/SocketContext';
+import { useEffect } from "react";
+import {
+  useGetNotificationsQuery,
+  useMarkAsReadMutation,
+  useMarkAllAsReadMutation,
+  useDeleteNotificationMutation,
+} from "../store/notificationApi";
+import { useAuth } from "../context/AuthContext";
+import { Link } from "react-router-dom";
+import EmptyState from "./EmptyState";
+import { useSocket } from "../context/SocketContext";
 
 const NotificationCenter = ({ isOpen, onClose }) => {
   const { isAuthenticated } = useAuth();
   const { socket } = useSocket();
-  const { data: notificationsRes, isLoading, refetch } = useGetNotificationsQuery(undefined, {
+  const {
+    data: notificationsRes,
+    isLoading,
+    refetch,
+  } = useGetNotificationsQuery(undefined, {
     skip: !isAuthenticated,
-    pollingInterval: 60000 // Reduced polling as we now have sockets
+    // pollingInterval: 60000 // Reduced polling as we now have sockets
   });
 
   const [markAsRead] = useMarkAsReadMutation();
@@ -24,14 +33,14 @@ const NotificationCenter = ({ isOpen, onClose }) => {
     if (!socket || !isAuthenticated) return;
 
     const handleNewNotification = (data) => {
-      console.log('📢 Real-time: Notification received for UI update', data);
+      console.log("📢 Real-time: Notification received for UI update", data);
       refetch(); // Instantly refresh the list from server
     };
 
-    socket.on('notification', handleNewNotification);
+    socket.on("notification", handleNewNotification);
 
     return () => {
-      socket.off('notification', handleNewNotification);
+      socket.off("notification", handleNewNotification);
     };
   }, [socket, isAuthenticated, refetch]);
 
@@ -40,20 +49,31 @@ const NotificationCenter = ({ isOpen, onClose }) => {
   return (
     <>
       <div className="notification-overlay" onClick={onClose}></div>
-      <div className={`notification-drawer ${isOpen ? 'open' : ''}`}>
+      <div className={`notification-drawer ${isOpen ? "open" : ""}`}>
         <div className="notification-drawer-header">
           <div className="header-title">
             <h3>Notifications</h3>
             {notifications.length > 0 && (
-              <span className="count-badge">{notifications.filter(n => !n.isRead).length} Unread</span>
+              <span className="count-badge">
+                {notifications.filter((n) => !n.isRead).length} Unread
+              </span>
             )}
           </div>
           <div className="header-actions">
-            {notifications.some(n => !n.isRead) && (
-              <button className="text-btn" onClick={() => markAllAsRead()}>Mark all as read</button>
+            {notifications.some((n) => !n.isRead) && (
+              <button className="text-btn" onClick={() => markAllAsRead()}>
+                Mark all as read
+              </button>
             )}
             <button className="close-btn" onClick={onClose}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
@@ -78,28 +98,44 @@ const NotificationCenter = ({ isOpen, onClose }) => {
               {notifications.map((notif) => (
                 <div
                   key={notif._id}
-                  className={`notification-card ${notif.isRead ? 'read' : 'unread'}`}
+                  className={`notification-card ${notif.isRead ? "read" : "unread"}`}
                   onClick={() => !notif.isRead && markAsRead(notif._id)}
                 >
                   <div className={`type-indicator ${notif.type}`}></div>
                   <div className="card-body">
                     <div className="card-header">
                       <span className="notif-title">{notif.title}</span>
-                      <span className="notif-time">{new Date(notif.createdAt).toLocaleDateString()}</span>
+                      <span className="notif-time">
+                        {new Date(notif.createdAt).toLocaleDateString()}
+                      </span>
                     </div>
                     <p className="notif-message">{notif.message}</p>
                     {notif.actionUrl && (
-                      <Link to={notif.actionUrl} className="action-link" onClick={onClose}>
+                      <Link
+                        to={notif.actionUrl}
+                        className="action-link"
+                        onClick={onClose}
+                      >
                         View Details
                       </Link>
                     )}
                   </div>
                   <button
                     className="delete-btn"
-                    onClick={(e) => { e.stopPropagation(); deleteNotification(notif._id); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteNotification(notif._id);
+                    }}
                     title="Delete notification"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <polyline points="3 6 5 6 21 6"></polyline>
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     </svg>

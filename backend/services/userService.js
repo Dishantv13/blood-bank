@@ -1,21 +1,34 @@
-import User from '../models/User.model.js';
-import DonorHealth from '../models/DonorHealth.model.js';
-import BloodRequest from '../models/BloodRequest.model.js';
-import Donation from '../models/Donation.model.js';
-import Event from '../models/Event.model.js';
-import mongoose from 'mongoose';
-import * as validationService from './validationService.js';
-import { checkAndSendSingleReminder } from './reminderService.js';
-import { ApiError } from '../utils/apiError.js';
-import { uploadOnCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
-import { sanitizeUser, USER_DONOR_FIELDS, USER_PROFILE_FIELDS } from '../utils/serializers.js';
-import { getPaginationParams, buildPaginatedResponse } from '../utils/pagination.js';
-import userRepository from '../repositories/UserRepository.js';
-import Tesseract from 'tesseract.js';
-import fs from 'fs';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+import User from "../models/User.model.js";
+import DonorHealth from "../models/DonorHealth.model.js";
+import BloodRequest from "../models/BloodRequest.model.js";
+import Donation from "../models/Donation.model.js";
+import Event from "../models/Event.model.js";
+import mongoose from "mongoose";
+import * as validationService from "./validationService.js";
+import { checkAndSendSingleReminder } from "./reminderService.js";
+import { ApiError } from "../utils/apiError.js";
+import {
+  uploadOnCloudinary,
+  deleteFromCloudinary,
+} from "../utils/cloudinary.js";
+import {
+  sanitizeDonorSummary,
+  sanitizeUser,
+  USER_DONOR_FIELDS,
+  USER_PROFILE_FIELDS,
+} from "../utils/serializers.js";
+import {
+  getPaginationParams,
+  buildPaginatedResponse,
+} from "../utils/pagination.js";
+import userRepository from "../repositories/UserRepository.js";
+import Tesseract from "tesseract.js";
+import fs from "fs";
+import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from "../config/redis.js";
+import { queueAadhaarVerification } from "../queues/aadhaarVerificationQueue.js";
+import * as auditService from "./auditService.js";
 
 const DASHBOARD_STATS_TTL = 60; // 60 seconds (increased from 30)
 
@@ -27,7 +40,7 @@ const getDashboardStatsFromCache = async (userId) => {
     const data = await redis.get(`cache:dashboard:${userId}`);
     return data ? JSON.parse(data) : null;
   } catch (err) {
-    console.error('[Cache] Redis get error:', err.message);
+    console.error("[Cache] Redis get error:", err.message);
     return null;
   }
 };
@@ -38,10 +51,10 @@ const setDashboardStatsCache = async (userId, payload) => {
     if (!redis) return;
 
     await redis.set(`cache:dashboard:${userId}`, JSON.stringify(payload), {
-      EX: DASHBOARD_STATS_TTL
+      EX: DASHBOARD_STATS_TTL,
     });
   } catch (err) {
-    console.error('[Cache] Redis set error:', err.message);
+    console.error("[Cache] Redis set error:", err.message);
   }
 };
 const invalidateDashboardStatsCache = async (userId) => {
@@ -51,7 +64,7 @@ const invalidateDashboardStatsCache = async (userId) => {
 
     await redis.del(`cache:dashboard:${userId}`);
   } catch (err) {
-    console.error('[Cache] Redis delete error:', err.message);
+    console.error("[Cache] Redis delete error:", err.message);
   }
 };
 
@@ -59,16 +72,16 @@ const invalidateDashboardStatsCache = async (userId) => {
 export const getUserProfile = async (userId) => {
   const user = await userRepository.findById(userId, {
     select: USER_PROFILE_FIELDS,
-    populate: 'healthForm'
+    populate: "healthForm",
   });
 
   if (!user) {
-    throw new ApiError(404, 'User not found');
+    throw new ApiError(404, "User not found");
   }
 
   // Provide a sensible default for activeMode without writing to the DB
   if (!user.activeMode) {
-    user.activeMode = 'patient';
+    user.activeMode = "patient";
   }
 
   return sanitizeUser(user);
@@ -76,11 +89,11 @@ export const getUserProfile = async (userId) => {
 
 // Update user profile photo
 export const updateProfilePhoto = async (userId, localFilePath) => {
-  if (!localFilePath) throw new ApiError(400, 'No file path provided');
-  
+  if (!localFilePath) throw new ApiError(400, "No file path provided");
+
   const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
-    throw new ApiError(404, 'User not found');
+    throw new ApiError(404, "User not found");
   }
 
   // Delete old photo from Cloudinary if it exists
@@ -89,27 +102,31 @@ export const updateProfilePhoto = async (userId, localFilePath) => {
   }
 
   // Upload to Cloudinary
-  const cloudinaryResponse = await uploadOnCloudinary(localFilePath, 'users/profiles');
-  
+  const cloudinaryResponse = await uploadOnCloudinary(
+    localFilePath,
+    "users/profiles",
+  );
+
   if (!cloudinaryResponse) {
-    throw new ApiError(500, 'Failed to upload photo to Cloudinary');
+    throw new ApiError(500, "Failed to upload photo to Cloudinary");
   }
 
   // Update user profile with Cloudinary URL and Public ID
   user.photoURL = cloudinaryResponse.secure_url;
   user.photoURLPublicId = cloudinaryResponse.public_id;
-  
+
   await user.save();
-  
-  return { 
+
+  return {
     photoURL: user.photoURL,
-    publicId: cloudinaryResponse.public_id 
+    publicId: cloudinaryResponse.public_id,
   };
 };
 
 // Update user profile
 export const updateUserProfile = async (userId, updateData) => {
-  const { name, phone, bloodGroup, isDonor, address, isAvailable, location } = updateData;
+  const { name, phone, bloodGroup, isDonor, address, isAvailable, location } =
+    updateData;
 
   const updateFields = {};
   if (name) updateFields.name = name;
@@ -129,11 +146,15 @@ export const updateUserProfile = async (userId, updateData) => {
   const user = await userRepository.updateOne(
     { _id: userId },
     { $set: updateFields },
-    { returnDocument: 'after', runValidators: true, select: USER_PROFILE_FIELDS }
+    {
+      returnDocument: "after",
+      runValidators: true,
+      select: USER_PROFILE_FIELDS,
+    },
   );
 
   if (!user) {
-    throw new ApiError(404, 'User not found');
+    throw new ApiError(404, "User not found");
   }
 
   invalidateDashboardStatsCache(userId);
@@ -147,13 +168,17 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
 
   const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
-    throw new ApiError(404, 'User not found');
+    throw new ApiError(404, "User not found");
   }
 
   // Calculate eligibility on backend
   const calculateEligibility = (data) => {
-    const hasDisease = data.diseases ? Object.values(data.diseases).some(v => v === true) : false;
-    const hasRecentCondition = data.recentConditions ? Object.values(data.recentConditions).some(v => v === true) : false;
+    const hasDisease = data.diseases
+      ? Object.values(data.diseases).some((v) => v === true)
+      : false;
+    const hasRecentCondition = data.recentConditions
+      ? Object.values(data.recentConditions).some((v) => v === true)
+      : false;
 
     const weight = parseFloat(data.weight);
     const weightOk = !isNaN(weight) && weight >= 50;
@@ -161,15 +186,19 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
     let ageOk = false;
     if (data.dateOfBirth) {
       const birthDate = new Date(data.dateOfBirth);
-      const age = Math.floor((new Date() - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
+      const age = Math.floor(
+        (new Date() - birthDate) / (365.25 * 24 * 60 * 60 * 1000),
+      );
       ageOk = age >= 18 && age <= 65;
     }
 
-    const lastDateStr = user.donorInfo?.lastDonationDate || data.lastDonationDate;
+    const lastDateStr =
+      user.donorInfo?.lastDonationDate || data.lastDonationDate;
     let donationGapOk = true;
     if (lastDateStr) {
       const lastDonation = new Date(lastDateStr);
-      const monthsGap = (new Date() - lastDonation) / (30 * 24 * 60 * 60 * 1000);
+      const monthsGap =
+        (new Date() - lastDonation) / (30 * 24 * 60 * 60 * 1000);
       donationGapOk = monthsGap >= 3;
     }
 
@@ -178,32 +207,42 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
       hasRecentCondition,
       weightOk,
       ageOk,
-      donationGapOk
+      donationGapOk,
     };
 
     return {
-      eligible: !hasDisease && !hasRecentCondition && weightOk && ageOk && donationGapOk,
-      reasons
+      eligible:
+        !hasDisease &&
+        !hasRecentCondition &&
+        weightOk &&
+        ageOk &&
+        donationGapOk,
+      reasons,
     };
   };
 
   const eligibility = calculateEligibility(donorData);
 
   // Create/Update DonorHealth record
-  let healthForm = await DonorHealth.findOne({ donor: userId }).sort({ submittedAt: -1 });
+  let healthForm = await DonorHealth.findOne({ donor: userId }).sort({
+    submittedAt: -1,
+  });
 
   const mappingData = {
     donor: userId,
     fullName: user.name,
     weight: parseFloat(donorData.weight),
-    phone: user.phone || donorData.emergencyContact?.phone || '',
+    phone: user.phone || donorData.emergencyContact?.phone || "",
     email: user.email,
     dateOfBirth: new Date(donorData.dateOfBirth),
     gender: donorData.gender,
-    bloodGroup: user.bloodGroup || 'unknown',
+    bloodGroup: user.bloodGroup || "unknown",
     medicalConditions: {
       hivAids: donorData.diseases?.hiv || false,
-      hepatitisBC: donorData.diseases?.hepatitisB || donorData.diseases?.hepatitisC || false,
+      hepatitisBC:
+        donorData.diseases?.hepatitisB ||
+        donorData.diseases?.hepatitisC ||
+        false,
       malaria: donorData.diseases?.malaria || false,
       tuberculosis: donorData.diseases?.tuberculosis || false,
       heartDisease: donorData.diseases?.heartDisease || false,
@@ -218,24 +257,32 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
       pregnancyOrBreastfeeding: donorData.recentConditions?.pregnancy || false,
     },
     currentHealth: {
-      recentFeverOrIllness: donorData.recentConditions?.fever || donorData.recentConditions?.coldOrFlu || false,
+      recentFeverOrIllness:
+        donorData.recentConditions?.fever ||
+        donorData.recentConditions?.coldOrFlu ||
+        false,
     },
     lifestyle: {
-      alcohol: donorData.lifestyle?.alcohol || 'never',
-      smoking: donorData.lifestyle?.smoking || 'never',
+      alcohol: donorData.lifestyle?.alcohol || "never",
+      smoking: donorData.lifestyle?.smoking || "never",
       drugUse: donorData.lifestyle?.drugUse || false,
     },
     donationHistory: {
       previouslyDonated: (user.donorInfo?.totalDonations || 0) > 0,
-      lastDonationDate: user.donorInfo?.lastDonationDate || donorData.lastDonationDate,
+      lastDonationDate:
+        user.donorInfo?.lastDonationDate || donorData.lastDonationDate,
       totalDonations: user.donorInfo?.totalDonations || 0,
     },
     consent: {
-      informationAccurate: donorData.consent?.informationAccurate || donorData.accuracyDeclaration || false,
-      consentToDonate: donorData.consent?.consentToDonate || donorData.consent || false,
-      understandsProcess: donorData.consent?.understandsProcess || true
+      informationAccurate:
+        donorData.consent?.informationAccurate ||
+        donorData.accuracyDeclaration ||
+        false,
+      consentToDonate:
+        donorData.consent?.consentToDonate || donorData.consent || false,
+      understandsProcess: donorData.consent?.understandsProcess || true,
     },
-    status: eligibility.eligible ? 'approved' : 'requires_review'
+    status: eligibility.eligible ? "approved" : "requires_review",
   };
 
   if (healthForm) {
@@ -257,7 +304,7 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
     lastUpdated: new Date(),
     dateOfBirth: mappingData.dateOfBirth,
     gender: mappingData.gender,
-    bloodGroup: user.bloodGroup
+    bloodGroup: user.bloodGroup,
   };
 
   user.isDonor = true;
@@ -288,45 +335,45 @@ export const getAvailableDonors = async (query) => {
     donors = await userRepository.findNearbyDonors(
       [parseFloat(longitude), parseFloat(latitude)],
       maxDistance ? parseInt(maxDistance) : 10000,
-      bloodGroup
+      bloodGroup,
     );
-    
+
     total = await userRepository.count(filterQuery);
   } else {
     const [donorDocs, donorCount] = await Promise.all([
       userRepository.find(filterQuery, {
         select: USER_DONOR_FIELDS,
         skip,
-        limit
+        limit,
       }),
-      userRepository.count(filterQuery)
+      userRepository.count(filterQuery),
     ]);
     donors = donorDocs;
     total = donorCount;
   }
 
-  const results = donors.map((donor) => sanitizeUser(donor));
+  const results = donors.map((donor) => sanitizeDonorSummary(donor));
   return buildPaginatedResponse(results, total, page, limit);
 };
 
 // Toggle between donor and patient mode
 export const toggleMode = async (userId, mode) => {
-  if (!['donor', 'patient'].includes(mode)) {
-    throw new ApiError(400, 'Invalid mode. Must be donor or patient');
+  if (!["donor", "patient"].includes(mode)) {
+    throw new ApiError(400, "Invalid mode. Must be donor or patient");
   }
 
   const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
-    throw new ApiError(404, 'User not found');
+    throw new ApiError(404, "User not found");
   }
 
   if (!user.activeMode) {
-    user.activeMode = 'patient';
+    user.activeMode = "patient";
   }
 
   // If switching to donor mode, ensure they have isDonor set
-  if (mode === 'donor' && !user.isDonor) {
-    throw new ApiError(400, 'Please complete donor registration first');
+  if (mode === "donor" && !user.isDonor) {
+    throw new ApiError(400, "Please complete donor registration first");
   }
 
   user.activeMode = mode;
@@ -337,7 +384,7 @@ export const toggleMode = async (userId, mode) => {
   return {
     success: true,
     message: `Switched to ${mode} mode successfully`,
-    activeMode: user.activeMode
+    activeMode: user.activeMode,
   };
 };
 
@@ -349,62 +396,71 @@ export const getDashboardStats = async (userId) => {
   }
 
   // Trigger background check for reminders (fire and forget)
-  checkAndSendSingleReminder(userId).catch(err => console.error('Reminder trigger error:', err));
+  checkAndSendSingleReminder(userId).catch((err) =>
+    console.error("Reminder trigger error:", err),
+  );
 
   const userObjectId = new mongoose.Types.ObjectId(userId);
   const now = new Date();
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const [requestFacetResult, eventFacetResult, donationFacetResult, donorCount, totalUsers, user] = await Promise.all([
+  const [
+    requestFacetResult,
+    eventFacetResult,
+    donationFacetResult,
+    donorCount,
+    totalUsers,
+    user,
+  ] = await Promise.all([
     BloodRequest.aggregate([
       {
         $facet: {
           myRequests: [
             { $match: { requestedBy: userObjectId } },
-            { $group: { _id: '$status', count: { $sum: 1 } } }
+            { $group: { _id: "$status", count: { $sum: 1 } } },
           ],
           bloodGroups: [
-            { $match: { status: 'pending' } },
-            { $group: { _id: '$bloodGroup', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
+            { $match: { status: "pending" } },
+            { $group: { _id: "$bloodGroup", count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
           ],
           urgency: [
-            { $match: { status: 'pending' } },
-            { $group: { _id: '$urgency', count: { $sum: 1 } } }
+            { $match: { status: "pending" } },
+            { $group: { _id: "$urgency", count: { $sum: 1 } } },
           ],
           monthlyTrend: [
             { $match: { createdAt: { $gte: sixMonthsAgo } } },
             {
               $group: {
                 _id: {
-                  year: { $year: '$createdAt' },
-                  month: { $month: '$createdAt' }
+                  year: { $year: "$createdAt" },
+                  month: { $month: "$createdAt" },
                 },
-                count: { $sum: 1 }
-              }
+                count: { $sum: 1 },
+              },
             },
-            { $sort: { '_id.year': 1, '_id.month': 1 } }
-          ]
-        }
-      }
+            { $sort: { "_id.year": 1, "_id.month": 1 } },
+          ],
+        },
+      },
     ]),
     Event.aggregate([
       {
         $facet: {
           upcoming: [
             { $match: { date: { $gte: now }, isActive: true } },
-            { $count: 'count' }
+            { $count: "count" },
           ],
           registered: [
             { $match: { registeredDonors: userObjectId, date: { $gte: now } } },
-            { $count: 'count' }
-          ]
-        }
-      }
+            { $count: "count" },
+          ],
+        },
+      },
     ]),
     Donation.aggregate([
-      { $match: { donor: userObjectId, status: 'completed' } },
+      { $match: { donor: userObjectId, status: "completed" } },
       {
         $facet: {
           summary: [
@@ -412,30 +468,39 @@ export const getDashboardStats = async (userId) => {
               $group: {
                 _id: null,
                 totalCount: { $sum: 1 },
-                totalVolume: { $sum: '$volumeDonated' }
-              }
-            }
+                totalVolume: { $sum: "$volumeDonated" },
+              },
+            },
           ],
           latest: [
             { $sort: { donationDate: -1 } },
             { $limit: 1 },
-            { $project: { _id: 0, donationDate: 1 } }
-          ]
-        }
-      }
+            { $project: { _id: 0, donationDate: 1 } },
+          ],
+        },
+      },
     ]),
     User.countDocuments({ isDonor: true, isAvailable: true }),
     User.countDocuments({}),
-    User.findById(userId).select(USER_PROFILE_FIELDS).lean()
+    User.findById(userId).select(USER_PROFILE_FIELDS).lean(),
   ]);
 
   const requestFacet = requestFacetResult[0] || {};
   const eventFacet = eventFacetResult[0] || {};
   const donationFacet = donationFacetResult[0] || {};
 
-  const realTotalDonations = donationFacet.summary?.[0]?.totalCount || user?.donorInfo?.totalDonations || 0;
-  const realTotalVolume = donationFacet.summary?.[0]?.totalVolume || user?.donorInfo?.totalDonatedVolume || 0;
-  const realLastDonationDate = donationFacet.latest?.[0]?.donationDate || user?.donorInfo?.lastDonationDate || user?.lastDonationDate;
+  const realTotalDonations =
+    donationFacet.summary?.[0]?.totalCount ||
+    user?.donorInfo?.totalDonations ||
+    0;
+  const realTotalVolume =
+    donationFacet.summary?.[0]?.totalVolume ||
+    user?.donorInfo?.totalDonatedVolume ||
+    0;
+  const realLastDonationDate =
+    donationFacet.latest?.[0]?.donationDate ||
+    user?.donorInfo?.lastDonationDate ||
+    user?.lastDonationDate;
 
   const result = {
     stats: {
@@ -451,86 +516,260 @@ export const getDashboardStats = async (userId) => {
         personalStats: {
           totalDonations: realTotalDonations,
           totalDonatedVolume: realTotalVolume,
-          lastDonationDate: realLastDonationDate
-        }
-      }
-    }
+          lastDonationDate: realLastDonationDate,
+        },
+      },
+    },
   };
 
   // Sync back to user model if there's a disconnect (Perform in background to keep API fast)
-  if (user.donorInfo && (
-    user.donorInfo.totalDonations !== realTotalDonations ||
-    user.donorInfo.totalDonatedVolume !== realTotalVolume ||
-    (realLastDonationDate && user.donorInfo.lastDonationDate?.toString() !== realLastDonationDate.toString())
-  )) {
-    User.findById(userId).then(async (userDoc) => {
-      if (!userDoc) return;
-      userDoc.donorInfo.totalDonations = realTotalDonations;
-      userDoc.donorInfo.totalDonatedVolume = realTotalVolume;
-      if (realLastDonationDate) {
-        userDoc.donorInfo.lastDonationDate = realLastDonationDate;
-        userDoc.lastDonationDate = realLastDonationDate;
-      }
-      await userDoc.save();
-      console.log(`[Dashboard] Personal stats synced for user ${userId}`);
-    }).catch(err => console.error(`[Dashboard] Sync error for user ${userId}:`, err.message));
+  if (
+    user.donorInfo &&
+    (user.donorInfo.totalDonations !== realTotalDonations ||
+      user.donorInfo.totalDonatedVolume !== realTotalVolume ||
+      (realLastDonationDate &&
+        user.donorInfo.lastDonationDate?.toString() !==
+          realLastDonationDate.toString()))
+  ) {
+    User.findById(userId)
+      .then(async (userDoc) => {
+        if (!userDoc) return;
+        userDoc.donorInfo.totalDonations = realTotalDonations;
+        userDoc.donorInfo.totalDonatedVolume = realTotalVolume;
+        if (realLastDonationDate) {
+          userDoc.donorInfo.lastDonationDate = realLastDonationDate;
+          userDoc.lastDonationDate = realLastDonationDate;
+        }
+        await userDoc.save();
+        console.log(`[Dashboard] Personal stats synced for user ${userId}`);
+      })
+      .catch((err) =>
+        console.error(
+          `[Dashboard] Sync error for user ${userId}:`,
+          err.message,
+        ),
+      );
   }
 
   await setDashboardStatsCache(userId, result);
   return result;
 };
 
-export const verifyAadhaarDocument = async (filePath) => {
+const extractAadhaarVerificationData = async (
+  filePath,
+  { cleanupFile = true } = {},
+) => {
   try {
-    console.log('[AI] Starting document analysis:', filePath);
-    const isPDF = filePath.toLowerCase().endsWith('.pdf');
+    console.log("[AI] Starting document analysis:", filePath);
+    const isPDF = filePath.toLowerCase().endsWith(".pdf");
     let fullText = "";
 
     if (isPDF) {
       const data = new Uint8Array(fs.readFileSync(filePath));
       const loadingTask = pdfjs.getDocument({ data });
       const pdfDocument = await loadingTask.promise;
-      
+
       let gatheredText = "";
       for (let i = 1; i <= pdfDocument.numPages; i++) {
         const page = await pdfDocument.getPage(i);
         const textContent = await page.getTextContent();
-        gatheredText += textContent.items.map(item => item.str).join(' ');
+        gatheredText += textContent.items.map((item) => item.str).join(" ");
       }
       fullText = gatheredText;
     } else {
-      const result = await Tesseract.recognize(filePath, 'eng');
+      const result = await Tesseract.recognize(filePath, "eng");
       fullText = result.data.text;
     }
 
-    const dateRegex = /(?:DOB|Birth|Year of Birth).*?(\d{2})[\/\-\s](\d{2})[\/\-\s](\d{4})/i;
+    const dateRegex =
+      /(?:DOB|Birth|Year of Birth).*?(\d{2})[\/\-\s](\d{2})[\/\-\s](\d{4})/i;
     const fallbackRegex = /(\d{2})[\/\-\s](\d{2})[\/\-\s](\d{4})/;
-    
+
     const match = fullText.match(dateRegex) || fullText.match(fallbackRegex);
-    
+
     if (match) {
       const [_, day, month, year] = match;
       const formattedDate = `${year}-${month}-${day}`;
-      
+
       return {
         success: true,
         dob: formattedDate,
-        message: `Identity verified via ${isPDF ? 'Mozilla PDF' : 'Image'} engine`
+        message: `Identity verified via ${isPDF ? "Mozilla PDF" : "Image"} engine`,
       };
     } else {
-      throw new ApiError(400, 'Could not read a clear Date of Birth from this document.');
+      throw new ApiError(
+        400,
+        "Could not read a clear Date of Birth from this document.",
+      );
     }
-
   } catch (err) {
-    throw new ApiError(err.statusCode || 500, err.message || 'Identity Verification Failed');
+    throw new ApiError(
+      err.statusCode || 500,
+      err.message || "Identity Verification Failed",
+    );
   } finally {
-    if (filePath && fs.existsSync(filePath)) {
+    if (cleanupFile && filePath && fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
-        console.log('[Security] Temporary ID document securely erased.');
+        console.log("[Security] Temporary ID document securely erased.");
       } catch (cleanupErr) {
-        console.error('[Security Warning] Failed to erase temporary document:', cleanupErr.message);
+        console.error(
+          "[Security Warning] Failed to erase temporary document:",
+          cleanupErr.message,
+        );
       }
     }
+  }
+};
+
+export const verifyAadhaarDocument = async (filePath) =>
+  extractAadhaarVerificationData(filePath, { cleanupFile: true });
+
+export const initiateAadhaarVerification = async (
+  userId,
+  filePath,
+  req = null,
+) => {
+  const user = await userRepository.findById(userId, { lean: false });
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  user.aadharCard = {
+    ...(user.aadharCard || {}),
+    isVerified: false,
+    imageUrl: "",
+    uploadedAt: new Date(),
+    verificationStatus: "pending",
+    verificationRequestedAt: new Date(),
+    verificationCompletedAt: null,
+    verificationFailureReason: "",
+    verifiedDateOfBirth: null,
+  };
+
+  await user.save();
+
+  let job;
+  try {
+    job = await queueAadhaarVerification({
+      userId: String(user._id),
+      filePath,
+    });
+  } catch (error) {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    user.aadharCard = {
+      ...(user.aadharCard || {}),
+      verificationStatus: "failed",
+      verificationCompletedAt: new Date(),
+      verificationFailureReason: "Unable to queue verification at this time",
+    };
+    await user.save();
+
+    throw new ApiError(
+      503,
+      "Unable to queue identity verification right now. Please try again later.",
+    );
+  }
+
+  await auditService.logAction({
+    action: "AADHAAR_VERIFICATION_REQUESTED",
+    req,
+    actorId: user._id,
+    actorModel: "User",
+    targetId: user._id,
+    targetModel: "User",
+    changes: { verificationStatus: "pending" },
+    metadata: { jobId: job.id },
+  });
+
+  return {
+    verificationStatus: "pending",
+    jobId: String(job.id),
+    requestedAt: user.aadharCard.verificationRequestedAt,
+  };
+};
+
+export const getAadhaarVerificationStatus = async (userId) => {
+  const user = await userRepository.findById(userId, {
+    select: "aadharCard",
+  });
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return {
+    verificationStatus: user.aadharCard?.verificationStatus || "not_started",
+    isVerified: Boolean(user.aadharCard?.isVerified),
+    requestedAt: user.aadharCard?.verificationRequestedAt || null,
+    completedAt: user.aadharCard?.verificationCompletedAt || null,
+    verifiedDateOfBirth: user.aadharCard?.verifiedDateOfBirth || null,
+    failureReason:
+      user.aadharCard?.verificationStatus === "failed"
+        ? user.aadharCard?.verificationFailureReason || "Verification failed"
+        : null,
+  };
+};
+
+export const processAadhaarVerificationJob = async ({ userId, filePath }) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found for Aadhaar verification");
+  }
+
+  try {
+    const result = await extractAadhaarVerificationData(filePath, {
+      cleanupFile: true,
+    });
+
+    user.aadharCard = {
+      ...(user.aadharCard || {}),
+      isVerified: true,
+      verificationStatus: "verified",
+      verificationCompletedAt: new Date(),
+      verificationFailureReason: "",
+      verifiedDateOfBirth: result?.dob ? new Date(result.dob) : null,
+    };
+
+    await user.save();
+
+    await auditService.logAction({
+      action: "AADHAAR_VERIFICATION_COMPLETED",
+      actorId: user._id,
+      actorModel: "User",
+      targetId: user._id,
+      targetModel: "User",
+      changes: { verificationStatus: "verified" },
+      metadata: {
+        verifiedDateOfBirth: user.aadharCard?.verifiedDateOfBirth || null,
+      },
+    });
+
+    return result;
+  } catch (error) {
+    user.aadharCard = {
+      ...(user.aadharCard || {}),
+      isVerified: false,
+      verificationStatus: "failed",
+      verificationCompletedAt: new Date(),
+      verificationFailureReason: error.message || "Verification failed",
+    };
+
+    await user.save();
+
+    await auditService.logAction({
+      action: "AADHAAR_VERIFICATION_FAILED",
+      actorId: user._id,
+      actorModel: "User",
+      targetId: user._id,
+      targetModel: "User",
+      changes: { verificationStatus: "failed" },
+      metadata: { failureReason: error.message || "Verification failed" },
+    });
+
+    throw error;
   }
 };

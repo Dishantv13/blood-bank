@@ -1,5 +1,5 @@
-import BaseRepository from './BaseRepository.js';
-import User from '../models/User.model.js';
+import BaseRepository from "./BaseRepository.js";
+import User from "../models/User.model.js";
 
 class UserRepository extends BaseRepository {
   constructor() {
@@ -11,18 +11,23 @@ class UserRepository extends BaseRepository {
   }
 
   async findNearbyDonors(coordinates, radiusInMeters, bloodGroup) {
-    return this.model.find({
-      location: {
-        $near: {
-          $geometry: { type: 'Point', coordinates },
-          $maxDistance: radiusInMeters
-        }
-      },
-      bloodGroup,
-      isDonor: true,
-      isAvailable: true,
-      role: { $in: ['user', 'donor'] }
-    }).select('_id email name').limit(100);
+    return this.model
+      .find({
+        location: {
+          $near: {
+            $geometry: { type: "Point", coordinates },
+            $maxDistance: radiusInMeters,
+          },
+        },
+        bloodGroup,
+        isDonor: true,
+        isAvailable: true,
+        role: { $in: ["user", "donor"] },
+      })
+      .select(
+        "_id email phone name bloodGroup location isAvailable isDonor donorInfo lastDonationDate photoURL",
+      )
+      .limit(100);
   }
 
   async findMatchingDonors(request, options = {}) {
@@ -33,35 +38,37 @@ class UserRepository extends BaseRepository {
       isDonor: true,
       isAvailable: true,
       bloodGroup: { $in: compatibleGroups },
-      activeMode: 'donor',
+      activeMode: "donor",
       _id: { $ne: requestedBy },
       $or: [
-        { 'donorInfo.lastDonationDate': { $exists: false } },
-        { 'donorInfo.lastDonationDate': null },
-        { 'donorInfo.lastDonationDate': { $lte: threeMonthsAgo } }
-      ]
+        { "donorInfo.lastDonationDate": { $exists: false } },
+        { "donorInfo.lastDonationDate": null },
+        { "donorInfo.lastDonationDate": { $lte: threeMonthsAgo } },
+      ],
     };
 
     if (hospital?.location?.coordinates?.length === 2) {
-      return this.model.find({
-        ...query,
-        location: {
-          $near: {
-            $geometry: {
-              type: 'Point',
-              coordinates: hospital.location.coordinates
+      return this.model
+        .find({
+          ...query,
+          location: {
+            $near: {
+              $geometry: {
+                type: "Point",
+                coordinates: hospital.location.coordinates,
+              },
+              $maxDistance: maxDistance,
             },
-            $maxDistance: maxDistance
-          }
-        }
-      })
-      .select('name email phone bloodGroup location donorInfo')
-      .limit(limit)
-      .lean();
+          },
+        })
+        .select("name email phone bloodGroup location donorInfo")
+        .limit(limit)
+        .lean();
     }
 
-    return this.model.find(query)
-      .select('name email phone bloodGroup location donorInfo')
+    return this.model
+      .find(query)
+      .select("name email phone bloodGroup location donorInfo")
       .limit(limit)
       .lean();
   }

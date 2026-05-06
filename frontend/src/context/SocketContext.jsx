@@ -1,14 +1,21 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { io } from 'socket.io-client';
-import { useAuth } from './AuthContext';
-import { toast } from 'react-toastify';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+} from "react";
+import { io } from "socket.io-client";
+import { useAuth } from "./AuthContext";
+import { toast } from "react-toastify";
 
 const SocketContext = createContext();
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
   if (!context) {
-    throw new Error('useSocket must be used within a SocketProvider');
+    throw new Error("useSocket must be used within a SocketProvider");
   }
   return context;
 };
@@ -22,51 +29,50 @@ export const SocketProvider = ({ children }) => {
   const currentUser = user || adminUser || bloodBank;
 
   const connectSocket = useCallback(() => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-    
+    const apiUrl =
+      import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1";
+
     // Robust URL parsing: Strip everything after the host/port
-    const socketUrl = apiUrl.split('/api')[0]; 
+    const socketUrl = apiUrl.split("/api")[0];
 
-
-  
     const newSocket = io(socketUrl, {
       withCredentials: true,
-      transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
+      transports: ["websocket", "polling"], // Fallback to polling if websocket fails
       retryAttempts: 10,
       reconnectionDelay: 1000,
       timeout: 20000,
     });
 
     // Connection Event Handlers
-    newSocket.on('connect', () => {
+    newSocket.on("connect", () => {
       setIsConnected(true);
     });
 
-    newSocket.on('disconnect', (reason) => {
-      console.log('⚠️ Real-time: Disconnected -', reason);
+    newSocket.on("disconnect", (reason) => {
+      console.log("⚠️ Real-time: Disconnected -", reason);
       setIsConnected(false);
     });
 
-    newSocket.on('connect_error', (err) => {
-      console.error('❌ Real-time: Connection Error -', err.message);
+    newSocket.on("connect_error", (err) => {
+      console.error("❌ Real-time: Connection Error -", err.message);
       // If auth fails repeatedly, it might mean the session is expired
-      if (err.message.includes('Authentication error')) {
+      if (err.message.includes("Authentication error")) {
         newSocket.disconnect();
       }
     });
 
     // Global Notification Listener (Production Grade)
-    newSocket.on('notification', (data) => {
+    newSocket.on("notification", (data) => {
       // Show a professional toast for all incoming real-time notifications
-      toast.info(data.message || 'New notification received', {
-        position: 'top-right',
+      toast.info(data.message || "New notification received", {
+        position: "top-right",
         autoClose: 5000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
-        theme: 'colored',
-        icon: '🔔'
+        theme: "colored",
+        icon: "🔔",
       });
     });
 
@@ -99,7 +105,7 @@ export const SocketProvider = ({ children }) => {
 
     // Cleanup: Disconnect when component unmounts
     return () => {
-      // Note: We don't disconnect on every re-render anymore, 
+      // Note: We don't disconnect on every re-render anymore,
       // only if the user actually changes or the provider unmounts.
     };
   }, [currentUser, connectSocket]);

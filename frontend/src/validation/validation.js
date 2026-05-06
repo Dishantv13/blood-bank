@@ -1,12 +1,12 @@
-const toSafeString = (value) => String(value ?? '').trim();
+const toSafeString = (value) => String(value ?? "").trim();
 
 export const nameValidator = (value) => {
   const name = toSafeString(value);
 
-  if (!name) return 'Name is required';
-  if (name.length < 2) return 'Name must be at least 2 characters';
+  if (!name) return "Name is required";
+  if (name.length < 2) return "Name must be at least 2 characters";
   if (!/^[A-Za-z\s.'-]+$/.test(name)) {
-    return 'Name can only contain letters, spaces, apostrophe, dot, and hyphen';
+    return "Name can only contain letters, spaces, apostrophe, dot, and hyphen";
   }
 
   return true;
@@ -15,10 +15,10 @@ export const nameValidator = (value) => {
 export const bloodBankNameValidator = (value) => {
   const name = toSafeString(value);
 
-  if (!name) return 'Blood bank name is required';
-  if (name.length < 3) return 'Blood bank name must be at least 3 characters';
+  if (!name) return "Blood bank name is required";
+  if (name.length < 3) return "Blood bank name must be at least 3 characters";
   if (!/^[A-Za-z0-9\s.'()&-]+$/.test(name)) {
-    return 'Blood bank name contains invalid characters';
+    return "Blood bank name contains invalid characters";
   }
 
   return true;
@@ -27,8 +27,8 @@ export const bloodBankNameValidator = (value) => {
 export const phoneValidator = (value) => {
   const phone = toSafeString(value);
 
-  if (!phone) return 'Phone is required';
-  if (!/^\d{10}$/.test(phone)) return 'Phone must be 10 digits';
+  if (!phone) return "Phone is required";
+  if (!/^\d{10}$/.test(phone)) return "Phone must be 10 digits";
 
   return true;
 };
@@ -40,10 +40,10 @@ export const optionalPhoneValidator = (value) => {
 };
 
 export const aadhaarValidator = (value) => {
-  const aadhaar = toSafeString(value).replace(/\s/g, '');
+  const aadhaar = toSafeString(value).replace(/\s/g, "");
 
-  if (!aadhaar) return 'Aadhaar number is required';
-  if (!/^\d{12}$/.test(aadhaar)) return 'Aadhaar must be 12 digits';
+  if (!aadhaar) return "Aadhaar number is required";
+  if (!/^\d{12}$/.test(aadhaar)) return "Aadhaar must be 12 digits";
 
   return true;
 };
@@ -60,9 +60,9 @@ export const aadhaarValidator = (value) => {
 export const licenseNumberValidator = (value) => {
   const license = toSafeString(value).toUpperCase();
 
-  if (!license) return 'Medical license is required';
+  if (!license) return "Medical license is required";
   if (!/^[A-Za-z0-9/\-]{5,15}$/.test(license)) {
-    return 'Medical license must be 5-15 characters (letters, numbers, /, -)';
+    return "Medical license must be 5-15 characters (letters, numbers, /, -)";
   }
 
   return true;
@@ -74,9 +74,9 @@ export const medicalLicenseValidator = (value) => licenseNumberValidator(value);
 export const emailValidator = (value) => {
   const email = toSafeString(value);
 
-  if (!email) return 'Email is required';
+  if (!email) return "Email is required";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return 'Enter a valid email address';
+    return "Enter a valid email address";
   }
 
   return true;
@@ -93,7 +93,7 @@ export const registrationNumberValidator = (value) => {
 
   if (!registrationNumber) return true;
   if (!/^[A-Za-z0-9/-]{3,30}$/.test(registrationNumber)) {
-    return 'Registration number must be 3-30 characters (letters, numbers, /, -)';
+    return "Registration number must be 3-30 characters (letters, numbers, /, -)";
   }
 
   return true;
@@ -102,8 +102,8 @@ export const registrationNumberValidator = (value) => {
 export const pincodeValidator = (value) => {
   const pincode = toSafeString(value);
 
-  if (!pincode) return 'Pincode is required';
-  if (!/^\d{6}$/.test(pincode)) return 'Pincode must be 6 digits';
+  if (!pincode) return "Pincode is required";
+  if (!/^\d{6}$/.test(pincode)) return "Pincode must be 6 digits";
 
   return true;
 };
@@ -112,7 +112,7 @@ export const yearValidator = (value) => {
   const year = toSafeString(value);
   if (!year) return true;
 
-  if (!/^\d{4}$/.test(year)) return 'Enter a valid 4-digit year';
+  if (!/^\d{4}$/.test(year)) return "Enter a valid 4-digit year";
 
   const yearNumber = Number(year);
   const currentYear = new Date().getFullYear();
@@ -125,15 +125,19 @@ export const yearValidator = (value) => {
 };
 
 export const passwordValidator = (value) => {
-  const password = String(value ?? '');
+  const password = String(value ?? "");
 
-  if (!password) return 'Password is required';
-  if (password.length < 8) return 'Password must be at least 8 characters';
-  
-  if (!/(?=.*[a-z])/.test(password)) return 'Password must contain at least one lowercase letter';
-  if (!/(?=.*[A-Z])/.test(password)) return 'Password must contain at least one uppercase letter';
-  if (!/(?=.*\d)/.test(password)) return 'Password must contain at least one number';
-  if (!/(?=.*[@$!%*?&])/.test(password)) return 'Password must contain at least one special character (@$!%*?&)';
-  
+  if (!password) return "Password is required";
+  if (password.length < 8) return "Password must be at least 8 characters";
+
+  if (!/(?=.*[a-z])/.test(password))
+    return "Password must contain at least one lowercase letter";
+  if (!/(?=.*[A-Z])/.test(password))
+    return "Password must contain at least one uppercase letter";
+  if (!/(?=.*\d)/.test(password))
+    return "Password must contain at least one number";
+  if (!/(?=.*[@$!%*?&])/.test(password))
+    return "Password must contain at least one special character (@$!%*?&)";
+
   return true;
 };

@@ -1,40 +1,41 @@
-import { useState } from 'react';
-import { useChangeUserPasswordMutation } from '../store/userApi';
-import { MIN_PASSWORD_LENGTH } from '../enum/constants';
-import { FaCheckCircle, FaEye, FaEyeSlash } from 'react-icons/fa';
-import '../pages.css/ChangePassword.css'
+import { useState } from "react";
+import { useChangeUserPasswordMutation } from "../store/userApi";
+import { MIN_PASSWORD_LENGTH } from "../enum/constants";
+import { FaCheckCircle, FaEye, FaEyeSlash } from "react-icons/fa";
+import "../pages.css/ChangePassword.css";
 
 const ChangePassword = () => {
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [changePassword, { isLoading: loading }] = useChangeUserPasswordMutation();
+  const [changePassword, { isLoading: loading }] =
+    useChangeUserPasswordMutation();
 
   const validatePasswords = () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('All fields are required');
+      setError("All fields are required");
       return false;
     }
 
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
-      setError('New password must be at least 6 characters');
+      setError("New password must be at least 6 characters");
       return false;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
+      setError("New passwords do not match");
       return false;
     }
 
     if (currentPassword === newPassword) {
-      setError('New password must be different from current password');
+      setError("New password must be different from current password");
       return false;
     }
 
@@ -43,8 +44,8 @@ const ChangePassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setMessage('');
+    setError("");
+    setMessage("");
 
     if (!validatePasswords()) {
       return;
@@ -53,22 +54,22 @@ const ChangePassword = () => {
     try {
       const response = await changePassword({
         currentPassword,
-        newPassword
+        newPassword,
       }).unwrap();
 
-      setMessage(response.message || 'Password changed successfully');
+      setMessage(response.message || "Password changed successfully");
       setSuccess(true);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
 
       // Clear success message after 3 seconds
       setTimeout(() => {
         setSuccess(false);
-        setMessage('');
+        setMessage("");
       }, 3000);
     } catch (err) {
-      setError(err.data?.message || 'Failed to change password');
+      setError(err.data?.message || "Failed to change password");
     }
   };
 
@@ -82,7 +83,9 @@ const ChangePassword = () => {
 
         {success ? (
           <div className="success-message">
-            <div className="success-icon"><FaCheckCircle color="green" /></div>
+            <div className="success-icon">
+              <FaCheckCircle color="green" />
+            </div>
             <p>{message}</p>
           </div>
         ) : (
@@ -93,7 +96,7 @@ const ChangePassword = () => {
               <div className="password-input-group">
                 <input
                   id="currentPassword"
-                  type={showCurrentPassword ? 'text' : 'password'}
+                  type={showCurrentPassword ? "text" : "password"}
                   placeholder="Enter your current password"
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
@@ -105,7 +108,9 @@ const ChangePassword = () => {
                   className="toggle-password"
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   disabled={loading}
-                  title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                  title={
+                    showCurrentPassword ? "Hide password" : "Show password"
+                  }
                 >
                   {showCurrentPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
@@ -118,7 +123,7 @@ const ChangePassword = () => {
               <div className="password-input-group">
                 <input
                   id="newPassword"
-                  type={showNewPassword ? 'text' : 'password'}
+                  type={showNewPassword ? "text" : "password"}
                   placeholder="Enter new password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -131,7 +136,7 @@ const ChangePassword = () => {
                   className="toggle-password"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                   disabled={loading}
-                  title={showNewPassword ? 'Hide password' : 'Show password'}
+                  title={showNewPassword ? "Hide password" : "Show password"}
                 >
                   {showNewPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
@@ -145,7 +150,7 @@ const ChangePassword = () => {
               <div className="password-input-group">
                 <input
                   id="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
+                  type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirm new password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -158,7 +163,9 @@ const ChangePassword = () => {
                   className="toggle-password"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   disabled={loading}
-                  title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  title={
+                    showConfirmPassword ? "Hide password" : "Show password"
+                  }
                 >
                   {showConfirmPassword ? <FaEye /> : <FaEyeSlash />}
                 </button>
@@ -170,21 +177,26 @@ const ChangePassword = () => {
 
             {/* Buttons */}
             <div className="button-group">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="change-button"
-                disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+                disabled={
+                  loading ||
+                  !currentPassword ||
+                  !newPassword ||
+                  !confirmPassword
+                }
               >
-                {loading ? 'Changing Password...' : 'Change Password'}
+                {loading ? "Changing Password..." : "Change Password"}
               </button>
-              <button 
-                type="reset" 
+              <button
+                type="reset"
                 className="reset-button"
                 onClick={() => {
-                  setCurrentPassword('');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                  setError('');
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setError("");
                 }}
                 disabled={loading}
               >

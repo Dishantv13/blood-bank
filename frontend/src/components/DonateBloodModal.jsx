@@ -1,109 +1,155 @@
-import { useState } from 'react';
-import { useGetAllBloodBanksQuery } from '../store/bloodBankApi';
-import { useRequestDonationMutation } from '../store/donationApi';
-import { useToast } from '../components/ToastContainer';
-import '../pages.css/Dashboard.css';
+import { useState } from "react";
+import { useGetAllBloodBanksQuery } from "../store/bloodBankApi";
+import { useRequestDonationMutation } from "../store/donationApi";
+import { useToast } from "../components/ToastContainer";
+import "../pages.css/Dashboard.css";
 
 const DonateBloodModal = ({ onClose, onSuccess }) => {
   const { data: bloodBanksRes, isLoading } = useGetAllBloodBanksQuery();
-  const [requestDonation, { isLoading: isRequesting }] = useRequestDonationMutation();
+  const [requestDonation, { isLoading: isRequesting }] =
+    useRequestDonationMutation();
   const { success, error } = useToast();
-  
-  const [selectedBank, setSelectedBank] = useState('');
-  const [notes, setNotes] = useState('');
+
+  const [selectedBank, setSelectedBank] = useState("");
+  const [notes, setNotes] = useState("");
 
   const bloodBanks = bloodBanksRes?.data || [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedBank) {
-      error('Please select a blood bank to donate to.');
+      error("Please select a blood bank to donate to.");
       return;
     }
 
     try {
       await requestDonation({
         bloodBankId: selectedBank,
-        notes
+        notes,
       }).unwrap();
-      
-      success('Donation request sent successfully! The blood bank will contact you soon.');
+
+      success(
+        "Donation request sent successfully! The blood bank will contact you soon.",
+      );
       onSuccess?.();
       onClose();
     } catch (err) {
-      error(err.data?.message || 'Failed to submit donation request.');
+      error(err.data?.message || "Failed to submit donation request.");
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <div className="donor-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Request to Donate Blood</h2>
-          <button className="close-modal" onClick={onClose} aria-label="Close modal">
+          <button
+            className="close-modal"
+            onClick={onClose}
+            aria-label="Close modal"
+          >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path
+                d="M18 6L6 18M6 6L18 18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
             </svg>
           </button>
         </div>
-        
+
         <div className="modal-body">
           <p className="modal-description">
-            Submit a request to donate blood at a certified blood bank. Our team will review your eligibility information and contact you to schedule your visit.
+            Submit a request to donate blood at a certified blood bank. Our team
+            will review your eligibility information and contact you to schedule
+            your visit.
           </p>
-          
+
           <form onSubmit={handleSubmit}>
             <div className="form-group mb-4">
               <label htmlFor="bloodBank">Select Blood Bank *</label>
-              <div className="select-wrapper" style={{ position: 'relative' }}>
-                <select 
+              <div className="select-wrapper" style={{ position: "relative" }}>
+                <select
                   id="bloodBank"
-                  value={selectedBank} 
+                  value={selectedBank}
                   onChange={(e) => setSelectedBank(e.target.value)}
                   required
                   disabled={isLoading}
-                  style={{ width: '100%', appearance: 'none', paddingRight: '40px' }}
+                  style={{
+                    width: "100%",
+                    appearance: "none",
+                    paddingRight: "40px",
+                  }}
                 >
                   <option value="">-- Choose a nearby Blood Bank --</option>
-                  {bloodBanks.map(bank => (
-                    <option key={bank._id || bank.id} value={bank._id || bank.id}>
-                      {bank.name} - {bank.location?.city || bank.address?.city || 'Unknown Location'}
+                  {bloodBanks.map((bank) => (
+                    <option
+                      key={bank._id || bank.id}
+                      value={bank._id || bank.id}
+                    >
+                      {bank.name} -{" "}
+                      {bank.location?.city ||
+                        bank.address?.city ||
+                        "Unknown Location"}
                     </option>
                   ))}
                 </select>
-                <div style={{ position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: '#666' }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    right: "15px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "#666",
+                  }}
+                >
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path
+                      d="M2.5 4.5L6 8L9.5 4.5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </div>
               </div>
-              {isLoading && <small style={{ color: '#e63946' }}>Loading blood banks...</small>}
+              {isLoading && (
+                <small style={{ color: "#e63946" }}>
+                  Loading blood banks...
+                </small>
+              )}
             </div>
-            
+
             <div className="form-group mb-4">
               <label htmlFor="notes">Additional Information (Optional)</label>
-              <textarea 
+              <textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="E.g., Preferred donation date/time, or any questions you have for the blood bank staff..."
                 rows="4"
-                style={{ width: '100%', resize: 'none' }}
+                style={{ width: "100%", resize: "none" }}
               ></textarea>
             </div>
 
             <div className="modal-actions">
-              <button 
-                type="button" 
-                className="btn-cancel" 
+              <button
+                type="button"
+                className="btn-cancel"
                 onClick={onClose}
                 disabled={isRequesting}
               >
                 Cancel
               </button>
-              <button 
-                type="submit" 
-                className={`btn-submit ${isRequesting ? 'btn-loading' : ''}`}
+              <button
+                type="submit"
+                className={`btn-submit ${isRequesting ? "btn-loading" : ""}`}
                 disabled={isRequesting || !selectedBank}
               >
                 Confirm Request
@@ -112,7 +158,7 @@ const DonateBloodModal = ({ onClose, onSuccess }) => {
           </form>
         </div>
       </div>
-      
+
       <style>{`
         .mb-4 { margin-bottom: 1.5rem; }
         .select-wrapper select {

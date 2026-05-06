@@ -115,19 +115,19 @@
   border-bottom-color: #e63946;
 }
 
-.tab-button.active[data-tab="fulfilled"] {
-    color: #059669;
-    border-bottom-color: #059669;
+.tab-button.active[data-tab='fulfilled'] {
+  color: #059669;
+  border-bottom-color: #059669;
 }
 
-.tab-button.active[data-tab="completed"] {
-    color: #10b981;
-    border-bottom-color: #10b981;
+.tab-button.active[data-tab='completed'] {
+  color: #10b981;
+  border-bottom-color: #10b981;
 }
 
-.tab-button.active[data-tab="rejected"] {
-    color: #ef4444;
-    border-bottom-color: #ef4444;
+.tab-button.active[data-tab='rejected'] {
+  color: #ef4444;
+  border-bottom-color: #ef4444;
 }
 
 .tab-button svg {
@@ -151,8 +151,13 @@
 }
 
 @keyframes badge-bounce {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.2); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
 }
 
 .filter-group {
@@ -236,7 +241,9 @@
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   padding: 1.5rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
   border-left: 4px solid #e74c3c;
   border-top: 1px solid var(--border-color);
   border-right: 1px solid var(--border-color);

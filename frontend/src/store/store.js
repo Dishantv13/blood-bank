@@ -1,5 +1,5 @@
-import { configureStore } from '@reduxjs/toolkit';
-import { apiSlice } from './apiSlice';
+import { configureStore } from "@reduxjs/toolkit";
+import { apiSlice } from "./apiSlice";
 
 export const store = configureStore({
   reducer: {
@@ -9,19 +9,19 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: {
         ignoredActions: [
-          'api/executeMutation/fulfilled', 
-          'api/executeQuery/fulfilled',
-          'api/executeMutation/rejected'
+          "api/executeMutation/fulfilled",
+          "api/executeQuery/fulfilled",
+          "api/executeMutation/rejected",
         ],
         ignoredActionPaths: [
-          'meta.arg', 
-          'payload', 
-          'meta.baseQueryMeta.request',
-          'meta.baseQueryMeta.response'
+          "meta.arg",
+          "payload",
+          "meta.baseQueryMeta.request",
+          "meta.baseQueryMeta.response",
         ],
         ignoredPaths: [
           `${apiSlice.reducerPath}.mutations`,
-          `${apiSlice.reducerPath}.queries`
+          `${apiSlice.reducerPath}.queries`,
         ],
       },
     }).concat(apiSlice.middleware),

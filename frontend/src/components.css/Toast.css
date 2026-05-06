@@ -11,9 +11,13 @@
   gap: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
-  animation: slideIn 0.3s ease-out, fadeOut 0.3s ease-in 2.7s;
+  animation:
+    slideIn 0.3s ease-out,
+    fadeOut 0.3s ease-in 2.7s;
   z-index: 10000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    sans-serif;
 }
 
 @keyframes slideIn {

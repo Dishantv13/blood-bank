@@ -1,33 +1,71 @@
-import twilio from 'twilio';
+import twilio from "twilio";
+
 let client = null;
 
+const formatPhoneNumber = (phone) => {
+  if (!phone) return null;
+  const cleaned = phone.replace(/\D/g, "");
+
+  if (cleaned.length === 12 && cleaned.startsWith("91")) {
+    return `+${cleaned}`;
+  }
+
+  if (cleaned.length === 10) {
+    return `+91${cleaned}`;
+  }
+
+  return phone.startsWith("+") ? phone : `+${cleaned}`;
+};
+
 export const sendSMS = async (to, message) => {
-  if (!client && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-    client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  if (
+    !client &&
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_PHONE_NUMBER
+  ) {
+    client = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN,
+    );
   }
 
   if (!client) {
-    console.warn('Twilio SMS service not configured. Skipping SMS delivery.');
+    console.warn("[SMS] Twilio not fully configured. Skipping delivery.");
     return null;
   }
 
   try {
+    const formattedTo = formatPhoneNumber(to);
+    if (!formattedTo) return null;
+
     const fromPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
     const response = await client.messages.create({
       body: message,
       from: fromPhoneNumber,
-      to,
+      to: formattedTo,
     });
-    
-    console.log(`[SMS] Sent successfully to ${to} (SID: ${response.sid})`);
+
+    console.log(
+      `[SMS] Sent successfully to ${formattedTo} (SID: ${response.sid})`,
+    );
     return response;
   } catch (error) {
     console.error(`[SMS] Failed to send to ${to}: ${error.message}`);
-    throw error;
+    return null;
   }
 };
 
-export const sendEmergencySMS = async (to, donorName, bloodGroup, hospitalName) => {
-  const message = `Hello ${donorName}, there is an EMERGENCY request for ${bloodGroup} blood at ${hospitalName}. Your help could save a life! - RaktSarthi`;
+export const sendEmergencySMS = async (
+  to,
+  donorName,
+  bloodGroup,
+  hospitalName,
+) => {
+  const name = donorName || "Donor";
+  const hospital = hospitalName || "a nearby hospital";
+
+  const message = `Hello ${name}, there is an EMERGENCY request for ${bloodGroup} blood at ${hospital}. Your help could save a life! - RaktSarthi`;
+
   return sendSMS(to, message);
 };

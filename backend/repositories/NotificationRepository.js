@@ -1,5 +1,6 @@
-import BaseRepository from './BaseRepository.js';
-import Notification from '../models/Notification.model.js';
+import mongoose from "mongoose";
+import BaseRepository from "./BaseRepository.js";
+import Notification from "../models/Notification.model.js";
 
 class NotificationRepository extends BaseRepository {
   constructor() {
@@ -15,10 +16,17 @@ class NotificationRepository extends BaseRepository {
   }
 
   async markAllAsRead(recipientId) {
-    return this.model.updateMany(
-      { recipient: recipientId, isRead: false },
-      { $set: { isRead: true } }
-    );
+    const filter = { recipient: recipientId, isRead: false };
+
+    // Explicitly handle string IDs for updateMany to ensure correct casting to ObjectId
+    if (
+      typeof recipientId === "string" &&
+      mongoose.Types.ObjectId.isValid(recipientId)
+    ) {
+      filter.recipient = new mongoose.Types.ObjectId(recipientId);
+    }
+
+    return this.model.updateMany(filter, { $set: { isRead: true } });
   }
 }
 

@@ -1,13 +1,13 @@
-import mongoose from 'mongoose';
-import { ApiError } from './apiError.js';
+import mongoose from "mongoose";
+import { ApiError } from "./apiError.js";
 
-export const ensureValidObjectId = (value, fieldName = 'id') => {
+export const ensureValidObjectId = (value, fieldName = "id") => {
   if (!mongoose.Types.ObjectId.isValid(value)) {
     throw new ApiError(400, `Invalid ${fieldName}`);
   }
 };
 
-export const toObjectId = (value, fieldName = 'id') => {
+export const toObjectId = (value, fieldName = "id") => {
   ensureValidObjectId(value, fieldName);
   return new mongoose.Types.ObjectId(value);
 };

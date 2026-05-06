@@ -6,7 +6,7 @@ import { createServer } from "http";
 import { initSocket } from "./utils/socket.js";
 import { closeRedisClient, getRedisClient } from "./config/redis.js";
 
-// ==================== DATABASE CONNECTION ====================
+// DATABASE CONNECTION
 try {
   validateSecurityConfig();
 } catch (error) {
@@ -38,23 +38,24 @@ const initServices = async () => {
 
     // 2. Connect to Redis
     await getRedisClient();
-    
-    if (process.env.SERVERLESS !== 'true') {
+
+    if (process.env.SERVERLESS !== "true") {
       const httpServer = createServer(app);
-      
+
       await initSocket(httpServer);
 
       // 4. Initialize Background Workers (BullMQ)
-      if (process.env.DASHBOARD_MODE !== 'true') {
-        await import('./workers/certificateWorker.js');
-        console.log('👷 Background Workers: Initialized');
+      if (process.env.DASHBOARD_MODE !== "true") {
+        await import("./workers/certificateWorker.js");
+        await import("./workers/aadhaarVerificationWorker.js");
+        console.log("👷 Background Workers: Initialized");
       }
 
       const PORT = process.env.PORT || 5000;
       httpServer.listen(PORT, () => {
         console.log(`\n🚀 RaktSarthi Server Status:`);
         console.log(`📍 Port: ${PORT}`);
-        console.log(`🏗️  Mode: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🏗️  Mode: ${process.env.NODE_ENV || "development"}`);
         console.log(`✨ System: Real-time Pub/Sub Scalability Enabled`);
         console.log(`✅ Build Success: Ready to accept requests\n`);
       });
@@ -78,16 +79,16 @@ mongoose.connection.on("disconnected", () => {
   console.log("⚠️  MongoDB status: Disconnected");
 });
 
-// ==================== GRACEFUL SHUTDOWN ====================
+// GRACEFUL SHUTDOWN
 const handleShutdown = async (signal) => {
   console.log(`\n🛑 ${signal} received. Shutting down gracefully...`);
   try {
     await mongoose.connection.close();
     console.log("📁 MongoDB connection closed.");
-    
+
     await closeRedisClient();
     console.log("💾 Redis connection closed.");
-    
+
     console.log("👋 App termination successful.");
     process.exit(0);
   } catch (error) {

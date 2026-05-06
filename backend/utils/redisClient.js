@@ -1,7 +1,7 @@
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from "../config/redis.js";
 const redisClient = {
   get isReady() {
-    return true; 
+    return true;
   },
 
   async client() {
@@ -41,7 +41,7 @@ const redisClient = {
       console.error(`Redis DEL Error [${key}]:`, err.message);
       return false;
     }
-  }
+  },
 };
 
 export default redisClient;

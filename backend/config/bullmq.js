@@ -1,11 +1,11 @@
-import { redisConfig } from './redis.js';
+import { redisConfig } from "./redis.js";
 
 export const DEFAULT_JOB_OPTIONS = {
   removeOnComplete: true,
   removeOnFail: 10,
   attempts: 3,
   backoff: {
-    type: 'exponential',
+    type: "exponential",
     delay: 5000,
   },
 };

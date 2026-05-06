@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ROUTE_PATH } from '../enum/routePath';
-import { useGetInventoryOverviewQuery } from '../store/adminApi.js';
-import AdminTable from './AdminTable.jsx';
-
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ROUTE_PATH } from "../enum/routePath";
+import { useGetInventoryOverviewQuery } from "../store/adminApi.js";
+import AdminTable from "./AdminTable.jsx";
 
 const AdminInventory = () => {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState('');
-  const [filters, setFilters] = useState({ search: '', bloodType: '' });
+  const [searchInput, setSearchInput] = useState("");
+  const [filters, setFilters] = useState({ search: "", bloodType: "" });
 
   const { data: inventoryData, isLoading } = useGetInventoryOverviewQuery({
     page,
@@ -25,7 +24,11 @@ const AdminInventory = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       const trimmedSearch = searchInput.trim();
-      setFilters((prev) => (prev.search === trimmedSearch ? prev : { ...prev, search: trimmedSearch }));
+      setFilters((prev) =>
+        prev.search === trimmedSearch
+          ? prev
+          : { ...prev, search: trimmedSearch },
+      );
       setPage(1);
     }, 350);
 
@@ -33,14 +36,14 @@ const AdminInventory = () => {
   }, [searchInput]);
 
   const columns = [
-    { key: 'bloodBank', label: 'Blood Bank', width: '35%' },
-    { key: 'totalUnits', label: 'Total Units', width: '20%' },
-    { key: 'bloodTypeCount', label: 'Blood Types', width: '20%' },
+    { key: "bloodBank", label: "Blood Bank", width: "35%" },
+    { key: "totalUnits", label: "Total Units", width: "20%" },
+    { key: "bloodTypeCount", label: "Blood Types", width: "20%" },
     {
-      key: 'lastUpdated',
-      label: 'Last Updated',
-      width: '25%',
-      render: (date) => (date ? new Date(date).toLocaleDateString() : 'N/A'),
+      key: "lastUpdated",
+      label: "Last Updated",
+      width: "25%",
+      render: (date) => (date ? new Date(date).toLocaleDateString() : "N/A"),
     },
   ];
 
@@ -48,7 +51,9 @@ const AdminInventory = () => {
     <div className="admin-inventory-page">
       <div className="dashboard-header-premium">
         <h1 className="page-title">Inventory Management</h1>
-        <p className="page-subtitle">View and monitor blood inventory across all banks</p>
+        <p className="page-subtitle">
+          View and monitor blood inventory across all banks
+        </p>
       </div>
 
       {/* {inventoryData?.stats && (
@@ -78,7 +83,7 @@ const AdminInventory = () => {
         />
         <select
           value={filters.bloodType}
-          onChange={(e) => handleFilterChange('bloodType', e.target.value)}
+          onChange={(e) => handleFilterChange("bloodType", e.target.value)}
           className="filter-select"
         >
           <option value="">All Blood Types</option>
@@ -97,7 +102,11 @@ const AdminInventory = () => {
         columns={columns}
         data={inventoryData?.data || []}
         isLoading={isLoading}
-        onRowClick={(row) => navigate(ROUTE_PATH.ADMIN_INVENTORY_DETAILS.replace(":inventoryId", row._id))}
+        onRowClick={(row) =>
+          navigate(
+            ROUTE_PATH.ADMIN_INVENTORY_DETAILS.replace(":inventoryId", row._id),
+          )
+        }
         pagination={inventoryData?.pagination}
         onPageChange={setPage}
       />

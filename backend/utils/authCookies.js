@@ -1,45 +1,54 @@
-import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
 
-const AUTH_ISSUER = process.env.AUTH_TOKEN_ISSUER || 'raktsarthi-api';
+const AUTH_ISSUER = process.env.AUTH_TOKEN_ISSUER || "raktsarthi-api";
 const ROLE_AUDIENCES = {
-  user: 'raktsarthi-user',
-  admin: 'raktsarthi-admin',
-  bloodbank: 'raktsarthi-bloodbank',
+  user: "raktsarthi-user",
+  admin: "raktsarthi-admin",
+  bloodbank: "raktsarthi-bloodbank",
 };
 
 const ms = (value, fallbackMs) => {
   if (!value) return fallbackMs;
   if (/^\d+$/.test(String(value))) return Number(value);
 
-  const match = String(value).trim().match(/^(\d+)([smhd])$/i);
+  const match = String(value)
+    .trim()
+    .match(/^(\d+)([smhd])$/i);
   if (!match) return fallbackMs;
 
   const amount = Number(match[1]);
   const unit = match[2].toLowerCase();
   const multiplier =
-    unit === 's' ? 1000 :
-    unit === 'm' ? 60 * 1000 :
-    unit === 'h' ? 60 * 60 * 1000 :
-    24 * 60 * 60 * 1000;
+    unit === "s"
+      ? 1000
+      : unit === "m"
+        ? 60 * 1000
+        : unit === "h"
+          ? 60 * 60 * 1000
+          : 24 * 60 * 60 * 1000;
 
   return amount * multiplier;
 };
 
 // Validate that a secret meets minimum security requirements
 const validateSecret = (secret, name) => {
-  if (!secret || typeof secret !== 'string') {
+  if (!secret || typeof secret !== "string") {
     throw new Error(`[SECURITY] ${name} must be a non-empty string`);
   }
 
   if (secret.length < 32) {
-    throw new Error(`[SECURITY] ${name} must be at least 32 characters long (current: ${secret.length}). Use strong random values from environment.`);
+    throw new Error(
+      `[SECURITY] ${name} must be at least 32 characters long (current: ${secret.length}). Use strong random values from environment.`,
+    );
   }
 
   // Ensure secret is not a default/weak value
-  const weakPatterns = ['123456', 'password', 'secret123', 'test', 'admin'];
-  if (weakPatterns.some(pattern => secret.toLowerCase().includes(pattern))) {
-    throw new Error(`[SECURITY] ${name} appears to use a weak pattern. Use strong cryptographic random values.`);
+  const weakPatterns = ["123456", "password", "secret123", "test", "admin"];
+  if (weakPatterns.some((pattern) => secret.toLowerCase().includes(pattern))) {
+    throw new Error(
+      `[SECURITY] ${name} appears to use a weak pattern. Use strong cryptographic random values.`,
+    );
   }
 
   return true;
@@ -49,7 +58,9 @@ const validateSecret = (secret, name) => {
 const getSecret = (primaryEnvVar) => {
   const secret = process.env[primaryEnvVar];
   if (!secret) {
-    throw new Error(`[SECURITY] Required environment variable ${primaryEnvVar} is not set. Each role must have its own dedicated secret.`);
+    throw new Error(
+      `[SECURITY] Required environment variable ${primaryEnvVar} is not set. Each role must have its own dedicated secret.`,
+    );
   }
   validateSecret(secret, primaryEnvVar);
   return secret;
@@ -58,39 +69,45 @@ const getSecret = (primaryEnvVar) => {
 const getRequiredSecurityValue = (name) => {
   const value = process.env[name];
   if (!value || !String(value).trim()) {
-    throw new Error(`[SECURITY] Required environment variable ${name} is not set`);
+    throw new Error(
+      `[SECURITY] Required environment variable ${name} is not set`,
+    );
   }
   return String(value).trim();
 };
 
 const ROLE_CONFIG = {
   user: {
-    accessSecret: () => getSecret('USER_ACCESS_TOKEN_SECRET'),
-    refreshSecret: () => getSecret('USER_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.USER_ACCESS_TOKEN_EXPIRES_IN || '15m',
-    refreshExpiresIn: () => process.env.USER_REFRESH_TOKEN_EXPIRES_IN || '7d',
-    accessCookie: () => process.env.USER_ACCESS_COOKIE_NAME || 'bb_user_at',
-    refreshCookie: () => process.env.USER_REFRESH_COOKIE_NAME || 'bb_user_rt',
-    csrfCookie: () => process.env.USER_CSRF_COOKIE_NAME || 'bb_user_csrf',
+    accessSecret: () => getSecret("USER_ACCESS_TOKEN_SECRET"),
+    refreshSecret: () => getSecret("USER_REFRESH_TOKEN_SECRET"),
+    accessExpiresIn: () => process.env.USER_ACCESS_TOKEN_EXPIRES_IN || "15m",
+    refreshExpiresIn: () => process.env.USER_REFRESH_TOKEN_EXPIRES_IN || "7d",
+    accessCookie: () => process.env.USER_ACCESS_COOKIE_NAME || "bb_user_at",
+    refreshCookie: () => process.env.USER_REFRESH_COOKIE_NAME || "bb_user_rt",
+    csrfCookie: () => process.env.USER_CSRF_COOKIE_NAME || "bb_user_csrf",
   },
   admin: {
-    accessSecret: () => getSecret('ADMIN_ACCESS_TOKEN_SECRET'),
-    refreshSecret: () => getSecret('ADMIN_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || '15m',
-    refreshExpiresIn: () => process.env.ADMIN_REFRESH_TOKEN_EXPIRES_IN || '7d',
-    accessCookie: () => process.env.ADMIN_ACCESS_COOKIE_NAME || 'bb_admin_at',
-    refreshCookie: () => process.env.ADMIN_REFRESH_COOKIE_NAME || 'bb_admin_rt',
-    csrfCookie: () => process.env.ADMIN_CSRF_COOKIE_NAME || 'bb_admin_csrf',
+    accessSecret: () => getSecret("ADMIN_ACCESS_TOKEN_SECRET"),
+    refreshSecret: () => getSecret("ADMIN_REFRESH_TOKEN_SECRET"),
+    accessExpiresIn: () => process.env.ADMIN_ACCESS_TOKEN_EXPIRES_IN || "15m",
+    refreshExpiresIn: () => process.env.ADMIN_REFRESH_TOKEN_EXPIRES_IN || "7d",
+    accessCookie: () => process.env.ADMIN_ACCESS_COOKIE_NAME || "bb_admin_at",
+    refreshCookie: () => process.env.ADMIN_REFRESH_COOKIE_NAME || "bb_admin_rt",
+    csrfCookie: () => process.env.ADMIN_CSRF_COOKIE_NAME || "bb_admin_csrf",
   },
   bloodbank: {
-    accessSecret: () => getSecret('BLOODBANK_ACCESS_TOKEN_SECRET'),
-    refreshSecret: () => getSecret('BLOODBANK_REFRESH_TOKEN_SECRET'),
-    accessExpiresIn: () => process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || '15m',
-    refreshExpiresIn: () => process.env.BLOODBANK_REFRESH_TOKEN_EXPIRES_IN || '30d',
-    accessCookie: () => process.env.BLOODBANK_ACCESS_COOKIE_NAME || 'bb_bank_at',
-    refreshCookie: () => process.env.BLOODBANK_REFRESH_COOKIE_NAME || 'bb_bank_rt',
-    csrfCookie: () => process.env.BLOODBANK_CSRF_COOKIE_NAME || 'bb_bank_csrf',
-  }
+    accessSecret: () => getSecret("BLOODBANK_ACCESS_TOKEN_SECRET"),
+    refreshSecret: () => getSecret("BLOODBANK_REFRESH_TOKEN_SECRET"),
+    accessExpiresIn: () =>
+      process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || "15m",
+    refreshExpiresIn: () =>
+      process.env.BLOODBANK_REFRESH_TOKEN_EXPIRES_IN || "30d",
+    accessCookie: () =>
+      process.env.BLOODBANK_ACCESS_COOKIE_NAME || "bb_bank_at",
+    refreshCookie: () =>
+      process.env.BLOODBANK_REFRESH_COOKIE_NAME || "bb_bank_rt",
+    csrfCookie: () => process.env.BLOODBANK_CSRF_COOKIE_NAME || "bb_bank_csrf",
+  },
 };
 
 const getRoleConfig = (role) => {
@@ -109,7 +126,7 @@ const getRoleConfig = (role) => {
     };
 
     // Verify secrets are different for different roles
-    if (resolved.accessSecret && process.env.NODE_ENV === 'production') {
+    if (resolved.accessSecret && process.env.NODE_ENV === "production") {
       if (!process.env[`${role.toUpperCase()}_ACCESS_TOKEN_SECRET`]) {
         throw new Error(`[SECURITY] Missing dedicated secret for ${role} role`);
       }
@@ -117,58 +134,70 @@ const getRoleConfig = (role) => {
 
     return resolved;
   } catch (error) {
-    console.error(`[SECURITY] Configuration error for role '${role}':`, error.message);
+    console.error(
+      `[SECURITY] Configuration error for role '${role}':`,
+      error.message,
+    );
     throw error;
   }
 };
 
 const resolveSameSite = () => {
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = process.env.NODE_ENV === "production";
   // Production requires 'none' for cross-domain auth redirects to work in modern browsers
-  const defaultSameSite = isProd ? 'none' : 'lax';
-  const raw = String(process.env.AUTH_COOKIE_SAME_SITE || defaultSameSite).toLowerCase();
-  
-  if (['none', 'strict', 'lax'].includes(raw)) return raw;
+  const defaultSameSite = isProd ? "none" : "lax";
+  const raw = String(
+    process.env.AUTH_COOKIE_SAME_SITE || defaultSameSite,
+  ).toLowerCase();
+
+  if (["none", "strict", "lax"].includes(raw)) return raw;
   return defaultSameSite;
 };
 
 const resolveSecure = () => {
-  if (process.env.AUTH_COOKIE_SECURE === 'true') return true;
-  if (process.env.AUTH_COOKIE_SECURE === 'false') return false;
-  return process.env.NODE_ENV === 'production';
+  if (process.env.AUTH_COOKIE_SECURE === "true") return true;
+  if (process.env.AUTH_COOKIE_SECURE === "false") return false;
+  return process.env.NODE_ENV === "production";
 };
 
 const resolveCookieDomain = () => {
-  const rawDomain = String(process.env.AUTH_COOKIE_DOMAIN || '').trim();
+  const rawDomain = String(process.env.AUTH_COOKIE_DOMAIN || "").trim();
   if (!rawDomain) return null;
 
   // Validate domain format using strict regex
-  const domainRegex = /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i;
+  const domainRegex =
+    /^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i;
 
   let domain = rawDomain;
 
   // Accept either plain host (example.com) or full URL (https://example.com)
   try {
-    if (rawDomain.includes('://')) {
+    if (rawDomain.includes("://")) {
       domain = new URL(rawDomain).hostname;
     }
   } catch (_error) {
-    console.warn('[SECURITY] Invalid AUTH_COOKIE_DOMAIN URL format, ignoring domain restriction');
+    console.warn(
+      "[SECURITY] Invalid AUTH_COOKIE_DOMAIN URL format, ignoring domain restriction",
+    );
     return null;
   }
 
   // Validate domain format
   if (!domainRegex.test(domain)) {
-    console.warn(`[SECURITY] Invalid domain format: ${domain}. Cookie domain restriction disabled. Use format: example.com`);
+    console.warn(
+      `[SECURITY] Invalid domain format: ${domain}. Cookie domain restriction disabled. Use format: example.com`,
+    );
     return null;
   }
 
-  const cleanDomain = domain.replace(/^www\./i, '');
+  const cleanDomain = domain.replace(/^www\./i, "");
 
   // Additional security check: prevent overly broad domains
-  const parts = cleanDomain.split('.');
+  const parts = cleanDomain.split(".");
   if (parts.length < 2) {
-    console.warn('[SECURITY] Domain must include at least a second-level domain (e.g., example.com)');
+    console.warn(
+      "[SECURITY] Domain must include at least a second-level domain (e.g., example.com)",
+    );
     return null;
   }
 
@@ -176,18 +205,18 @@ const resolveCookieDomain = () => {
 };
 
 const cookieBaseOptions = () => {
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = process.env.NODE_ENV === "production";
   const sameSite = resolveSameSite();
-  
-  const secure = sameSite === 'none' ? true : resolveSecure(); 
-  
+
+  const secure = sameSite === "none" ? true : resolveSecure();
+
   const domain = resolveCookieDomain();
 
   return {
     httpOnly: true,
     secure,
     sameSite,
-    path: '/',
+    path: "/",
     ...(domain && isProd ? { domain } : {}),
   };
 };
@@ -198,11 +227,13 @@ export const getPublicCookieOptions = () => ({
 });
 
 export const isStateChangingMethod = (method) =>
-  ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method || '').toUpperCase());
+  ["POST", "PUT", "PATCH", "DELETE"].includes(
+    String(method || "").toUpperCase(),
+  );
 
 // Generate cryptographically secure CSRF token (64 bytes = 512 bits)
 export const generateCsrfToken = () => {
-  const token = crypto.randomBytes(64).toString('hex');
+  const token = crypto.randomBytes(64).toString("hex");
   const timestamp = Date.now().toString();
   // Include timestamp to prevent token reuse across requests
   const tokenWithTimestamp = `${token}.${timestamp}`;
@@ -211,23 +242,23 @@ export const generateCsrfToken = () => {
 
 // Hash token for storage/comparison using HMAC for added security
 export const hashToken = (token) => {
-  if (!token || typeof token !== 'string') {
-    throw new Error('Invalid token provided');
+  if (!token || typeof token !== "string") {
+    throw new Error("Invalid token provided");
   }
   return crypto
-    .createHmac('sha256', getRequiredSecurityValue('CSRF_HASH_SECRET'))
+    .createHmac("sha256", getRequiredSecurityValue("CSRF_HASH_SECRET"))
     .update(token)
-    .digest('hex');
+    .digest("hex");
 };
 
 // Validate CSRF token with timestamp check (max age: 1 hour)
 export const validateCsrfToken = (token, maxAgeMs = 3600000) => {
   try {
-    if (!token || typeof token !== 'string') {
+    if (!token || typeof token !== "string") {
       return false;
     }
 
-    const parts = token.split('.');
+    const parts = token.split(".");
     if (parts.length !== 2) {
       return false;
     }
@@ -259,14 +290,14 @@ export const signAccessToken = (role, payload) => {
   const config = getRoleConfig(role);
   const tokenId = crypto.randomUUID();
   return jwt.sign(
-    { ...payload, authRole: role, tokenType: 'access' },
+    { ...payload, authRole: role, tokenType: "access" },
     config.accessSecret,
     {
       expiresIn: config.accessExpiresIn,
       issuer: AUTH_ISSUER,
       audience: ROLE_AUDIENCES[role],
       jwtid: tokenId,
-    }
+    },
   );
 };
 
@@ -274,20 +305,20 @@ export const signRefreshToken = (role, payload) => {
   const config = getRoleConfig(role);
   const tokenId = crypto.randomUUID();
   return jwt.sign(
-    { ...payload, authRole: role, tokenType: 'refresh' },
+    { ...payload, authRole: role, tokenType: "refresh" },
     config.refreshSecret,
     {
       expiresIn: config.refreshExpiresIn,
       issuer: AUTH_ISSUER,
       audience: ROLE_AUDIENCES[role],
       jwtid: tokenId,
-    }
+    },
   );
 };
 
 const assertVerifiedTokenShape = (decoded, role) => {
   if (!decoded || decoded.authRole !== role || !decoded.jti) {
-    throw new Error('Token payload is invalid');
+    throw new Error("Token payload is invalid");
   }
   return decoded;
 };
@@ -367,11 +398,11 @@ export const getAccessTokenFromRequest = (req, role) => {
   const cookieToken = req.cookies?.[accessCookie];
   if (cookieToken) return cookieToken;
 
-  if (process.env.ALLOW_AUTHORIZATION_HEADER_TOKENS !== 'true') {
+  if (process.env.ALLOW_AUTHORIZATION_HEADER_TOKENS !== "true") {
     return null;
   }
 
-  const headerToken = req.header('Authorization')?.replace('Bearer ', '');
+  const headerToken = req.header("Authorization")?.replace("Bearer ", "");
   return headerToken || null;
 };
 
@@ -388,6 +419,6 @@ export const getAccessTokenExpiryFromRequest = (req, role) => {
 export const getCsrfTokenFromRequest = (req, role) => {
   const { csrfCookie } = getCookieNamesForRole(role);
   const cookieToken = req.cookies?.[csrfCookie];
-  const headerToken = req.header('x-csrf-token');
+  const headerToken = req.header("x-csrf-token");
   return { cookieToken, headerToken };
 };
