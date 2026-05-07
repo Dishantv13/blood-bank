@@ -1,6 +1,5 @@
 import eventRepository from "../repositories/EventRepository.js";
 import userRepository from "../repositories/UserRepository.js";
-import bloodBankRepository from "../repositories/BloodBankRepository.js";
 import cacheManager from "../utils/cacheManager.js";
 import { ApiError } from "../utils/apiError.js";
 import {

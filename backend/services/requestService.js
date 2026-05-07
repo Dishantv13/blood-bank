@@ -1,5 +1,4 @@
 import requestRepository from "../repositories/RequestRepository.js";
-import mongoose from "mongoose";
 import {
   validateBloodRequest,
   validateBloodGroup,
@@ -12,7 +11,6 @@ import { ApiError } from "../utils/apiError.js";
 import { ensureValidObjectId } from "../utils/dbGuards.js";
 import {
   sendRequestStatusUpdateEmail,
-  sendRequestReceivedEmail,
 } from "../utils/emailService.js";
 import { createNotification } from "./notificationService.js";
 import { notifyMatchingDonors } from "./donorMatchingService.js";
@@ -306,6 +304,15 @@ export const updateRequestStatus = async (
         bloodGroup,
         units,
       );
+
+      // Inter-bank: Add units to the requesting blood bank
+      if (request.requestType === "bloodbank" && request.requestingBloodBank) {
+        await inventoryService.addInventoryUnits(
+          String(request.requestingBloodBank),
+          bloodGroup,
+          units,
+        );
+      }
     } catch (err) {
       // If inventory fails (e.g. insufficient units), we shouldn't change the status
       throw err;
@@ -320,6 +327,15 @@ export const updateRequestStatus = async (
       bloodGroup,
       units,
     );
+
+    // Inter-bank: Subtract units from the requesting blood bank if it was previously committed
+    if (request.requestType === "bloodbank" && request.requestingBloodBank) {
+      await inventoryService.subtractInventoryUnits(
+        String(request.requestingBloodBank),
+        bloodGroup,
+        units,
+      );
+    }
   }
 
   // Update status and timeline
@@ -346,6 +362,31 @@ export const updateRequestStatus = async (
     { path: "requestedBy", select: "name email" },
     { path: "bloodBank", select: "name email" },
   ]);
+
+  // Proactively clear blood bank detail caches to ensure fresh inventory is shown
+  try {
+    const { clearCacheByPrefix } = await import("../middleware/cache.js");
+    const { invalidatePublicBloodBanksCache } = await import("./bloodBankService.js");
+
+    // 1. Invalidate the general directory/list cache
+    await invalidatePublicBloodBanksCache();
+
+    // 2. Clear specific bank detail caches
+    const targetId = String(targetBankId || request.bloodBank || "");
+    if (targetId) {
+      await clearCacheByPrefix(targetId); // Be more aggressive: clear anything with this ID
+    }
+
+    if (request.requestingBloodBank) {
+      const requesterId = String(request.requestingBloodBank._id || request.requestingBloodBank);
+      await clearCacheByPrefix(requesterId);
+    }
+
+    // 3. Clear admin/dashboard stats
+    cacheManager.del("admin:dashboard_stats");
+  } catch (cacheErr) {
+    console.error("[Cache] Invalidation failed after status update:", cacheErr.message);
+  }
 
   // Notifications
   if (request.requestedBy) {
@@ -382,6 +423,7 @@ export const fulfillRequest = async (
     throw new ApiError(403, "This request is assigned to another blood bank");
   }
 
+  const oldStatus = request.status;
   request.status = "fulfilled";
   request.fulfillment = {
     fulfilledBy: bloodBankId,
@@ -401,7 +443,7 @@ export const fulfillRequest = async (
 
   // UPDATE INVENTORY (Only if not already committed in a previous status like 'approved')
   const wasAlreadyCommitted = ["approved", "fulfilled", "completed"].includes(
-    request.status,
+    oldStatus,
   );
   const unitsToFulfill = request.fulfillment.unitsProvided || request.units;
   const bloodGroup = request.bloodGroup;
@@ -426,6 +468,24 @@ export const fulfillRequest = async (
 
   request.status = "fulfilled";
   await request.save();
+
+  // Proactively clear blood bank detail caches
+  try {
+    const { clearCacheByPrefix } = await import("../middleware/cache.js");
+    const { invalidatePublicBloodBanksCache } = await import("./bloodBankService.js");
+
+    await invalidatePublicBloodBanksCache();
+    await clearCacheByPrefix(String(bloodBankId));
+
+    if (request.requestType === "bloodbank" && request.requestingBloodBank) {
+      const requesterId = String(request.requestingBloodBank._id || request.requestingBloodBank);
+      await clearCacheByPrefix(requesterId);
+    }
+    cacheManager.del("admin:dashboard_stats");
+  } catch (cacheErr) {
+    console.error("[Cache] Invalidation failed after fulfillment:", cacheErr.message);
+  }
+
   return request;
 };
 

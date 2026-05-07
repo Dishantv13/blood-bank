@@ -750,3 +750,44 @@
   background: #e63946;
   transform: scale(1.1);
 }
+
+/* Password Toggle Styles */
+.password-field .password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+  padding-right: 3.5rem !important;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  color: var(--text-muted) !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.password-toggle:hover {
+  color: #e63946 !important;
+  background: rgba(230, 57, 70, 0.05) !important;
+}
+
+.password-toggle svg {
+  width: 20px;
+  height: 20px;
+}

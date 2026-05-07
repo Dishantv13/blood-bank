@@ -198,6 +198,7 @@ export const sanitizeBloodBank = (bloodBank) => {
     reviewedAt: bloodBank.reviewedAt,
     reviewedBy: bloodBank.reviewedBy || "",
     rejectionReason: bloodBank.rejectionReason || "",
+    inventory: bloodBank.inventory || [],
     createdAt: bloodBank.createdAt,
   };
 };

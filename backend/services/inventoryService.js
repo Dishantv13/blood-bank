@@ -1,4 +1,3 @@
-import bloodBankRepository from "../repositories/BloodBankRepository.js";
 import inventoryRepository from "../repositories/InventoryRepository.js";
 import {
   validateInventoryUpdate,

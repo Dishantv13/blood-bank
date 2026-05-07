@@ -52,6 +52,9 @@ export const requestApi = apiSlice.injectEndpoints({
       invalidatesTags: (result, error, { id }) => [
         ...tagById(TAGS.REQUEST, id),
         ...tagList(TAGS.REQUEST),
+        ...tagList(TAGS.BLOOD_BANK),
+        ...tagList(TAGS.INVENTORY_ITEM),
+        ...tagList(TAGS.DASHBOARD),
       ],
     }),
     fulfillRequest: builder.mutation({
@@ -63,6 +66,9 @@ export const requestApi = apiSlice.injectEndpoints({
       invalidatesTags: (result, error, { id }) => [
         ...tagById(TAGS.REQUEST, id),
         ...tagList(TAGS.REQUEST),
+        ...tagList(TAGS.BLOOD_BANK),
+        ...tagList(TAGS.INVENTORY_ITEM),
+        ...tagList(TAGS.DASHBOARD),
       ],
     }),
 
