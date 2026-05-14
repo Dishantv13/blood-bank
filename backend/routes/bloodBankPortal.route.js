@@ -84,9 +84,6 @@ router
   .route("/events/:id/registrations")
   .get(bloodBankAuth, bloodBankPortalController.getEventRegistrations);
 
-router
-  .route("/events/:id/export-registrations")
-  .get(bloodBankAuth, bloodBankPortalController.exportEventRegistrations);
 
 // Blood Camp Management
 
@@ -102,16 +99,13 @@ router
   .route("/camps/:id/registrations/:donorId")
   .delete(bloodBankAuth, bloodBankPortalController.removeDonorRegistration);
 
-router
-  .route("/camps/:id/export-registrations")
-  .get(bloodBankAuth, bloodBankPortalController.exportCampRegistrations);
 
 // Settings & Profile Management
 
 import { upload } from "../middleware/multer.js";
 
 router
-  .route("/settings/photo")
+  .route("/photo")
   .post(
     bloodBankAuth,
     upload.single("photo"),
@@ -119,11 +113,11 @@ router
   );
 
 router
-  .route("/settings/profile")
+  .route("/profile")
   .get(bloodBankAuth, cacheResponse(600), bloodBankPortalController.getProfile);
 
 router
-  .route("/settings/profile")
+  .route("/profile")
   .put(
     bloodBankAuth,
     bloodBankPortalValidation.updateProfileValidation,
@@ -131,7 +125,7 @@ router
   );
 
 router
-  .route("/settings/password")
+  .route("/password")
   .put(
     bloodBankAuth,
     bloodBankPortalValidation.changePasswordValidation,
@@ -139,7 +133,7 @@ router
   );
 
 router
-  .route("/settings/inventory")
+  .route("/inventory")
   .get(
     bloodBankAuth,
     cacheResponse(30),
@@ -147,7 +141,7 @@ router
   );
 
 router
-  .route("/settings/inventory")
+  .route("/inventory")
   .put(
     bloodBankAuth,
     bloodBankPortalValidation.updateInventoryValidation,
@@ -155,12 +149,26 @@ router
   );
 
 router
-  .route("/settings/inventory/:bloodGroup")
+  .route("/inventory/:bloodGroup")
   .patch(
     bloodBankAuth,
     bloodBankPortalValidation.updateBloodGroupUnitsValidation,
     bloodBankPortalController.updateBloodGroupUnits,
   );
+
+router
+  .route("/export/inventory")
+  .get(bloodBankAuth, bloodBankPortalController.exportInventoryData);
+
+router
+  .route("/export/camps")
+  .get(bloodBankAuth, bloodBankPortalController.exportCampReports);
+
+router
+  .route("/export/all")
+  .get(bloodBankAuth, bloodBankPortalController.exportAllData);
+
+
 
 // Dashboard & Analytics
 

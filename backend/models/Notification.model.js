@@ -37,7 +37,7 @@ const NotificationSchema = new mongoose.Schema(
     createdAt: {
       type: Date,
       default: Date.now,
-      expires: 30 * 24 * 60 * 60,
+      expires: 15 * 24 * 60 * 60, // Clean up notifications after 15 days
     },
   },
   {

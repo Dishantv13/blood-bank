@@ -172,11 +172,6 @@ const ResetPassword = () => {
                   )}
                 </button>
               </div>
-              <small>Must be at least {MIN_PASSWORD_LENGTH} characters</small>
-              <small>Must contain at least one uppercase letter</small>
-              <small>Must contain at least one lowercase letter</small>
-              <small>Must contain at least one number</small>
-              <small>Must contain at least one special character</small>
             </div>
 
             <div className="form-group password-field">
@@ -229,6 +224,11 @@ const ResetPassword = () => {
                   )}
                 </button>
               </div>
+              <small>Must be at least {MIN_PASSWORD_LENGTH} characters</small>
+              <small>Must contain at least one uppercase letter</small>
+              <small>Must contain at least one lowercase letter</small>
+              <small>Must contain at least one number</small>
+              <small>Must contain at least one special character</small>
             </div>
 
             {error && <div className="error-message">{error}</div>}

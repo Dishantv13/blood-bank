@@ -38,10 +38,10 @@ describe("Permission Denial Integration Tests", () => {
 
   it("should deny regular user from accessing blood bank portal routes", async () => {
     const res = await request(app)
-      .get("/api/v1/bloodbank/settings/profile")
+      .get("/api/v1/bloodbank/profile")
       .set("Cookie", userCookies);
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
   });
 
@@ -51,6 +51,6 @@ describe("Permission Denial Integration Tests", () => {
       .set("Cookie", userCookies)
       .send({ unitsProvided: 1 });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "../store/eventApi";
 import "../pages.css/BloodBankEvents.css";
 import SkeletonLoader from "../components/SkeletonLoader";
+import DatePicker from "../components/DatePicker";
 
 const BloodBankEvents = () => {
   const [events, setEvents] = useState([]);
@@ -265,13 +266,13 @@ const BloodBankEvents = () => {
               </div>
 
               <div className="form-row">
-                <div className="form-group">
+                <div className="form-group" style={{ flex: 1.5 }}>
                   <label>Date</label>
-                  <input
-                    type="date"
-                    value={editingEvent.date?.split("T")[0]}
-                    onChange={(e) => handleInputChange("date", e.target.value)}
-                    className="form-input"
+                  <DatePicker
+                    value={editingEvent.date}
+                    onChange={(date) => handleInputChange("date", date.toISOString())}
+                    minDate={new Date()}
+                    placeholder="Select Date"
                   />
                 </div>
 

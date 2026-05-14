@@ -1,31 +1,11 @@
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { ApiError } from "../utils/apiError.js";
 import adminAuthStateRepository from "../repositories/AdminAuthStateRepository.js";
-import {
-  clearAuthCookies,
-  generateCsrfToken,
-  getAccessTokenExpiryFromRequest,
-  getCookieNamesForRole,
-  getRefreshTokenFromRequest,
-  hashToken,
-  setAuthCookies,
-  verifyRefreshToken,
-  getPublicCookieOptions,
-  getAccessTokenFromRequest,
-  verifyAccessToken,
-} from "../utils/authCookies.js";
-import { enforceCsrfForRole } from "../middleware/csrf.js";
-import {
-  createAuthSession,
-  getAuthSessionForRefresh,
-  logRefreshReuseDetected,
-  revokeAllPrincipalSessions,
-  revokeAuthSession,
-  rotateAuthSession,
-  updateCsrfToken,
-} from "./sessionService.js";
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from "../config/authConfig.js";
+import { enforceCsrfForRole } from "../middleware/csrf.js";
+import { ApiError } from "../utils/apiError.js";
+import * as authCookies from "../utils/authCookies.js";
+import * as sessionService from "./sessionService.js";
+
 
 const getAdminConfig = () => {
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -84,33 +64,23 @@ const clearAdminLoginAttempts = async (adminEmail) => {
 
 const createAdminSession = async (req, res, admin) => {
   const state = await getOrCreateAdminAuthState();
-  const sessionId = crypto.randomUUID();
-  const tokenClaims = {
-    type: "admin",
-    role: "admin",
-    adminEmail: admin.email,
-    sid: sessionId,
-    tokenVersion: Number(state.tokenVersion || 0),
-  };
-  const {
-    refreshToken,
-    refreshTokenExpiresAt,
-    csrfToken,
-    accessTokenExpiresAt,
-  } = setAuthCookies(res, "admin", tokenClaims);
+  const tokenVersion = Number(state.tokenVersion || 0);
 
-  await createAuthSession({
-    sessionId,
-    role: "admin",
-    adminEmail: admin.email,
-    refreshTokenHash: hashToken(refreshToken),
-    refreshTokenExpiresAt,
-    csrfTokenHash: hashToken(csrfToken),
-    tokenVersion: Number(state.tokenVersion || 0),
+  return sessionService.issuePrincipalSession({
     req,
+    res,
+    role: "admin",
+    principalId: admin.email,
+    tokenVersion,
+    buildClaims: (sessionId, version) => ({
+      type: "admin",
+      role: "admin",
+      adminEmail: admin.email,
+      sid: sessionId,
+      tokenVersion: version,
+    }),
+    metadata: { adminEmail: admin.email },
   });
-
-  return { csrfToken, accessTokenExpiresAt };
 };
 
 const incrementAdminTokenVersion = async (reason = "security_event") => {
@@ -124,7 +94,7 @@ const incrementAdminTokenVersion = async (reason = "security_event") => {
     { returnDocument: "after", upsert: true },
   );
 
-  await revokeAllPrincipalSessions({ role: "admin", adminEmail, reason });
+  await sessionService.revokeAllPrincipalSessions({ role: "admin", adminEmail, reason });
   return state;
 };
 
@@ -189,26 +159,26 @@ export const getSessionAdminWithExpiry = async (req) => {
   const session = await getSessionAdmin();
   return {
     ...session,
-    accessTokenExpiresAt: getAccessTokenExpiryFromRequest(req, "admin"),
+    accessTokenExpiresAt: authCookies.getAccessTokenExpiryFromRequest(req, "admin"),
   };
 };
 
 export const issueAdminCsrfToken = async (req, res) => {
-  const { csrfCookie } = getCookieNamesForRole("admin");
-  const csrfToken = generateCsrfToken();
+  const { csrfCookie } = authCookies.getCookieNamesForRole("admin");
+  const csrfToken = authCookies.generateCsrfToken();
 
-  res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
+  res.cookie(csrfCookie, csrfToken, authCookies.getPublicCookieOptions());
 
   // Sync with active session if one exists
-  const accessToken = getAccessTokenFromRequest(req, "admin");
+  const accessToken = authCookies.getAccessTokenFromRequest(req, "admin");
   if (accessToken) {
     try {
-      const decoded = verifyAccessToken("admin", accessToken);
+      const decoded = authCookies.verifyAccessToken("admin", accessToken);
       if (decoded.sid) {
-        await updateCsrfToken({
+        await sessionService.updateCsrfToken({
           role: "admin",
           sessionId: decoded.sid,
-          csrfTokenHash: hashToken(csrfToken),
+          csrfTokenHash: authCookies.hashToken(csrfToken),
         });
       }
     } catch (_e) {}
@@ -229,113 +199,24 @@ export const loginAdminWithSession = async (req, res) => {
 };
 
 export const refreshAdminSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, "admin")) {
-    throw new ApiError(403, "Invalid or missing CSRF token");
-  }
-
-  const refreshToken = getRefreshTokenFromRequest(req, "admin");
-  if (!refreshToken) {
-    throw new ApiError(401, "Refresh token missing");
-  }
-
-  const decoded = verifyRefreshToken("admin", refreshToken);
-  const [sessionRecord, state] = await Promise.all([
-    getAuthSessionForRefresh({ role: "admin", sessionId: decoded.sid }),
-    getOrCreateAdminAuthState(),
-  ]);
-
-  const incomingRefreshHash = hashToken(refreshToken);
-  const isCurrentMatch =
-    sessionRecord?.refreshTokenHash === incomingRefreshHash;
-  const isGraceMatch =
-    sessionRecord?.rotatedAt &&
-    Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 10000 &&
-    sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
-
-  const isTokenValid = isCurrentMatch || isGraceMatch;
-
-  const requiresSessionRevoke =
-    !sessionRecord ||
-    sessionRecord.revokedAt ||
-    new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
-    String(decoded.adminEmail || "").toLowerCase() !==
-      String(state.email || "").toLowerCase() ||
-    Number(decoded.tokenVersion) !== Number(state.tokenVersion || 0) ||
-    Number(sessionRecord.tokenVersion) !== Number(state.tokenVersion || 0) ||
-    !isTokenValid;
-
-  if (requiresSessionRevoke) {
-    if (sessionRecord?.sessionId) {
-      await revokeAuthSession({
-        role: "admin",
-        sessionId: sessionRecord.sessionId,
-        reason: "refresh_token_mismatch",
-      });
-    }
-
-    const suspectSeriousBreach =
-      state &&
-      (Number(decoded.tokenVersion) !== Number(state.tokenVersion || 0) ||
-        Number(sessionRecord?.tokenVersion) !==
-          Number(state.tokenVersion || 0));
-
-    if (suspectSeriousBreach) {
-      await incrementAdminTokenVersion("security_breach_detected");
-    }
-
-    logRefreshReuseDetected({
-      role: "admin",
-      sessionId: decoded.sid,
-      principal: decoded.adminEmail,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    });
-
-    clearAuthCookies(res, "admin");
-    throw new ApiError(401, "Refresh token is invalid or has been reused");
-  }
-
-  const sessionId = decoded.sid || crypto.randomUUID();
-  const isTransitioningFromLegacy = !decoded.sid || !sessionRecord;
-
-  const {
-    refreshToken: nextRefreshToken,
-    refreshTokenExpiresAt,
-    csrfToken,
-    accessTokenExpiresAt,
-  } = setAuthCookies(res, "admin", {
-    type: "admin",
+  await sessionService.refreshPrincipalSession({
+    req,
+    res,
     role: "admin",
-    adminEmail: decoded.adminEmail,
-    sid: sessionId,
-    tokenVersion: Number(state.tokenVersion || 0),
+    getPrincipal: async () => getOrCreateAdminAuthState(),
+    buildClaims: (state, sessionId, version) => ({
+      type: "admin",
+      role: "admin",
+      adminEmail: state.email,
+      sid: sessionId,
+      tokenVersion: version,
+    }),
+    onBreach: () => incrementAdminTokenVersion("security_breach_detected"),
   });
 
-  if (isTransitioningFromLegacy) {
-    await createAuthSession({
-      sessionId: sessionId,
-      role: "admin",
-      adminEmail: decoded.adminEmail,
-      refreshTokenHash: hashToken(nextRefreshToken),
-      refreshTokenExpiresAt,
-      csrfTokenHash: hashToken(csrfToken),
-      tokenVersion: Number(state.tokenVersion || 0),
-      req,
-    });
-  } else {
-    await rotateAuthSession({
-      role: "admin",
-      sessionId: sessionId,
-      refreshTokenHash: hashToken(nextRefreshToken),
-      refreshTokenExpiresAt,
-      csrfTokenHash: hashToken(csrfToken),
-      tokenVersion: Number(state.tokenVersion || 0),
-      req,
-      isGraceUpdate: isGraceMatch,
-    });
-  }
-
   const session = await getSessionAdmin();
+  const csrfToken = req.cookies[authCookies.getCookieNamesForRole("admin").csrfCookie];
+  const accessTokenExpiresAt = authCookies.getAccessTokenExpiryFromRequest(req, "admin");
   return { ...session, csrfToken, accessTokenExpiresAt };
 };
 
@@ -345,12 +226,12 @@ export const logoutAdminSession = async (req, res) => {
       console.warn("[AUTH] CSRF validation failed during admin logout attempt");
     }
 
-    const refreshToken = getRefreshTokenFromRequest(req, "admin");
+    const refreshToken = authCookies.getRefreshTokenFromRequest(req, "admin");
     if (refreshToken) {
       try {
-        const decoded = verifyRefreshToken("admin", refreshToken);
+        const decoded = authCookies.verifyRefreshToken("admin", refreshToken);
         if (decoded?.sid) {
-          await revokeAuthSession({
+          await sessionService.revokeAuthSession({
             role: "admin",
             sessionId: decoded.sid,
             reason: "logout",
@@ -361,7 +242,7 @@ export const logoutAdminSession = async (req, res) => {
       }
     }
   } finally {
-    clearAuthCookies(res, "admin");
+    authCookies.clearAuthCookies(res, "admin");
   }
 
   return { success: true };

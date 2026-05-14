@@ -1,8 +1,8 @@
-import express from "express";
+import { Router } from "express";
 import * as notificationService from "../services/notificationService.js";
 import { authOrBloodBank } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asynchandler.js";
-const router = express.Router();
+const router = Router();
 
 // All routes require authentication (user or blood bank)
 router.use(authOrBloodBank);

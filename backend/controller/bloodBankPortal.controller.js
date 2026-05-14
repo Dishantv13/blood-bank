@@ -1,6 +1,7 @@
 import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from "../utils/response.js";
 import * as bloodBankPortalService from "../services/bloodBankPortalService.js";
+import * as bloodBankExportService from "../services/bloodBankExportService.js";
 import { ApiError } from "../utils/apiError.js";
 import { clearCacheByPrefix } from "../middleware/cache.js";
 import { ensureValid } from "../middleware/validateRequest.js";
@@ -84,6 +85,7 @@ export const createEvent = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.body,
   );
+  await clearCacheByPrefix("/api/v1/events");
   successResponse(
     res,
     result,
@@ -99,11 +101,13 @@ export const updateEvent = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.body,
   );
+  await clearCacheByPrefix("/api/v1/events");
   successResponse(res, result, 200, "Event updated successfully");
 });
 
 export const deleteEvent = asyncHandler(async (req, res) => {
   await bloodBankPortalService.deleteEvent(req.params.id, getBloodBankId(req));
+  await clearCacheByPrefix("/api/v1/events");
   successResponse(res, null, 200, "Event deleted successfully");
 });
 
@@ -116,21 +120,6 @@ export const getEventRegistrations = asyncHandler(async (req, res) => {
   successResponse(res, result, 200, "Event registrations fetched successfully");
 });
 
-export const exportEventRegistrations = asyncHandler(async (req, res) => {
-  const result = await bloodBankPortalService.exportEventRegistrations(
-    req.params.id,
-    getBloodBankId(req),
-  );
-  res.setHeader(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  );
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${result.fileName}"`,
-  );
-  res.send(Buffer.from(result.buffer));
-});
 
 export const getAllCamps = asyncHandler(async (req, res) => {
   const result = await bloodBankPortalService.getAllCamps(getBloodBankId(req));
@@ -151,24 +140,10 @@ export const removeDonorRegistration = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.params.donorId,
   );
+  await clearCacheByPrefix("/api/v1/blood-camps");
   successResponse(res, result, 200, "Donor registration removed successfully");
 });
 
-export const exportCampRegistrations = asyncHandler(async (req, res) => {
-  const result = await bloodBankPortalService.exportCampRegistrations(
-    req.params.id,
-    getBloodBankId(req),
-  );
-  res.setHeader(
-    "Content-Type",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  );
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename=${result.fileName}`,
-  );
-  res.send(Buffer.from(result.buffer));
-});
 
 export const uploadPhoto = asyncHandler(async (req, res) => {
   if (!req.file) {
@@ -211,9 +186,8 @@ export const updateProfile = asyncHandler(async (req, res) => {
   );
 
   // Invalidate profile and public search cache
-  clearCacheByPrefix("/api/v1/bloodbank/settings/profile");
-  clearCacheByPrefix("/api/v1/bloodbanks");
-  clearCacheByPrefix("/api/v1/blood-banks");
+  await clearCacheByPrefix("/api/v1/bloodbank/profile");
+  await clearCacheByPrefix("/api/v1/blood-banks");
 
   successResponse(res, result, 200, "Profile updated successfully");
 });
@@ -241,9 +215,8 @@ export const updateInventory = asyncHandler(async (req, res) => {
   );
 
   // Invalidate inventory and public search cache
-  clearCacheByPrefix("/api/v1/bloodbank/settings/inventory");
-  clearCacheByPrefix("/api/v1/bloodbanks");
-  clearCacheByPrefix("/api/v1/blood-banks");
+  await clearCacheByPrefix("/api/v1/bloodbank/inventory");
+  await clearCacheByPrefix("/api/v1/blood-banks");
 
   successResponse(res, result, 200, "Inventory updated successfully");
 });
@@ -257,9 +230,8 @@ export const updateBloodGroupUnits = asyncHandler(async (req, res) => {
   );
 
   // Invalidate inventory and public search cache
-  clearCacheByPrefix("/api/v1/bloodbank/settings/inventory");
-  clearCacheByPrefix("/api/v1/bloodbanks");
-  clearCacheByPrefix("/api/v1/blood-banks");
+  await clearCacheByPrefix("/api/v1/bloodbank/inventory");
+  await clearCacheByPrefix("/api/v1/blood-banks");
 
   successResponse(
     res,
@@ -268,3 +240,25 @@ export const updateBloodGroupUnits = asyncHandler(async (req, res) => {
     `${req.params.bloodGroup} inventory updated`,
   );
 });
+
+export const exportInventoryData = asyncHandler(async (req, res) => {
+  const result = await bloodBankExportService.exportInventoryData(getBloodBankId(req));
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
+  res.send(Buffer.from(result.buffer));
+});
+
+export const exportCampReports = asyncHandler(async (req, res) => {
+  const result = await bloodBankExportService.exportCampReports(getBloodBankId(req));
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
+  res.send(Buffer.from(result.buffer));
+});
+
+export const exportAllData = asyncHandler(async (req, res) => {
+  const result = await bloodBankExportService.exportAllData(getBloodBankId(req));
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${result.fileName}"`);
+  res.send(Buffer.from(result.buffer));
+});
+

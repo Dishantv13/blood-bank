@@ -1,26 +1,29 @@
-import User from "../models/User.model.js";
+import userRepository from "../repositories/UserRepository.js";
 import { sendDonationReminderEmail } from "../utils/emailService.js";
 import { createNotification } from "./notificationService.js";
 
 const ELIGIBILITY_DAYS = 90;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 export const processDonationReminders = async () => {
   console.log("Running donation reminder job...");
 
   const ninetyDaysAgo = new Date(Date.now() - ELIGIBILITY_DAYS * MS_PER_DAY);
-
   const ninetyOneDaysAgo = new Date(
     Date.now() - (ELIGIBILITY_DAYS + 1) * MS_PER_DAY,
   );
 
-  const eligibleUsers = await User.find({
-    isDonor: true,
-    "donorInfo.lastDonationDate": {
-      $lte: ninetyDaysAgo,
-      $gt: ninetyOneDaysAgo,
+  const eligibleUsers = await userRepository.find(
+    {
+      isDonor: true,
+      "donorInfo.lastDonationDate": {
+        $lte: ninetyDaysAgo,
+        $gt: ninetyOneDaysAgo,
+      },
+      "emailPreferences.reminders": true,
     },
-    "emailPreferences.reminders": true,
-  }).select("name email donorInfo");
+    { select: "name email donorInfo" },
+  );
 
   console.log(`Found ${eligibleUsers.length} users eligible for reminders.`);
 
@@ -45,8 +48,9 @@ export const processDonationReminders = async () => {
     }
   }
 };
+
 export const checkAndSendSingleReminder = async (userId) => {
-  const user = await User.findById(userId);
+  const user = await userRepository.findById(userId);
   if (!user || !user.isDonor || !user.emailPreferences?.reminders) return;
 
   const lastDonationDate =
@@ -78,9 +82,10 @@ export const checkAndSendSingleReminder = async (userId) => {
       });
 
       // Track that we sent it
-      await User.findByIdAndUpdate(userId, {
-        $set: { "donorInfo.lastReminderSentAt": new Date() },
-      });
+      await userRepository.updateOne(
+        { _id: userId },
+        { $set: { "donorInfo.lastReminderSentAt": new Date() } },
+      );
 
       console.log(`On-demand reminder sent to ${user.email}`);
     } catch (error) {

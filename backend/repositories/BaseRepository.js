@@ -56,6 +56,11 @@ export default class BaseRepository {
     return this.model.create(data);
   }
 
+  async insertMany(docs, options = {}) {
+    const { session } = options;
+    return this.model.insertMany(docs, { session });
+  }
+
   async updateOne(filter, data, options = { new: true, lean: true }) {
     const { session, lean = true } = options;
     let query = this.model.findOneAndUpdate(filter, data, options);
@@ -96,5 +101,35 @@ export default class BaseRepository {
     let aggregation = this.model.aggregate(pipeline);
     if (session) aggregation = aggregation.session(session);
     return aggregation;
+  }
+
+  async findPaginated(filter = {}, options = {}) {
+    const { sort = { createdAt: -1 }, skip = 0, limit = 10, session } = options;
+    
+    const pipeline = [
+      { $match: filter },
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [
+            { $sort: sort },
+            { $skip: skip },
+            { $limit: limit }
+          ]
+        }
+      },
+      {
+        $project: {
+          total: { $arrayElemAt: ["$metadata.total", 0] },
+          data: 1
+        }
+      }
+    ];
+
+    const [result] = await this.aggregate(pipeline, { session });
+    return {
+      data: result?.data || [],
+      total: result?.total || 0
+    };
   }
 }

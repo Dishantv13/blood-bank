@@ -28,6 +28,10 @@ const transporter = nodemailer.createTransport({
 
 // Sends email directly via Nodemailer (BullMQ removed).
 const sendEmail = async (to, subject, html) => {
+  if (process.env.NODE_ENV === "test") {
+    console.log(`[Email Mock] Skip sending email to ${to} in test mode.`);
+    return { messageId: "test-id" };
+  }
   try {
     const info = await transporter.sendMail({
       from: `"RaktSarthi" <${process.env.EMAIL_USER || "noreply@raktsarthi.com"}>`,
@@ -84,7 +88,7 @@ export const sendPasswordResetEmail = async (
 ) => {
   const resetUrl =
     userType === "bloodbank"
-      ? `${process.env.FRONTEND_URL || "http://localhost:3000"}/blood-bank-reset-password?token=${resetToken}`
+      ? `${process.env.FRONTEND_URL || "http://localhost:3000"}/blood-bank/reset-password?token=${resetToken}`
       : `${process.env.FRONTEND_URL || "http://localhost:3000"}/reset-password?token=${resetToken}`;
 
   const subject =
@@ -230,6 +234,7 @@ export const sendWeeklyInventoryDigest = async (bloodBank, stats) => {
 };
 
 export const verifyEmailSetup = async () => {
+  if (process.env.NODE_ENV === "test") return true;
   try {
     await transporter.verify();
     console.log("Email service is ready");

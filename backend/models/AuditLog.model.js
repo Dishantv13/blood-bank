@@ -40,6 +40,7 @@ const AuditLogSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
       index: true,
+      expires: 15 * 24 * 60 * 60, // Automatically delete logs older than 15 days
     },
   },
   {

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { phoneValidator, emailValidator } from "../validation/validation";
+import DatePicker from "./DatePicker";
 import "../components.css/EventFormModal.css";
 
 const EventFormModal = ({
@@ -169,23 +170,15 @@ const EventFormModal = ({
 
           {/* Date & Time */}
           <div className="form-row">
-            <div className="form-group">
+            <div className="form-group" style={{ flex: 2 }}>
               <label>Event Date *</label>
-              <input
-                type="date"
-                {...register("date", {
-                  required: "Date is required",
-                  validate: (value) => {
-                    const eventDate = new Date(value);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    return (
-                      eventDate >= today ||
-                      "Event date must be today or in the future"
-                    );
-                  },
-                })}
-                className={errors.date ? "error" : ""}
+              <DatePicker
+                value={watch("date")}
+                onChange={(date) => {
+                  setValue("date", date.toISOString(), { shouldValidate: true });
+                }}
+                minDate={new Date()}
+                placeholder="Choose Event Date"
               />
               {errors.date && (
                 <span className="error-text">{errors.date.message}</span>

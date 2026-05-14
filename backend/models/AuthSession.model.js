@@ -95,6 +95,9 @@ const AuthSessionSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    autoDeleteAt: {
+      type: Date,
+    },
   },
   {
     versionKey: false,
@@ -104,7 +107,15 @@ const AuthSessionSchema = new mongoose.Schema(
 AuthSessionSchema.index({ role: 1, userId: 1, revokedAt: 1 });
 AuthSessionSchema.index({ role: 1, bloodBankId: 1, revokedAt: 1 });
 AuthSessionSchema.index({ role: 1, adminEmail: 1, revokedAt: 1 });
-// Automatically remove expired sessions from the collection
-AuthSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+AuthSessionSchema.pre("save", async function () {
+  if (this.revokedAt) {
+    this.autoDeleteAt = new Date(Date.now() + 5 * 60 * 1000);
+  } else {
+    const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    this.autoDeleteAt = this.expiresAt < thirtyDaysFromNow ? this.expiresAt : thirtyDaysFromNow;
+  }
+});
+AuthSessionSchema.index({ autoDeleteAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.model("AuthSession", AuthSessionSchema);

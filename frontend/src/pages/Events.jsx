@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useGetAllEventsQuery,
   useRegisterForEventMutation,
@@ -9,7 +9,7 @@ import {
 } from "../store/bloodCampApi";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ToastContainer";
-import { FaTint, FaBullhorn, FaHospital, FaStethoscope } from "react-icons/fa";
+import { FaTint, FaBullhorn, FaHospital, FaStethoscope, FaSearch } from "react-icons/fa";
 import "../pages.css/Events.css";
 import SkeletonLoader from "../components/SkeletonLoader";
 import EmptyState from "../components/EmptyState";
@@ -17,28 +17,46 @@ import EmptyState from "../components/EmptyState";
 const Events = () => {
   const { user } = useAuth();
   const { success, error, info } = useToast();
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("events");
   const [registeredEventIds, setRegisteredEventIds] = useState(new Set());
   const [registeredCampIds, setRegisteredCampIds] = useState(new Set());
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const currentUserId = user?.id || user?._id || null;
+
+  // Debounce search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const {
     data: campsResponse,
     isLoading: loadingCamps,
     refetch: refetchCamps,
-  } = useGetAllCampsQuery({ upcoming: true });
+  } = useGetAllCampsQuery(
+    { upcoming: true, search: debouncedSearch },
+    { skip: activeTab !== "camps" },
+  );
   const {
     data: eventsResponse,
     isLoading: loadingEvents,
     refetch: refetchEvents,
-  } = useGetAllEventsQuery();
+  } = useGetAllEventsQuery(
+    { search: debouncedSearch },
+    { skip: activeTab !== "events" },
+  );
 
   // RTK Mutations for registrations
   const [registerForEvent] = useRegisterForEventMutation();
   const [registerForCamp] = useRegisterForCampMutation();
 
-  const loading = loadingCamps || loadingEvents;
+  const loading =
+    activeTab === "events" ? loadingEvents : loadingCamps;
 
   // Filter regular events based on user mode and visibility
   const bloodCamps = campsResponse?.data || [];
@@ -168,25 +186,27 @@ const Events = () => {
         </p>
       </div>
 
+      {/* Search Bar */}
+      <div className="search-container">
+        <div className="search-wrapper">
+          <FaSearch className="search-icon" />
+          <input
+            type="text"
+            placeholder={`Search ${activeTab === "events" ? "events by title..." : "camps by name..."}`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+          {searchTerm && (
+            <button className="clear-search" onClick={() => setSearchTerm("")}>
+              &times;
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Tab Navigation */}
       <div className="events-tabs">
-        <button
-          className={`tab-btn ${activeTab === "all" ? "active" : ""}`}
-          onClick={() => setActiveTab("all")}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <rect x="3" y="3" width="7" height="7" />
-            <rect x="14" y="3" width="7" height="7" />
-            <rect x="14" y="14" width="7" height="7" />
-            <rect x="3" y="14" width="7" height="7" />
-          </svg>
-          All
-        </button>
         <button
           className={`tab-btn ${activeTab === "events" ? "active" : ""}`}
           onClick={() => setActiveTab("events")}
@@ -579,8 +599,10 @@ const Events = () => {
       {/* Empty State */}
       {filteredEvents.length === 0 && filteredCamps.length === 0 && (
         <EmptyState
-          title="No upcoming events or camps"
-          message="Check back soon for new blood donation opportunities!"
+          title={debouncedSearch ? "No results found" : "No upcoming events or camps"}
+          message={debouncedSearch 
+            ? `No ${activeTab} found matching "${debouncedSearch}". Try a different keyword.` 
+            : "Check back soon for new blood donation opportunities!"}
         />
       )}
     </div>

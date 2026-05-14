@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGetAllBloodBanksQuery } from "../store/bloodBankApi";
 import { BLOOD_GROUPS } from "../enum/constants";
 import { ROUTE_PATH } from "../enum/routePath";
 import MapModal from "../components/MapModal";
 import SkeletonLoader from "../components/SkeletonLoader";
 import EmptyState from "../components/EmptyState";
+import Pagination from "../components/Pagination";
 import {
   FiMapPin,
   FiPhone,
@@ -18,19 +19,54 @@ import "../pages.css/BloodBanks.css";
 
 const BloodBanks = () => {
   const navigate = useNavigate();
-  const [filterBloodGroup, setFilterBloodGroup] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedLocation, setSelectedLocation] = useState(null);
 
-  const params = filterBloodGroup
-    ? { bloodGroup: filterBloodGroup }
-    : undefined;
-  const { data: bloodBanksRes, isLoading: loadingBloodBanks } =
-    useGetAllBloodBanksQuery(params);
-  const bloodBanks = bloodBanksRes?.data || [];
+  const page = parseInt(searchParams.get("page")) || 1;
+  const limit = parseInt(searchParams.get("limit")) || 10;
+  const filterBloodGroup = searchParams.get("bloodGroup") || "";
 
-  if (loadingBloodBanks) {
-    return <SkeletonLoader variant="list" />;
-  }
+  const params = {
+    page,
+    limit,
+    ...(filterBloodGroup ? { bloodGroup: filterBloodGroup } : {}),
+  };
+
+  const { data: bloodBanksRes, isFetching: loadingBloodBanks } =
+    useGetAllBloodBanksQuery(params);
+
+  const bloodBanks = bloodBanksRes?.data || [];
+  const pagination = bloodBanksRes?.pagination || {
+    totalRecords: 0,
+    totalPages: 0,
+  };
+
+  const handleFilterChange = (value) => {
+    setSearchParams((prev) => {
+      if (value) {
+        prev.set("bloodGroup", value);
+      } else {
+        prev.delete("bloodGroup");
+      }
+      prev.set("page", "1"); // Reset to page 1 on filter change
+      return prev;
+    });
+  };
+
+  const handlePageChange = (newPage) => {
+    setSearchParams((prev) => {
+      prev.set("page", String(newPage));
+      return prev;
+    });
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setSearchParams((prev) => {
+      prev.set("limit", String(newLimit));
+      prev.set("page", "1"); // Reset to page 1 on limit change
+      return prev;
+    });
+  };
 
   const handleCardClick = (bankId) => {
     navigate(ROUTE_PATH.BLOOD_BANK_PUBLIC_DETAILS.replace(":bankId", bankId));
@@ -55,7 +91,7 @@ const BloodBanks = () => {
                 id="blood-group-filter"
                 className="custom-select"
                 value={filterBloodGroup}
-                onChange={(e) => setFilterBloodGroup(e.target.value)}
+                onChange={(e) => handleFilterChange(e.target.value)}
               >
                 <option value="">All Blood Groups</option>
                 {BLOOD_GROUPS.map((group) => (
@@ -69,124 +105,137 @@ const BloodBanks = () => {
         </header>
 
         <div className="banks-list">
-          {bloodBanks.length === 0 ? (
+          {loadingBloodBanks ? (
+            <SkeletonLoader variant="list" />
+          ) : bloodBanks.length === 0 ? (
             <EmptyState
               title="No centers found"
               message="No blood banks match your current filters. Try selecting a different blood group."
             />
           ) : (
-            <div className="banks-grid">
-              {bloodBanks.map((bank) => (
-                <div
-                  key={bank._id}
-                  className="professional-bank-card"
-                  onClick={() => handleCardClick(bank._id)}
-                >
-                  <div className="card-media">
-                    <img
-                      src={
-                        bank.profileImage ||
-                        `https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80`
-                      }
-                      alt={`Facility: ${bank.name}`}
-                      className="bank-img"
-                      loading="lazy"
-                    />
-                    <div className="bank-status-chip">
-                      <span className="pulse-dot" aria-hidden="true"></span>{" "}
-                      Open Now
-                    </div>
-                  </div>
-
-                  <div className="card-content">
-                    <div className="card-top">
-                      <div className="bank-info">
-                        <h3>{bank.name}</h3>
-                        <p className="bank-category">
-                          Licensed Medical Facility
-                        </p>
-                      </div>
-                      <div className="bank-rating-box">
-                        <span className="rating-star">
-                          <FaStar />
-                        </span>{" "}
-                        4.9
+            <>
+              <div className="banks-grid">
+                {bloodBanks.map((bank) => (
+                  <div
+                    key={bank._id}
+                    className="professional-bank-card"
+                    onClick={() => handleCardClick(bank._id)}
+                  >
+                    <div className="card-media">
+                      <img
+                        src={
+                          bank.profileImage ||
+                          `https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80`
+                        }
+                        alt={`Facility: ${bank.name}`}
+                        className="bank-img"
+                        loading="lazy"
+                      />
+                      <div className="bank-status-chip">
+                        <span className="pulse-dot" aria-hidden="true"></span>{" "}
+                        Open Now
                       </div>
                     </div>
 
-                    <div className="info-bullets">
-                      <div className="bullet">
-                        <FiMapPin className="bullet-icon" />
-                        <span>{bank.address?.city || "Local Area"}</span>
+                    <div className="card-content">
+                      <div className="card-top">
+                        <div className="bank-info">
+                          <h3>{bank.name}</h3>
+                          <p className="bank-category">
+                            Licensed Medical Facility
+                          </p>
+                        </div>
+                        <div className="bank-rating-box">
+                          <span className="rating-star">
+                            <FaStar />
+                          </span>{" "}
+                          4.9
+                        </div>
                       </div>
-                      <div className="bullet">
-                        <FiClock className="bullet-icon" />
-                        <span>24/7 Emergency Service</span>
-                      </div>
-                      <div className="bullet">
-                        <FiCheckCircle className="bullet-icon" />
-                        <span>Goverment Verified</span>
-                      </div>
-                    </div>
 
-                    <div className="inventory-preview">
-                      <span className="label">Available Stocks:</span>
-                      <div className="stock-pills">
-                        {bank.inventory && bank.inventory.length > 0 ? (
-                          bank.inventory
-                            .filter((item) => (item.units || 0) > 0)
-                            .slice(0, 4)
-                            .map((item) => (
-                              <span
-                                key={item.bloodGroup || item.type}
-                                className="stock-pill"
-                              >
-                                {item.bloodGroup || item.type}
-                              </span>
-                            ))
-                        ) : (
-                          <span className="no-stock">Check details</span>
-                        )}
-                        {bank.inventory?.length > 4 && (
-                          <span className="more-stock">
-                            +{bank.inventory.length - 4}
-                          </span>
-                        )}
+                      <div className="info-bullets">
+                        <div className="bullet">
+                          <FiMapPin className="bullet-icon" />
+                          <span>{bank.address?.city || "Local Area"}</span>
+                        </div>
+                        <div className="bullet">
+                          <FiClock className="bullet-icon" />
+                          <span>24/7 Emergency Service</span>
+                        </div>
+                        <div className="bullet">
+                          <FiCheckCircle className="bullet-icon" />
+                          <span>Goverment Verified</span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="card-footer">
-                      <div className="footer-links">
-                        {bank.location?.coordinates && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedLocation({
-                                location: bank.location,
-                                name: bank.name,
-                              });
-                            }}
-                            className="btn-map-link"
+                      <div className="inventory-preview">
+                        <span className="label">Available Stocks:</span>
+                        <div className="stock-pills">
+                          {bank.inventory && bank.inventory.length > 0 ? (
+                            bank.inventory
+                              .filter((item) => (item.units || 0) > 0)
+                              .slice(0, 4)
+                              .map((item) => (
+                                <span
+                                  key={item.bloodGroup || item.type}
+                                  className="stock-pill"
+                                >
+                                  {item.bloodGroup || item.type}
+                                </span>
+                              ))
+                          ) : (
+                            <span className="no-stock">Check details</span>
+                          )}
+                          {bank.inventory?.length > 4 && (
+                            <span className="more-stock">
+                              +{bank.inventory.length - 4}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="card-footer">
+                        <div className="footer-links">
+                          {bank.location?.coordinates && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedLocation({
+                                  location: bank.location,
+                                  name: bank.name,
+                                });
+                              }}
+                              className="btn-map-link"
+                            >
+                              <FiMapPin /> Map
+                            </button>
+                          )}
+                          <a
+                            href={`tel:${bank.phone}`}
+                            className="btn-phone-link"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <FiMapPin /> Map
-                          </button>
-                        )}
-                        <a
-                          href={`tel:${bank.phone}`}
-                          className="btn-phone-link"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <FiPhone /> Call
-                        </a>
+                            <FiPhone /> Call
+                          </a>
+                        </div>
+                        <button className="btn-view-profile">
+                          View Details <FiChevronRight />
+                        </button>
                       </div>
-                      <button className="btn-view-profile">
-                        View Details <FiChevronRight />
-                      </button>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+
+              <Pagination
+                currentPage={pagination.page || page}
+                totalPages={pagination.totalPages}
+                totalRecords={pagination.total}
+                pageSize={limit}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handleLimitChange}
+              />
+            </>
           )}
         </div>
       </div>

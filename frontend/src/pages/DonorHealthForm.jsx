@@ -17,6 +17,7 @@ import {
   FaUndo,
   FaCheckCircle,
 } from "react-icons/fa";
+import DatePicker from "../components/DatePicker";
 import "../pages.css/DonorHealthForm.css";
 
 const defaultFormValues = {
@@ -458,11 +459,11 @@ const DonorHealthForm = () => {
               {/* DOB Field - Now Auto-filled after scan */}
               <div className="form-group large" style={{ marginTop: "2rem" }}>
                 <label>Date of Birth (Auto-filled from Aadhaar) *</label>
-                <input
-                  type="date"
-                  {...register("dateOfBirth", { required: "DOB is required" })}
-                  disabled={aadharVerified}
-                  className={aadharVerified ? "locked" : ""}
+                <DatePicker
+                  value={watch("dateOfBirth")}
+                  onChange={(date) => {
+                    setValue("dateOfBirth", date.toISOString().split("T")[0]);
+                  }}
                   placeholder="Will be filled after scan"
                 />
                 {!aadharVerified && (

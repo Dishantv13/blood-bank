@@ -21,7 +21,6 @@ const v1Router = Router();
 v1Router.use("/auth", authRoutes);
 v1Router.use("/admin-auth", adminAuthRoutes);
 v1Router.use("/users", userRoutes);
-v1Router.use("/bloodbanks", bloodBankRoutes);
 v1Router.use("/blood-banks", bloodBankRoutes);
 v1Router.use("/bloodbank", bloodBankPortalRoutes);
 v1Router.use("/blood-camps", bloodCampsRoutes);

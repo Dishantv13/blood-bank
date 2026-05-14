@@ -81,13 +81,13 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     res,
     { success: true },
     200,
-    "If an account exists with this email, you will receive a password reset link shortly",
+    "Password reset link has been sent to your email",
   );
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
   ensureValid(req);
-  const { token, password } = req.body;
+  const { token, password } = req.body || {};
   await authService.resetPassword(token, password);
   successResponse(
     res,
@@ -99,7 +99,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
 export const verifyResetToken = asyncHandler(async (req, res) => {
   ensureValid(req);
-  const { token } = req.body;
+  const { token } = req.body || {};
   const result = await authService.verifyResetToken(token);
   successResponse(res, result, 200, "Token is valid");
 });

@@ -3451,3 +3451,46 @@
     border-radius: 0;
   }
 }
+
+/* Password Input with Toggle */
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrapper .form-control {
+  padding-right: 45px !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  font-size: 1.2rem;
+  transition: all 0.2s ease;
+  z-index: 10;
+  border-radius: 50%;
+}
+
+.password-toggle-btn:hover {
+  color: #e63946;
+  background: rgba(230, 57, 70, 0.1);
+}
+
+.password-toggle-btn:active {
+  transform: scale(0.9);
+}
+
+.password-toggle-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

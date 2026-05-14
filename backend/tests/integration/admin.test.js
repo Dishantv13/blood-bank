@@ -70,7 +70,7 @@ describe("Admin Integration Tests", () => {
       });
 
       const res = await request(app)
-        .patch(`/api/v1/admin/bloodbanks/${bank._id}/status`)
+        .patch(`/api/v1/admin/blood-banks/${bank._id}/status`)
         .set("Cookie", adminCookies)
         .send({ status: "approved" });
 
@@ -79,6 +79,31 @@ describe("Admin Integration Tests", () => {
 
       const updatedBank = await BloodBank.findById(bank._id);
       expect(updatedBank.approvalStatus).toBe("approved");
+    });
+  });
+
+  describe("GET /api/v1/admin/export/all", () => {
+    it("should export all data as CSV stream", async () => {
+      const res = await request(app)
+        .get("/api/v1/admin/export/all?format=csv")
+        .set("Cookie", adminCookies);
+
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/text\/csv/);
+      expect(res.headers["content-disposition"]).toMatch(/attachment; filename="all_data_.*\.csv"/);
+      
+      // Basic check to see if our headers appear in the streamed response
+      expect(res.text).toContain("Collection,Col1,Col2,Col3,Col4,Col5,Col6,Col7,Col8");
+    });
+
+    it("should export all data as XLSX stream", async () => {
+      const res = await request(app)
+        .get("/api/v1/admin/export/all?format=xlsx")
+        .set("Cookie", adminCookies);
+
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/application\/vnd.openxmlformats-officedocument.spreadsheetml.sheet/);
+      expect(res.headers["content-disposition"]).toMatch(/attachment; filename="all_data_.*\.xlsx"/);
     });
   });
 });

@@ -1,10 +1,7 @@
 import inventoryRepository from "../repositories/InventoryRepository.js";
-import {
-  validateInventoryUpdate,
-  validateBloodGroup,
-} from "./validationService.js";
 import { ApiError } from "../utils/apiError.js";
-import cacheManager from "../utils/cacheManager.js";
+import { invalidateBloodBankCaches } from "../utils/cacheInvalidation.js";
+import * as validationService from "./validationService.js";
 
 // Get blood bank inventory
 export const getInventory = async (bloodBankId) => {
@@ -27,8 +24,8 @@ export const updateInventoryUnits = async (
   operation = "set",
   session = null,
 ) => {
-  validateBloodGroup(bloodGroup);
-  validateInventoryUpdate({ bloodGroup, units });
+  validationService.validateBloodGroup(bloodGroup);
+  validationService.validateInventoryUpdate({ bloodGroup, units });
 
   const updateOps = {
     $set: {
@@ -57,7 +54,7 @@ export const updateInventoryUnits = async (
 
   const updatedInventory = await inventoryRepository.model
     .findOneAndUpdate(queryFilter, updateOps, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
       session,
     })
@@ -85,9 +82,7 @@ export const updateInventoryUnits = async (
     throw new ApiError(404, `${bloodGroup} inventory not found`);
   }
 
-  if (updatedItem) {
-    cacheManager.del("admin:dashboard_stats");
-  }
+  invalidateBloodBankCaches(bloodBankId);
   return updatedItem;
 };
 
@@ -131,8 +126,8 @@ export const checkInventoryAvailability = async (
   bloodGroup,
   requiredUnits,
 ) => {
-  validateBloodGroup(bloodGroup);
-  validateInventoryUpdate({ bloodGroup, units: requiredUnits });
+  validationService.validateBloodGroup(bloodGroup);
+  validationService.validateInventoryUpdate({ bloodGroup, units: requiredUnits });
 
   const inventory = await inventoryRepository.findOne(
     { bloodBank: bloodBankId },
@@ -153,7 +148,7 @@ export const checkInventoryAvailability = async (
 
 // Get available units for a blood group
 export const getAvailableUnits = async (bloodBankId, bloodGroup) => {
-  validateBloodGroup(bloodGroup);
+  validationService.validateBloodGroup(bloodGroup);
 
   const inventory = await inventoryRepository.findOne(
     { bloodBank: bloodBankId },

@@ -1,15 +1,13 @@
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
-import { RedisStore } from "rate-limit-redis";
-import { getRedisClient } from "../config/redis.js";
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import { RedisStore } from 'rate-limit-redis';
+import { getRedisClient } from '../config/redis.js';
 
 const createRedisStore = async (prefix) => {
   try {
     const client = await getRedisClient();
 
     if (!client || !client.isReady) {
-      console.warn(
-        `[RateLimiter] Redis not ready for '${prefix}', using memory store fallback.`,
-      );
+      console.warn(`[RateLimiter] Redis not ready for '${prefix}', using memory store fallback.`);
       return undefined;
     }
 
@@ -20,10 +18,7 @@ const createRedisStore = async (prefix) => {
 
     return store;
   } catch (err) {
-    console.error(
-      `[RateLimiter] Redis store '${prefix}' initialization failed:`,
-      err.message,
-    );
+    console.error(`[RateLimiter] Redis store '${prefix}' initialization failed:`, err.message);
     return undefined; // rateLimit will use MemoryStore
   }
 };
@@ -33,7 +28,7 @@ const createRateLimiter = (name, options) => {
 
   return async (req, res, next) => {
     // Disable rate limiting in test environment to avoid Redis mocking issues
-    if (process.env.NODE_ENV === "test") {
+    if (process.env.NODE_ENV === 'test') {
       return next();
     }
 
@@ -53,17 +48,16 @@ const getClientIpKey = (req) => ipKeyGenerator(req.ip);
 // LIMITER DEFINITIONS
 
 // Global API rate limiter
-export const globalApiLimiter = createRateLimiter("global", {
+export const globalApiLimiter = createRateLimiter('global', {
   windowMs: 15 * 60 * 1000,
   max: 500,
   legacyHeaders: true,
   message: {
     success: false,
-    message: "Too many requests from this IP address, please try again later.",
+    message: 'Too many requests from this IP address, please try again later.',
   },
   standardHeaders: true,
-  skip: (req) =>
-    req.path === "/" || req.path === "/health" || req.path === "/api/health",
+  skip: (req) => req.path === '/' || req.path === '/health' || req.path === '/api/health',
   keyGenerator: (req) => {
     if (req.user?.id) return `user:${req.user.id}`;
     if (req.admin?.id) return `admin:${req.admin.id}`;
@@ -72,124 +66,110 @@ export const globalApiLimiter = createRateLimiter("global", {
   },
 });
 
-export const authLimiter = createRateLimiter("auth", {
+export const authLimiter = createRateLimiter('auth', {
   windowMs: 15 * 60 * 1000,
   max: 50,
   message: {
     success: false,
-    message:
-      "Too many authentication attempts. Please try again after 15 minutes.",
+    message: 'Too many authentication attempts. Please try again after 15 minutes.',
   },
   standardHeaders: true,
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
-    const email = req.body?.email || req.body?.username || "";
+    const email = req.body?.email || req.body?.username || '';
     return `${getClientIpKey(req)}:${email}`;
   },
 });
 
-export const bloodBankOtpInitiateLimiter = createRateLimiter("bb-otp-init", {
+export const bloodBankOtpInitiateLimiter = createRateLimiter('bb-otp-init', {
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: {
-    success: false,
-    message: "Too many OTP generation attempts. Please try again later.",
-  },
+  message: { success: false, message: 'Too many OTP generation attempts. Please try again later.' },
   standardHeaders: true,
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
-    const email = String(req.body?.email || "")
+    const email = String(req.body?.email || '')
       .toLowerCase()
       .trim();
     return `bb-otp-init:${getClientIpKey(req)}:${email}`;
   },
 });
 
-export const bloodBankOtpVerifyLimiter = createRateLimiter("bb-otp-verify", {
+export const bloodBankOtpVerifyLimiter = createRateLimiter('bb-otp-verify', {
   windowMs: 15 * 60 * 1000,
   max: 20,
   message: {
     success: false,
-    message: "Too many OTP verification attempts. Please try again later.",
+    message: 'Too many OTP verification attempts. Please try again later.',
   },
   standardHeaders: true,
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
-    const verificationId = String(req.body?.verificationId || "").trim();
+    const verificationId = String(req.body?.verificationId || '').trim();
     return `bb-otp-verify:${getClientIpKey(req)}:${verificationId}`;
   },
 });
 
-export const bloodBankOtpResendLimiter = createRateLimiter("bb-otp-resend", {
+export const bloodBankOtpResendLimiter = createRateLimiter('bb-otp-resend', {
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: {
-    success: false,
-    message: "Too many OTP resend attempts. Please try again later.",
-  },
+  message: { success: false, message: 'Too many OTP resend attempts. Please try again later.' },
   standardHeaders: true,
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
-    const verificationId = String(req.body?.verificationId || "").trim();
+    const verificationId = String(req.body?.verificationId || '').trim();
     return `bb-otp-resend:${getClientIpKey(req)}:${verificationId}`;
   },
 });
 
-export const passwordResetLimiter = createRateLimiter("pwd-reset", {
+export const passwordResetLimiter = createRateLimiter('pwd-reset', {
   windowMs: 60 * 60 * 1000,
   max: 3,
   message: {
     success: false,
-    message: "Too many password reset attempts. Please try again after 1 hour.",
+    message: 'Too many password reset attempts. Please try again after 1 hour.',
   },
   standardHeaders: true,
   skipSuccessfulRequests: false,
   keyGenerator: (req) => {
-    const email = req.body?.email || "";
+    const email = req.body?.email || '';
     return `password-reset:${getClientIpKey(req)}:${email}`;
   },
 });
 
-export const requestCreationLimiter = createRateLimiter("req-create", {
+export const requestCreationLimiter = createRateLimiter('req-create', {
   windowMs: 60 * 60 * 1000,
   max: 5,
-  message: {
-    success: false,
-    message: "Too many blood requests created. Please try again later.",
-  },
+  message: { success: false, message: 'Too many blood requests created. Please try again later.' },
   standardHeaders: true,
   keyGenerator: (req) => req.user?.id || getClientIpKey(req),
 });
 
-export const donationCreationLimiter = createRateLimiter("donation-create", {
+export const donationCreationLimiter = createRateLimiter('donation-create', {
   windowMs: 24 * 60 * 60 * 1000,
   max: 1,
   message: {
     success: false,
-    message:
-      "Donation request limit reached for today. Please try again tomorrow.",
+    message: 'Donation request limit reached for today. Please try again tomorrow.',
   },
   standardHeaders: true,
   keyGenerator: (req) => req.user?.id || getClientIpKey(req),
 });
 
-export const adminActionLimiter = createRateLimiter("admin-action", {
+export const adminActionLimiter = createRateLimiter('admin-action', {
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: {
-    success: false,
-    message: "Too many admin requests. Please try again later.",
-  },
+  message: { success: false, message: 'Too many admin requests. Please try again later.' },
   standardHeaders: true,
   keyGenerator: (req) => req.admin?.id || getClientIpKey(req),
 });
 
-export const adminExportLimiter = createRateLimiter("admin-export", {
+export const adminExportLimiter = createRateLimiter('admin-export', {
   windowMs: 60 * 60 * 1000,
   max: 10,
   message: {
     success: false,
-    message: "Too many export requests. Please try again after one hour.",
+    message: 'Too many export requests. Please try again after one hour.',
   },
   standardHeaders: true,
   keyGenerator: (req) => req.admin?.id || getClientIpKey(req),

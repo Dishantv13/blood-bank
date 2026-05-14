@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
+import crypto from "crypto";
 import BloodUnit from "../models/BloodUnit.model.js";
 import { ApiError } from "../utils/apiError.js";
-import crypto from "crypto";
-import { addInventoryUnits } from "./inventoryService.js";
+import * as inventoryService from "./inventoryService.js";
 
 const COMPONENT_EXPIRY_DAYS = {
   "Whole Blood": 35,
@@ -169,7 +169,12 @@ export const updateScreeningResults = async (unitId, results, adminId) => {
       unit.status = "available";
 
       // Atomic inventory increment
-      await addInventoryUnits(unit.bloodBank, unit.bloodGroup, 1, session);
+      await inventoryService.addInventoryUnits(
+        unit.bloodBank,
+        unit.bloodGroup,
+        1,
+        session,
+      );
     }
 
     await unit.save({ session });
@@ -211,24 +216,109 @@ export const getExpiringUnits = async (bloodBankId, days = 7) => {
 };
 
 export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
+  if (!bloodBankId || !mongoose.Types.ObjectId.isValid(bloodBankId)) {
+    throw new ApiError(400, "Invalid Blood Bank ID format");
+  }
   const { status, componentType, bloodGroup, page = 1, limit = 20 } = query;
 
-  const filter = { bloodBank: bloodBankId };
-  if (status) filter.status = status;
+  const now = new Date();
+  const filter = { bloodBank: new mongoose.Types.ObjectId(bloodBankId) };
+
+  // Adjust filter to handle dynamic expiration status
+  if (status) {
+    if (status === "expired") {
+      filter.$or = [
+        { status: "expired" },
+        {
+          status: { $in: ["available", "raw", "quarantine", "reserved"] },
+          expiryDate: { $lt: now },
+        },
+      ];
+    } else if (status === "available") {
+      filter.status = "available";
+      filter.expiryDate = { $gte: now };
+    } else {
+      filter.status = status;
+    }
+  }
+
   if (componentType) filter.componentType = componentType;
   if (bloodGroup) filter.bloodGroup = bloodGroup;
 
   const skip = (page - 1) * limit;
 
-  const [units, total] = await Promise.all([
-    BloodUnit.find(filter)
-      .sort({ expiryDate: 1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .populate("donor", "name bloodGroup")
-      .lean(),
-    BloodUnit.countDocuments(filter),
-  ]);
+  const pipeline = [
+    { $match: filter },
+    {
+      $facet: {
+        metadata: [{ $count: "total" }],
+        data: [
+          {
+            $addFields: {
+              isExpired: {
+                $cond: [
+                  {
+                    $and: [
+                      { $lt: ["$expiryDate", now] },
+                      {
+                        $in: [
+                          "$status",
+                          ["available", "raw", "quarantine", "reserved"],
+                        ],
+                      },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+          {
+            $addFields: {
+              displayStatus: {
+                $cond: [{ $eq: ["$isExpired", 1] }, "expired", "$status"],
+              },
+            },
+          },
+          { $sort: { isExpired: 1, expiryDate: 1 } },
+          { $skip: skip },
+          { $limit: Number(limit) },
+          {
+            $lookup: {
+              from: "users",
+              localField: "donor",
+              foreignField: "_id",
+              as: "donor",
+            },
+          },
+          { $unwind: { path: "$donor", preserveNullAndEmptyArrays: true } },
+          {
+            $project: {
+              unitId: 1,
+              batchNumber: 1,
+              bloodGroup: 1,
+              componentType: 1,
+              volume: 1,
+              status: "$displayStatus",
+              collectionDate: 1,
+              expiryDate: 1,
+              screeningStatus: 1,
+              screeningResults: 1,
+              coldChain: 1,
+              "donor.name": 1,
+              "donor.bloodGroup": 1,
+              "donor._id": 1,
+            },
+          },
+        ],
+      },
+    },
+  ];
+
+  const [result] = await BloodUnit.aggregate(pipeline);
+  const units = result.data || [];
+  const total = result.metadata[0]?.total || 0;
 
   return {
     units,

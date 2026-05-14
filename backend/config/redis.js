@@ -34,6 +34,12 @@ export const getRedisClient = async () => {
         configSet: async () => 'OK',
         info: async () => 'maxmemory_policy:noeviction',
         sendCommand: async () => [0, Date.now() + 60000], // [current, resetTime]
+        sAdd: async () => 1,
+        sMembers: async () => [],
+        expire: async () => true,
+        keys: async () => [],
+        smembers: async () => [],
+        sadd: async () => 1,
       };
     }
     return _client;

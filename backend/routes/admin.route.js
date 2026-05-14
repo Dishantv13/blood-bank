@@ -31,13 +31,13 @@ router
 
 // BLOOD BANKS MANAGEMENT
 router
-  .route("/bloodbanks")
+  .route("/blood-banks")
   .get(adminAuth, adminActionLimiter, adminController.getAllBloodBanks);
 router
-  .route("/bloodbanks/:bankId")
+  .route("/blood-banks/:bankId")
   .get(adminAuth, adminActionLimiter, adminController.getBloodBankById);
 router
-  .route("/bloodbanks/:bankId/status")
+  .route("/blood-banks/:bankId/status")
   .patch(
     adminAuth,
     adminActionLimiter,
@@ -131,7 +131,7 @@ router
   .route("/export/requests")
   .get(adminAuth, adminExportLimiter, adminController.exportRequests);
 router
-  .route("/export/bloodbanks")
+  .route("/export/blood-banks")
   .get(adminAuth, adminExportLimiter, adminController.exportBloodBanks);
 router
   .route("/export/camps")
@@ -148,7 +148,7 @@ router
   .route("/export/requests/csv")
   .get(adminAuth, adminExportLimiter, adminController.exportRequestsCsv);
 router
-  .route("/export/bloodbanks/csv")
+  .route("/export/blood-banks/csv")
   .get(adminAuth, adminExportLimiter, adminController.exportBloodBanksCsv);
 router
   .route("/export/camps/csv")

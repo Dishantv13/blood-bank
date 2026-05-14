@@ -233,7 +233,7 @@
   }
 }
 
-/* ── Confirm Dialog ──────────────────────────────────────── */
+/* Confirm Dialog */
 .confirm-dialog-overlay {
   position: fixed;
   inset: 0;

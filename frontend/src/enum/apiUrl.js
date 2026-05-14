@@ -17,9 +17,9 @@ export const AUTH_API_URLS = {
 
 export const BLOODBANK_API_URLS = {
   // Public
-  GET_ALL_BLOOD_BANKS: "/bloodbanks",
-  GET_BLOOD_BANK_BY_ID: (id) => `/bloodbanks/${id}`,
-  CREATE_BLOOD_BANK: "/bloodbanks",
+  GET_ALL_BLOOD_BANKS: "/blood-banks",
+  GET_BLOOD_BANK_BY_ID: (id) => `/blood-banks/${id}`,
+  CREATE_BLOOD_BANK: "/blood-banks",
 
   // Auth
   LOGIN_BLOOD_BANK: "/blood-banks/login",
@@ -32,24 +32,29 @@ export const BLOODBANK_API_URLS = {
   VERIFY_BLOOD_BANK_REGISTRATION_OTP: "/blood-banks/register/verify-otp",
   RESEND_BLOOD_BANK_REGISTRATION_OTP: "/blood-banks/register/resend-otp",
   FORGOT_PASSWORD: "/blood-banks/forgot-password",
-  RESET_PASSWORD: (token) => `/blood-banks/reset-password/${token}`,
+  RESET_PASSWORD: "/blood-banks/reset-password",
   VERIFY_RESET_TOKEN: "/blood-banks/verify-reset-token",
 
   // Dashboard & Profile
   GET_DASHBOARD: "/bloodbank/dashboard",
-  GET_PROFILE: "/bloodbank/settings/profile",
-  UPDATE_PROFILE: "/bloodbank/settings/profile",
-  CHANGE_PASSWORD: "/bloodbank/settings/password",
+  GET_PROFILE: "/bloodbank/profile",
+  UPDATE_PROFILE: "/bloodbank/profile",
+  CHANGE_PASSWORD: "/bloodbank/password",
 
   // Inventory
-  GET_INVENTORY: "/bloodbank/settings/inventory",
-  UPDATE_INVENTORY: "/bloodbank/settings/inventory",
-  UPDATE_BLOOD_GROUP: (bloodGroup) =>
-    `/bloodbank/settings/inventory/${bloodGroup}`,
+  GET_INVENTORY: "/bloodbank/inventory",
+  UPDATE_INVENTORY: "/bloodbank/inventory",
+  UPDATE_BLOOD_GROUP: (bloodGroup) => `/bloodbank/inventory/${bloodGroup}`,
 
   // Upload
-  UPLOAD_PHOTO: "/bloodbank/settings/photo",
+  UPLOAD_PHOTO: "/bloodbank/photo",
+
+  // Export
+  EXPORT_INVENTORY: "/bloodbank/export/inventory",
+  EXPORT_CAMPS: "/bloodbank/export/camps",
+  EXPORT_ALL: "/bloodbank/export/all",
 };
+
 
 export const BLOOD_CAMP_API_URLS = {
   // Public
@@ -140,7 +145,7 @@ export const USER_API_URLS = {
 
   // Auth
   FORGOT_PASSWORD: "/auth/forgot-password",
-  RESET_PASSWORD: (token) => `/auth/reset-password/${token}`,
+  RESET_PASSWORD: "/auth/reset-password",
   VERIFY_RESET_TOKEN: "/auth/verify-reset-token",
   CHANGE_PASSWORD: "/auth/change-password",
 };
@@ -157,9 +162,9 @@ export const ADMIN_URLS = {
   },
 
   BLOODBANKS: {
-    BASE: "/admin/bloodbanks",
-    BY_ID: (id) => `/admin/bloodbanks/${id}`,
-    UPDATE_STATUS: (id) => `/admin/bloodbanks/${id}/status`,
+    BASE: "/admin/blood-banks",
+    BY_ID: (id) => `/admin/blood-banks/${id}`,
+    UPDATE_STATUS: (id) => `/admin/blood-banks/${id}/status`,
   },
 
   CAMPS: {
@@ -198,8 +203,8 @@ export const ADMIN_URLS = {
     USERS_CSV: "/admin/export/users/csv",
     REQUESTS_XLSX: "/admin/export/requests",
     REQUESTS_CSV: "/admin/export/requests/csv",
-    BLOODBANKS_XLSX: "/admin/export/bloodbanks",
-    BLOODBANKS_CSV: "/admin/export/bloodbanks/csv",
+    BLOODBANKS_XLSX: "/admin/export/blood-banks",
+    BLOODBANKS_CSV: "/admin/export/blood-banks/csv",
     CAMPS_XLSX: "/admin/export/camps",
     CAMPS_CSV: "/admin/export/camps/csv",
     EVENTS_XLSX: "/admin/export/events",
@@ -210,7 +215,11 @@ export const ADMIN_URLS = {
 };
 
 export const NOTIFICATION_API_URLS = {
-  STREAM: "/notifications/stream",
+  GET_NOTIFICATIONS: "/notifications",
+  GET_UNREAD_COUNT: "/notifications/unread-count",
+  MARK_AS_READ: (id) => `/notifications/${id}/read`,
+  MARK_ALL_AS_READ: "/notifications/read-all",
+  DELETE_NOTIFICATION: (id) => `/notifications/${id}`,
 };
 
 export const BLOOD_UNIT_API_URLS = {
@@ -220,4 +229,9 @@ export const BLOOD_UNIT_API_URLS = {
   REFINE_UNIT: (unitId) => `/blood-unit/units/${unitId}/refine`,
   ADD_COLD_CHAIN: (unitId) => `/blood-unit/units/${unitId}/cold-chain`,
   SPLIT_UNIT: (unitId) => `/blood-unit/units/${unitId}/split`,
+};
+
+export const CHAT_API_URLS = {
+  GET_CHAT_HISTORY: (requestId) => `/chat/${requestId}`,
+  MARK_CHAT_AS_READ: (requestId) => `/chat/${requestId}/read`,
 };

@@ -1,17 +1,17 @@
 const globalErrorHandler = (err, req, res, _next) => {
-  if (err.name === "ValidationError") {
+  if (err.name === 'ValidationError') {
     return res.status(400).json({ success: false, message: err.message });
   }
 
-  if (err.name === "CastError") {
+  if (err.name === 'CastError') {
     return res.status(400).json({
       success: false,
       message: `Invalid value for field: ${err.path}`,
     });
   }
 
-  if (err.name === "MongoServerError" && err.code === 11000) {
-    const field = Object.keys(err.keyValue || {})[0] || "field";
+  if (err.name === 'MongoServerError' && err.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0] || 'field';
     return res.status(409).json({
       success: false,
       message: `${field} already exists`,
@@ -31,16 +31,16 @@ const globalErrorHandler = (err, req, res, _next) => {
 
   // In production, hide detailed error messages to prevent information disclosure
   const message =
-    process.env.NODE_ENV === "production" && statusCode === 500
-      ? "Internal Server Error"
-      : err.message || "Internal Server Error";
+    process.env.NODE_ENV === 'production' && statusCode === 500
+      ? 'Internal Server Error'
+      : err.message || 'Internal Server Error';
 
   const response = {
     success: false,
     message,
   };
 
-  if (err?.data && typeof err.data === "object") {
+  if (err?.data && typeof err.data === 'object') {
     response.data = err.data;
   }
 
@@ -49,7 +49,7 @@ const globalErrorHandler = (err, req, res, _next) => {
   }
 
   // Only include stack trace in development
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV === 'development') {
     response.stack = err.stack;
   }
 

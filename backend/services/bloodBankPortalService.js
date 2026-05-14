@@ -1,26 +1,20 @@
 import mongoose from "mongoose";
-import ExcelJS from "exceljs";
 import requestRepository from "../repositories/RequestRepository.js";
 import bloodBankRepository from "../repositories/BloodBankRepository.js";
 import bloodCampRepository from "../repositories/BloodCampRepository.js";
-import inventoryRepository from "../repositories/InventoryRepository.js";
 import eventRepository from "../repositories/EventRepository.js";
+import inventoryRepository from "../repositories/InventoryRepository.js";
 import { ApiError } from "../utils/apiError.js";
-import {
-  addInventoryUnits,
-  subtractInventoryUnits,
-} from "./inventoryService.js";
+import { BLOOD_GROUPS } from "../validations/validation.constants.js";
+import { invalidateBloodBankCaches } from "../utils/cacheInvalidation.js";
+import { toObjectId } from "../utils/dbGuards.js";
+import * as bloodBankManager from "./bloodBankManagerService.js";
+import * as auditService from "./auditService.js";
+import * as pagination from "../utils/pagination.js";
 import {
   uploadOnCloudinary,
   deleteFromCloudinary,
 } from "../utils/cloudinary.js";
-import {
-  BLOOD_BANK_SAFE_FIELDS,
-  sanitizeBloodBank,
-} from "../utils/serializers.js";
-import * as validationService from "./validationService.js";
-import { revokeAllPrincipalSessions } from "./sessionService.js";
-import * as auditService from "./auditService.js";
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return "";
@@ -50,6 +44,7 @@ export const getAllRequests = async (bloodBankId, query) => {
   const responseStatuses = isPending ? ["pending", null] : [normalizedStatus];
   const directionFilter =
     direction === "sent" || direction === "received" ? direction : "all";
+  const objectId = toObjectId(bloodBankId);
 
   const requestScopes = [];
   const includeUserRequests = requestType !== "bloodbank";
@@ -62,7 +57,7 @@ export const getAllRequests = async (bloodBankId, query) => {
     };
 
     if (!isPending) {
-      userScope.bloodBank = bloodBankId;
+      userScope.bloodBank = objectId;
     }
 
     requestScopes.push(userScope);
@@ -75,13 +70,13 @@ export const getAllRequests = async (bloodBankId, query) => {
     };
 
     if (directionFilter === "sent") {
-      interBankScope.requestingBloodBank = bloodBankId;
+      interBankScope.requestingBloodBank = objectId;
     } else if (directionFilter === "received") {
-      interBankScope.targetBloodBank = bloodBankId;
+      interBankScope.targetBloodBank = objectId;
     } else {
       interBankScope.$or = [
-        { targetBloodBank: bloodBankId },
-        { requestingBloodBank: bloodBankId },
+        { targetBloodBank: objectId },
+        { requestingBloodBank: objectId },
       ];
     }
 
@@ -96,31 +91,35 @@ export const getAllRequests = async (bloodBankId, query) => {
   if (bloodGroup) filter.bloodGroup = bloodGroup;
   if (urgency) filter.urgency = urgency;
 
-  const parsedLimit = Number(limit) || 20;
-  const parsedPage = Number(page) || 1;
-  const skip = (parsedPage - 1) * parsedLimit;
+  const {
+    page: parsedPage,
+    limit: parsedLimit,
+    skip,
+  } = pagination.getPaginationParams({ query: { page, limit } });
 
-  const [requests, total] = await Promise.all([
-    requestRepository.find(filter, {
-      populate: [
-        { path: "requestedBy", select: "name email phone bloodGroup" },
-        { path: "requestingBloodBank", select: "name email phone address" },
-        { path: "targetBloodBank", select: "name email phone address" },
-      ],
+  const { data: requests, total } = await requestRepository.findPaginated(
+    filter,
+    {
       sort: { urgency: -1, createdAt: -1 },
       skip,
       limit: parsedLimit,
-    }),
-    requestRepository.count(filter),
-  ]);
+    },
+  );
 
-  return {
-    count: requests.length,
-    total,
-    page: parsedPage,
-    pages: Math.ceil(total / parsedLimit),
+  if (requests.length > 0) {
+    await requestRepository.model.populate(requests, [
+      { path: "requestedBy", select: "name email phone bloodGroup" },
+      { path: "requestingBloodBank", select: "name email phone address" },
+      { path: "targetBloodBank", select: "name email phone address" },
+    ]);
+  }
+
+  return pagination.buildPaginatedResponse(
     requests,
-  };
+    total,
+    parsedPage,
+    parsedLimit,
+  );
 };
 
 export const getApprovedRequests = async (bloodBankId, query) => {
@@ -129,12 +128,12 @@ export const getApprovedRequests = async (bloodBankId, query) => {
   const approvedQuery = {
     status: "approved",
     $or: [
-      { requestType: "user", bloodBank: bloodBankId },
+      { requestType: "user", bloodBank: toObjectId(bloodBankId) },
       {
         requestType: "bloodbank",
         $or: [
-          { targetBloodBank: bloodBankId },
-          { requestingBloodBank: bloodBankId },
+          { targetBloodBank: toObjectId(bloodBankId) },
+          { requestingBloodBank: toObjectId(bloodBankId) },
         ],
       },
     ],
@@ -174,13 +173,9 @@ export const getApprovedRequests = async (bloodBankId, query) => {
   const parsedPage = Number(page) || 1;
   const skip = (parsedPage - 1) * parsedLimit;
 
-  const [requests, total] = await Promise.all([
-    requestRepository.find(approvedQuery, {
-      populate: [
-        { path: "requestedBy", select: "name email phone bloodGroup" },
-        { path: "requestingBloodBank", select: "name email phone address" },
-        { path: "targetBloodBank", select: "name email phone address" },
-      ],
+  const { data: requests, total } = await requestRepository.findPaginated(
+    approvedQuery,
+    {
       sort: {
         "bloodBankResponse.respondedAt": -1,
         updatedAt: -1,
@@ -188,9 +183,16 @@ export const getApprovedRequests = async (bloodBankId, query) => {
       },
       skip,
       limit: parsedLimit,
-    }),
-    requestRepository.count(approvedQuery),
-  ]);
+    },
+  );
+
+  if (requests.length > 0) {
+    await requestRepository.model.populate(requests, [
+      { path: "requestedBy", select: "name email phone bloodGroup" },
+      { path: "requestingBloodBank", select: "name email phone address" },
+      { path: "targetBloodBank", select: "name email phone address" },
+    ]);
+  }
 
   return {
     count: requests.length,
@@ -435,8 +437,9 @@ export const getRequestStats = async (bloodBankId) => {
 };
 
 export const getAllEvents = async (bloodBankId) => {
-  const events = await eventRepository.find(
-    { organizedBy: bloodBankId, organizerModel: "BloodBank" },
+  const events = await eventRepository.findByOrganizer(
+    bloodBankId,
+    "BloodBank",
     {
       populate: {
         path: "registeredDonors",
@@ -522,56 +525,10 @@ export const getEventRegistrations = async (eventId, bloodBankId) => {
   };
 };
 
-export const exportEventRegistrations = async (eventId, bloodBankId) => {
-  const event = await eventRepository.findOne(
-    { _id: eventId, organizedBy: bloodBankId },
-    {
-      select: "title registeredDonors",
-      populate: {
-        path: "registeredDonors",
-        select: "name email phone bloodGroup createdAt",
-      },
-    },
-  );
-
-  if (!event) throw new ApiError(404, "Event not found or unauthorized");
-
-  const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet("Event Registrations");
-  worksheet.columns = [
-    { header: "S.No", key: "sno", width: 8 },
-    { header: "Name", key: "name", width: 25 },
-    { header: "Email", key: "email", width: 30 },
-    { header: "Phone", key: "phone", width: 16 },
-    { header: "Blood Group", key: "bloodGroup", width: 12 },
-    { header: "Registration Date", key: "registeredAt", width: 20 },
-  ];
-
-  event.registeredDonors.forEach((donor, index) => {
-    worksheet.addRow({
-      sno: index + 1,
-      name: donor.name || "N/A",
-      email: donor.email || "N/A",
-      phone: donor.phone || "N/A",
-      bloodGroup: donor.bloodGroup || "N/A",
-      registeredAt: donor.createdAt
-        ? new Date(donor.createdAt).toLocaleDateString()
-        : "N/A",
-    });
-  });
-
-  const buffer = await workbook.xlsx.writeBuffer();
-  return {
-    buffer,
-    fileName: `${event.title.replace(/\s+/g, "_")}_Registrations_${new Date().toISOString().split("T")[0]}.xlsx`,
-  };
-};
-
 export const getAllCamps = async (bloodBankId) => {
-  const camps = await bloodCampRepository.find(
-    { organizer: bloodBankId },
-    { sort: { date: -1 } },
-  );
+  const camps = await bloodCampRepository.findByOrganizer(bloodBankId, {
+    sort: { date: -1 },
+  });
   return { camps };
 };
 
@@ -618,48 +575,6 @@ export const removeDonorRegistration = async (
 
   await camp.save();
   return { remainingRegistrations: camp.registeredDonors.length };
-};
-
-export const exportCampRegistrations = async (campId, bloodBankId) => {
-  const camp = await bloodCampRepository.findOne(
-    { _id: campId, organizer: bloodBankId },
-    {
-      populate: {
-        path: "registeredDonors.donor",
-        select: "name email phone bloodGroup address",
-      },
-    },
-  );
-
-  if (!camp) throw new ApiError(404, "Blood camp not found or unauthorized");
-
-  const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet("Camp Registrations");
-  worksheet.columns = [
-    { header: "S.No", key: "sno", width: 8 },
-    { header: "Name", key: "name", width: 25 },
-    { header: "Blood Group", key: "bloodGroup", width: 12 },
-    { header: "Phone", key: "phone", width: 15 },
-    { header: "Email", key: "email", width: 30 },
-    { header: "Registered At", key: "registeredAt", width: 20 },
-  ];
-
-  camp.registeredDonors.forEach((registration, index) => {
-    worksheet.addRow({
-      sno: index + 1,
-      name: registration.name || "N/A",
-      bloodGroup: registration.bloodGroup || "N/A",
-      phone: registration.phone || "N/A",
-      email: registration.donor?.email || "N/A",
-      registeredAt: new Date(registration.registeredAt).toLocaleString(),
-    });
-  });
-
-  const buffer = await workbook.xlsx.writeBuffer();
-  return {
-    buffer,
-    fileName: `camp_${camp.name.replace(/[^a-z0-9]/gi, "_")}_registrations.xlsx`,
-  };
 };
 
 export const uploadPhoto = async (bloodBankId, localFilePath) => {
@@ -720,114 +635,46 @@ export const getDashboard = async (bloodBankId) => {
   };
 };
 
-export const getProfile = async (bloodBankId) => {
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
-    select: BLOOD_BANK_SAFE_FIELDS,
-  });
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
-  return sanitizeBloodBank(bloodBank);
-};
+export const getProfile = (bloodBankId) =>
+  bloodBankManager.getProfile(bloodBankId);
 
-export const updateProfile = async (bloodBankId, payload) => {
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
-    lean: false,
-  });
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+export const updateProfile = (bloodBankId, payload) =>
+  bloodBankManager.updateProfile(bloodBankId, payload);
 
-  const allowedUpdates = [
-    "name",
-    "phone",
-    "logo",
-    "imageUrl",
-    "address",
-    "location",
-    "operatingHours",
-    "services",
-    "contactPerson",
-    "establishedYear",
-  ];
-  const nameChanged =
-    payload.name !== undefined && payload.name !== bloodBank.name;
-
-  allowedUpdates.forEach((field) => {
-    if (payload[field] !== undefined) bloodBank[field] = payload[field];
-  });
-
-  if (nameChanged) {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      await bloodBank.save({ session });
-      await inventoryRepository.model.updateOne(
-        { bloodBank: bloodBank._id },
-        { $set: { bloodBankName: bloodBank.name } },
-        { session },
-      );
-      await session.commitTransaction();
-    } catch (error) {
-      await session.abortTransaction();
-      throw error;
-    } finally {
-      session.endSession();
-    }
-  } else {
-    await bloodBank.save();
-  }
-
-  const updatedBloodBank = await bloodBankRepository.findById(bloodBank._id, {
-    select: BLOOD_BANK_SAFE_FIELDS,
-  });
-  return sanitizeBloodBank(updatedBloodBank);
-};
-
-export const changePassword = async (
-  bloodBankId,
-  currentPassword,
-  newPassword,
-) => {
-  if (!currentPassword || !newPassword)
-    throw new ApiError(400, "Please provide current and new password");
-  if (currentPassword === newPassword)
-    throw new ApiError(
-      400,
-      "New password must be different from current password",
-    );
-  validationService.validatePassword(newPassword);
-
-  const bloodBank = await bloodBankRepository.findById(bloodBankId, {
-    select: "+password +tokenVersion",
-    lean: false,
-  });
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
-
-  const isMatch = await bloodBank.comparePassword(currentPassword);
-  if (!isMatch) throw new ApiError(401, "Current password is incorrect");
-
-  bloodBank.password = newPassword;
-  bloodBank.tokenVersion = Number(bloodBank.tokenVersion || 0) + 1;
-  bloodBank.passwordChangedAt = new Date();
-  await bloodBank.save();
-  await revokeAllPrincipalSessions({
-    role: "bloodbank",
-    bloodBankId: bloodBank._id,
-    reason: "password_change",
-  });
-  return { success: true };
-};
+export const changePassword = (bloodBankId, currentPassword, newPassword) =>
+  bloodBankManager.changePassword(bloodBankId, currentPassword, newPassword);
 
 export const getInventory = async (bloodBankId) => {
   const inventory = await inventoryRepository.findOne({
     bloodBank: bloodBankId,
   });
+
   if (!inventory) {
-    const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-    return bloodGroups.map((group) => ({
+    const defaultItems = BLOOD_GROUPS.map((group) => ({
       bloodGroup: group,
       units: 0,
       lastUpdated: new Date(),
     }));
+    return {
+      bloodBank: { id: bloodBankId },
+      inventory: defaultItems,
+    };
   }
-  return inventory.items || [];
+
+  // Sanitize items: remove internal MongoDB _id
+  const sanitizedItems = (inventory.items || []).map((item) => ({
+    bloodGroup: item.bloodGroup,
+    units: item.units,
+    lastUpdated: item.lastUpdated,
+  }));
+
+  return {
+    bloodBank: {
+      id: inventory.bloodBank,
+      name: inventory.bloodBankName,
+    },
+    inventory: sanitizedItems,
+  };
 };
 
 export const updateInventory = async (bloodBankId, inventory) => {
@@ -885,6 +732,7 @@ export const updateInventory = async (bloodBankId, inventory) => {
     );
 
     await session.commitTransaction();
+    invalidateBloodBankCaches(bloodBankId);
     return doc.items;
   } catch (error) {
     await session.abortTransaction();
@@ -936,6 +784,7 @@ export const updateBloodGroupUnits = async (bloodBankId, bloodGroup, units) => {
     );
 
     await session.commitTransaction();
+    invalidateBloodBankCaches(bloodBankId);
     return inventory.items;
   } catch (error) {
     await session.abortTransaction();

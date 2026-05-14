@@ -2,14 +2,14 @@
  * @swagger
  * tags:
  *   name: Auth
- *   description: Authentication and Session Management
+ *   description: Authentication and Session Management (User & Admin)
  */
 
 /**
  * @swagger
  * /auth/csrf-token:
  *   get:
- *     summary: Get CSRF Token
+ *     summary: Get CSRF Token for Users
  *     tags: [Auth]
  *     responses:
  *       200:
@@ -78,4 +78,40 @@
  *         description: Login successful
  *       401:
  *         description: Invalid credentials
+ */
+
+/**
+ * @swagger
+ * /admin-auth/login:
+ *   post:
+ *     summary: Super Admin Login
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email: { type: string }
+ *               password: { type: string }
+ *     responses:
+ *       200:
+ *         description: Admin login successful
+ */
+
+/**
+ * @swagger
+ * /auth/refresh:
+ *   post:
+ *     summary: Refresh Access Token (Rotation)
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: New tokens issued
+ *       401:
+ *         description: Session expired or breach detected
  */

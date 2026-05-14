@@ -184,6 +184,7 @@ export const clearCacheByPrefix = async (prefix) => {
 
   // 1. Clear Memory Cache
   let clearedCount = 0;
+  const memoryKeysToDelete = [];
   for (const key of memoryCacheStore.keys()) {
     if (
       key === normalizedPrefix ||
@@ -191,27 +192,41 @@ export const clearCacheByPrefix = async (prefix) => {
       key.startsWith(normalizedPrefix + "?") ||
       key.includes(normalizedPrefix)
     ) {
-      memoryCacheStore.delete(key);
-      clearedCount++;
+      memoryKeysToDelete.push(key);
     }
+  }
+
+  for (const key of memoryKeysToDelete) {
+    memoryCacheStore.delete(key);
+    clearedCount++;
   }
 
   // 2. Clear Redis Cache (Distributed)
   try {
-    const client = await redisClient.getRawClient?.();
+    const client = await redisClient.client();
     if (client?.isReady) {
-      // Use SCAN to find keys with the prefix safely in production
-      let cursor = "0";
       const pattern = `*${normalizedPrefix}*`;
-      do {
-        const reply = await client.scan(cursor, { MATCH: pattern, COUNT: 100 });
-        cursor = reply.cursor;
-        const keys = reply.keys;
-        if (keys.length > 0) {
-          await client.del(keys);
-          clearedCount += keys.length;
+      const keysToDelete = [];
+      
+      // Use scanIterator for robust key traversal in node-redis v4+
+      for await (const key of client.scanIterator({
+        MATCH: pattern,
+        COUNT: 100
+      })) {
+        keysToDelete.push(key);
+        // Delete in batches of 100
+        if (keysToDelete.length >= 100) {
+          await client.del(keysToDelete);
+          clearedCount += keysToDelete.length;
+          keysToDelete.length = 0;
         }
-      } while (cursor !== "0");
+      }
+      
+      // Delete remaining keys
+      if (keysToDelete.length > 0) {
+        await client.del(keysToDelete);
+        clearedCount += keysToDelete.length;
+      }
     }
   } catch (error) {
     console.error("[Cache] Redis clear error:", error);

@@ -16,19 +16,12 @@ import {
 } from "../enum/constants";
 import "../pages.css/Profile.css";
 import SkeletonLoader from "../components/SkeletonLoader";
-import DonorBadges from "../components/DonorBadges";
-import DonationTimeline from "../components/DonationTimeline";
 import { useGetMyDonationsQuery } from "../store/donationApi";
 import {
-  FaAward,
-  FaHistory,
   FaCheckCircle,
-  FaExclamationCircle,
   FaTimesCircle,
   FaMapMarkerAlt,
 } from "react-icons/fa";
-import { Link } from "react-router-dom";
-import { ROUTE_PATH } from "../enum/routePath";
 
 const defaultFormValues = {
   name: "",

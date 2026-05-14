@@ -11,3 +11,18 @@ export const toObjectId = (value, fieldName = "id") => {
   ensureValidObjectId(value, fieldName);
   return new mongoose.Types.ObjectId(value);
 };
+export const escapeRegex = (raw, maxLen = 100) =>
+  String(raw || "")
+    .substring(0, maxLen)
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const buildSafeSearchFilter = (rawSearch, fields) => {
+  if (!rawSearch || typeof rawSearch !== "string" || !rawSearch.trim())
+    return null;
+  const escaped = escapeRegex(rawSearch);
+  return {
+    $or: fields.map((field) => ({
+      [field]: { $regex: escaped, $options: "i" },
+    })),
+  };
+};

@@ -42,23 +42,19 @@ const EXPIRY_CHECK_ON_FOCUS_MS = 3 * 60 * 1000;
 const isBloodBankPortalRoute = (path = "") => {
   const currentPath = String(path || "").toLowerCase();
   return (
-    currentPath.startsWith("/blood-bank") ||
-    currentPath.startsWith("/bloodbank")
+    currentPath === "/blood-bank" ||
+    currentPath.startsWith("/blood-bank/") ||
+    currentPath === "/bloodbank" ||
+    currentPath.startsWith("/bloodbank/")
   );
 };
 
-const isBloodBankPublicAuthRoute = (path = "") => {
-  const currentPath = String(path || "").toLowerCase();
-  return (
-    currentPath === "/blood-bank/login" ||
-    currentPath === "/bloodbank/login" ||
-    currentPath === "/blood-bank/register" ||
-    currentPath === "/bloodbank/register" ||
-    currentPath === "/blood-bank/forgot-password" ||
-    currentPath === "/bloodbank/forgot-password" ||
-    currentPath.startsWith("/blood-bank/reset-password") ||
-    currentPath.startsWith("/bloodbank/reset-password")
-  );
+const getActivePortal = () => {
+  if (typeof window === "undefined") return "user";
+  const currentPath = window.location.pathname.toLowerCase();
+  if (currentPath.startsWith("/admin")) return "admin";
+  if (isBloodBankPortalRoute(currentPath)) return "bloodbank";
+  return "user";
 };
 
 export const useAuth = () => {
@@ -192,6 +188,10 @@ export const AuthProvider = ({ children }) => {
 
   const silentlyRefreshRole = useCallback(
     async (role) => {
+      // SECURITY FIX: Prevent cross-portal refresh API calls
+      const activePortal = getActivePortal();
+      if (role !== activePortal) return false;
+
       return withRefreshMutex(role, async () => {
         try {
           if (role === "admin") {
@@ -323,6 +323,9 @@ export const AuthProvider = ({ children }) => {
 
     // Listen for authentication events from other tabs
     onAuthSync(({ role, action, data }) => {
+      const activePortal = getActivePortal();
+      if (role !== activePortal) return; // Ignore events from other portals
+
       if (action === "login" || action === "refresh") {
         if (role === "user") applyUserSession(data);
         if (role === "admin") applyAdminSession(data);
@@ -369,8 +372,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const refreshSoonIfNeeded = () => {
       const now = Date.now();
+      const activePortal = getActivePortal();
 
-      if (user && userAccessTokenExpiresAt) {
+      if (activePortal === "user" && user && userAccessTokenExpiresAt) {
         const expiresAtMs = new Date(userAccessTokenExpiresAt).getTime();
         if (
           Number.isFinite(expiresAtMs) &&
@@ -380,7 +384,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      if (adminUser && adminAccessTokenExpiresAt) {
+      if (activePortal === "admin" && adminUser && adminAccessTokenExpiresAt) {
         const expiresAtMs = new Date(adminAccessTokenExpiresAt).getTime();
         if (
           Number.isFinite(expiresAtMs) &&
@@ -390,7 +394,7 @@ export const AuthProvider = ({ children }) => {
         }
       }
 
-      if (bloodBank && bloodBankAccessTokenExpiresAt) {
+      if (activePortal === "bloodbank" && bloodBank && bloodBankAccessTokenExpiresAt) {
         const expiresAtMs = new Date(bloodBankAccessTokenExpiresAt).getTime();
         if (
           Number.isFinite(expiresAtMs) &&

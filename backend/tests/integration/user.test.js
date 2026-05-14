@@ -1,8 +1,6 @@
 import request from "supertest";
 import app from "../../app.js";
 import User from "../../models/User.model.js";
-import { getAuthCookiesForUser } from "./helpers.js";
-import { jest } from "@jest/globals";
 
 describe("User Integration Tests", () => {
   let user;

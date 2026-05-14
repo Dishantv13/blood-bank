@@ -3,6 +3,7 @@ import app from "../../app.js";
 import User from "../../models/User.model.js";
 import RegistrationOtp from "../../models/BloodBankRegistrationOtp.model.js";
 import * as authService from "../../services/authService.js";
+import { hashOtp } from "../../utils/otpHelpers.js";
 import { jest } from "@jest/globals";
 
 describe("Auth Integration Tests", () => {
@@ -51,7 +52,7 @@ describe("Auth Integration Tests", () => {
       // Manually create a pending registration
       verificationId = "test-v-id";
       const bcrypt = await import("bcryptjs");
-      const otpHash = await bcrypt.default.hash(fixedOtp, 10);
+      const otpHash = await hashOtp(fixedOtp);
       const salt = await bcrypt.default.genSalt(10);
       const hashedPassword = await bcrypt.default.hash(testUser.password, salt);
 

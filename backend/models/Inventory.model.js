@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { BLOOD_GROUPS } from "../validations/validation.constants.js";
 
 const InventorySchema = new mongoose.Schema(
   {
@@ -16,7 +17,7 @@ const InventorySchema = new mongoose.Schema(
       {
         bloodGroup: {
           type: String,
-          enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+          enum: BLOOD_GROUPS,
           required: true,
         },
         units: {

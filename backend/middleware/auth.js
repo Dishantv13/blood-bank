@@ -45,25 +45,33 @@ const applyCsrfGuard = async (req, res, role, sessionId) => {
 const matchesTokenVersion = (decoded, currentTokenVersion) =>
   Number(decoded?.tokenVersion) === Number(currentTokenVersion || 0);
 
-const loadAuthenticatedUser = async (userId) => {
+const loadAuthenticatedUser = async (userId, bypassCache = false) => {
+  if (!userId || userId === "undefined") return null;
+
   const cacheKey = `auth:user:state:${userId}`;
-  const cached = await cacheManager.get(cacheKey);
-  if (cached) return cached;
+  if (!bypassCache) {
+    const cached = await cacheManager.get(cacheKey);
+    if (cached) return cached;
+  }
 
-  const user = await User.findById(userId)
-    .select(`${USER_SAFE_FIELDS} +tokenVersion`)
-    .lean();
+  try {
+    const user = await User.findById(userId)
+      .select(`${USER_SAFE_FIELDS} +tokenVersion`)
+      .lean();
 
-  if (!user) return null;
+    if (!user) return null;
 
-  const result = {
-    ...sanitizeUser(user),
-    userId: String(user._id),
-    tokenVersion: Number(user.tokenVersion || 0),
-  };
+    const result = {
+      ...sanitizeUser(user),
+      userId: String(user._id),
+      tokenVersion: Number(user.tokenVersion || 0),
+    };
 
-  await cacheManager.set(cacheKey, result, 3600); // 1 hour cache
-  return result;
+    await cacheManager.set(cacheKey, result, 300); // 5 minutes cache for better security
+    return result;
+  } catch (err) {
+    return null;
+  }
 };
 
 const loadAdminState = async (adminEmail) => {
@@ -91,6 +99,7 @@ const auth = asyncHandler(async (req, res, next) => {
   const token = getAccessTokenFromRequest(req, "user");
 
   if (!token) {
+    console.warn("[AUTH] Rejected: No token provided");
     return unauthorized(res);
   }
 
@@ -101,20 +110,30 @@ const auth = asyncHandler(async (req, res, next) => {
       return unauthorized(res, "Token is not a valid access token");
     }
 
-    const user = await loadAuthenticatedUser(decoded.userId || decoded.id);
+    let user = await loadAuthenticatedUser(decoded.userId || decoded.id);
     if (!user) {
+      console.warn("[AUTH] Rejected: User not found", { userId: decoded.userId });
       return unauthorized(res, "Authenticated user not found in database");
     }
 
+    // SELF-HEALING: If cache is stale, try one fresh DB lookup before rejecting
     if (!matchesTokenVersion(decoded, user.tokenVersion)) {
-      return unauthorized(
-        res,
-        "Session has been revoked due to security event",
-      );
+      console.log("[AUTH] Potential stale cache detected, retrying with fresh DB lookup...");
+      user = await loadAuthenticatedUser(decoded.userId || decoded.id, true); // true = bypass cache
+      
+      if (!user || !matchesTokenVersion(decoded, user.tokenVersion)) {
+        console.warn("[AUTH] Rejected: tokenVersion mismatch (Confirmed against DB)", {
+          userId: user?.id,
+          decodedVersion: decoded.tokenVersion,
+          currentVersion: user?.tokenVersion,
+        });
+        return unauthorized(res, "Session has been revoked due to security event");
+      }
     }
 
     // SESSION ENFORCEMENT: Check if this specific session ID is still valid/active
     if (!(await isSessionValid("user", decoded.sid))) {
+      console.warn("[AUTH] Rejected: Session revoked or inactive", { sid: decoded.sid });
       return unauthorized(
         res,
         "Session has been revoked or is no longer active",
@@ -191,53 +210,57 @@ const adminAuth = asyncHandler(async (req, res, next) => {
 });
 
 const loadApprovedBloodBank = async (bloodBankId, requestingUserId = null) => {
-  if (!bloodBankId) {
+  if (!bloodBankId || bloodBankId === "undefined") {
     return { error: { status: 400, message: "Invalid request parameters" } };
   }
 
-  const bloodBank = await BloodBank.findById(bloodBankId)
-    .select(`${BLOOD_BANK_SAFE_FIELDS} +tokenVersion`)
-    .lean();
+  try {
+    const bloodBank = await BloodBank.findById(bloodBankId)
+      .select(`${BLOOD_BANK_SAFE_FIELDS} +tokenVersion`)
+      .lean();
 
-  if (!bloodBank) {
-    return { error: { status: 404, message: "Blood bank not found" } };
-  }
+    if (!bloodBank) {
+      return { error: { status: 404, message: "Blood bank not found" } };
+    }
 
-  if (
-    requestingUserId &&
-    bloodBank.ownerId &&
-    String(bloodBank.ownerId) !== String(requestingUserId)
-  ) {
-    return {
-      error: {
-        status: 403,
-        message: "You do not have permission to access this blood bank",
+    if (
+      requestingUserId &&
+      bloodBank.ownerId &&
+      String(bloodBank.ownerId) !== String(requestingUserId)
+    ) {
+      return {
+        error: {
+          status: 403,
+          message: "You do not have permission to access this blood bank",
+        },
+      };
+    }
+
+    // Verify blood bank approval status
+    if (
+      bloodBank.approvalStatus !== "approved" ||
+      !bloodBank.isActive ||
+      !bloodBank.isVerified
+    ) {
+      return {
+        error: {
+          status: 403,
+          message: "Your blood bank account is not approved for access",
+        },
+      };
+    }
+
+    const payload = {
+      bloodBank: {
+        ...sanitizeBloodBank(bloodBank),
+        bloodBankId: String(bloodBank._id),
+        tokenVersion: Number(bloodBank.tokenVersion || 0),
       },
     };
+    return payload;
+  } catch (err) {
+    return { error: { status: 400, message: "Invalid blood bank ID format" } };
   }
-
-  // Verify blood bank approval status
-  if (
-    bloodBank.approvalStatus !== "approved" ||
-    !bloodBank.isActive ||
-    !bloodBank.isVerified
-  ) {
-    return {
-      error: {
-        status: 403,
-        message: "Your blood bank account is not approved for access",
-      },
-    };
-  }
-
-  const payload = {
-    bloodBank: {
-      ...sanitizeBloodBank(bloodBank),
-      bloodBankId: String(bloodBank._id),
-      tokenVersion: Number(bloodBank.tokenVersion || 0),
-    },
-  };
-  return payload;
 };
 
 // Middleware for blood bank authentication
@@ -249,7 +272,7 @@ const bloodBankAuth = asyncHandler(async (req, res, next) => {
       getAccessTokenFromRequest(req, "user") ||
       getAccessTokenFromRequest(req, "admin")
     ) {
-      return forbidden(res, "Blood bank portal access required");
+      return unauthorized(res, "Blood bank portal access required");
     }
     return unauthorized(res);
   }
@@ -302,7 +325,6 @@ const bloodBankAuth = asyncHandler(async (req, res, next) => {
 });
 
 // Middleware to protect blood bank routes (with DB lookup for full bank data)
-const protectBloodBank = bloodBankAuth;
 
 const authenticateAny = asyncHandler(async (req, res, next) => {
   let authenticated = false;
@@ -447,8 +469,8 @@ const authenticateAny = asyncHandler(async (req, res, next) => {
 export {
   auth,
   adminAuth,
+  bloodBankAuth as protectBloodBank,
   bloodBankAuth,
-  protectBloodBank,
   authenticateAny as authOrBloodBank,
   authenticateAny,
 };

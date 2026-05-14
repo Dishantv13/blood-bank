@@ -65,7 +65,7 @@ const Dashboard = () => {
     }
   }, [profileRes?.data, setUser]);
 
-  const requests = allRequestsRes?.data || [];
+  const activeSystemRequests = allRequestsRes?.data || [];
   const myRequests = myRequestsRes?.data || [];
   const dashboardStats = dashboardStatsRes?.data?.stats || null;
 
@@ -716,7 +716,7 @@ const Dashboard = () => {
                 </svg>
               </div>
               <div className="stat-content">
-                <h3>{requests.length}</h3>
+                <h3>{activeSystemRequests.length}</h3>
                 <p>Active Requests</p>
               </div>
             </div>

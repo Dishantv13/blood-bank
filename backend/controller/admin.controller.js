@@ -147,20 +147,20 @@ export const exportEventsCsv = asyncHandler(async (req, res) => {
 
 export const exportAllData = asyncHandler(async (req, res) => {
   const { format = "xlsx" } = req.query; // 'xlsx' or 'csv'
-  const result = await adminService.exportAllData(format);
 
   const contentType =
     format === "csv"
       ? "text/csv"
       : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
+  const timestamp = new Date().toISOString().split('T')[0];
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="${safeFilename(result.filename)}"`,
+    `attachment; filename="${safeFilename(`all_data_${timestamp}.${format}`)}"`,
   );
   res.setHeader("Content-Type", contentType);
-  if (result.rowsLimited) res.setHeader("X-Export-Row-Limit", "true");
-  res.send(result.buffer);
+
+  await adminService.exportAllData(format, res);
 });
 
 // Users Management
@@ -305,8 +305,8 @@ export const updateEventStatus = asyncHandler(async (req, res) => {
 // Requests Management
 
 export const getAllRequests = asyncHandler(async (req, res) => {
-  const { page, limit, status, bloodType, urgency, search, userId } = req.query;
-  const filters = { status, bloodType, urgency, search, userId };
+  const { page, limit, status, bloodType, urgency, search, userId, requestType } = req.query;
+  const filters = { status, bloodType, urgency, search, userId, requestType };
   const result = await adminService.getAllRequests(
     parsePage(page),
     parseLimit(limit),

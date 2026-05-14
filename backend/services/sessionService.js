@@ -2,6 +2,9 @@ import crypto from "crypto";
 import AuthSession from "../models/AuthSession.model.js";
 import redisClient from "../utils/redisClient.js";
 import { hashToken } from "../utils/authCookies.js";
+import { ApiError } from "../utils/apiError.js";
+import { enforceCsrfForRole } from "../middleware/csrf.js";
+import * as authCookies from "../utils/authCookies.js";
 
 const buildPrincipalQuery = ({
   role,
@@ -100,6 +103,32 @@ export const isSessionValid = async (role, sessionId) => {
   return true;
 };
 
+export const validateSessionCsrf = async ({ role, sessionId, csrfToken }) => {
+  if (!sessionId || !csrfToken) return false;
+
+  const session = await AuthSession.findOne({ role, sessionId })
+    .select("+csrfTokenHash +previousCsrfTokenHash +rotatedAt")
+    .lean();
+
+  if (!session || session.revokedAt) return false;
+
+  const incomingHash = hashToken(csrfToken);
+
+  // 1. Check current token
+  if (session.csrfTokenHash === incomingHash) return true;
+
+  // 2. Check previous token (Grace period for rotation)
+  const isGracePeriod =
+    session.rotatedAt &&
+    Date.now() - new Date(session.rotatedAt).getTime() < 10000; // 10 second grace
+
+  if (isGracePeriod && session.previousCsrfTokenHash === incomingHash) {
+    return true;
+  }
+
+  return false;
+};
+
 export const rotateAuthSession = async ({
   role,
   sessionId,
@@ -119,6 +148,10 @@ export const rotateAuthSession = async ({
     rotatedAt: new Date(),
     ip: getRequestIp(req),
     userAgent: getRequestUserAgent(req),
+    autoDeleteAt: new Date(Math.min(
+      new Date(refreshTokenExpiresAt).getTime(),
+      Date.now() + 30 * 24 * 60 * 60 * 1000
+    ))
   };
 
   // Rotate hashes if this isn't a grace update
@@ -153,12 +186,7 @@ export const updateCsrfToken = async ({ role, sessionId, csrfTokenHash }) => {
   );
 };
 
-export const touchAuthSession = async ({ role, sessionId }) => {
-  await AuthSession.updateOne(
-    { role, sessionId, revokedAt: null },
-    { $set: { lastUsedAt: new Date() } },
-  );
-};
+
 
 export const revokeAuthSession = async ({
   role,
@@ -222,28 +250,194 @@ export const logRefreshReuseDetected = ({
   });
 };
 
-export const validateSessionCsrf = async ({ role, sessionId, csrfToken }) => {
-  if (!sessionId) return true;
-  if (!csrfToken) return false;
+export const validateRefreshSessionOrThrow = async ({
+  role,
+  refreshToken,
+  decoded,
+  sessionRecord,
+  principal,
+  principalTokenVersion,
+  principalMatches = true,
+  principalId,
+  req,
+  onSeriousBreach,
+  onInvalid,
+}) => {
+  const incomingRefreshHash = hashToken(refreshToken);
+  const isCurrentMatch =
+    sessionRecord?.refreshTokenHash === incomingRefreshHash;
+  const isGraceMatch =
+    sessionRecord?.rotatedAt &&
+    Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 30000 &&
+    sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
+  const isTokenValid = isCurrentMatch || isGraceMatch;
 
-  const session = await AuthSession.findOne({ role, sessionId })
-    .select("+csrfTokenHash +previousCsrfTokenHash rotatedAt")
-    .lean();
+  const tokenVersion = Number(principalTokenVersion || 0);
+  const hasTokenVersionMismatch =
+    principal &&
+    (Number(decoded?.tokenVersion) !== tokenVersion ||
+      Number(sessionRecord?.tokenVersion) !== tokenVersion);
 
-  if (!session || session.revokedAt) return false;
+  const requiresSessionRevoke =
+    !principal ||
+    !sessionRecord ||
+    sessionRecord.revokedAt ||
+    new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
+    !principalMatches ||
+    hasTokenVersionMismatch ||
+    !isTokenValid;
 
-  const incomingHash = hashToken(csrfToken);
-
-  // 1. Check current hash
-  if (session.csrfTokenHash === incomingHash) return true;
-
-  // 2. Check previous hash (Grace period: 10 seconds)
-  const isGraceWindow =
-    session.rotatedAt &&
-    Date.now() - new Date(session.rotatedAt).getTime() < 10000;
-  if (isGraceWindow && session.previousCsrfTokenHash === incomingHash) {
-    return true;
+  if (!requiresSessionRevoke) {
+    return {
+      isGraceMatch,
+      sessionId: decoded.sid || crypto.randomUUID(),
+      isTransitioningFromLegacy: !decoded.sid || !sessionRecord,
+    };
   }
 
-  return false;
+  if (sessionRecord?.sessionId) {
+    await revokeAuthSession({
+      role,
+      sessionId: sessionRecord.sessionId,
+      reason: "refresh_token_mismatch",
+    });
+  }
+
+  if (hasTokenVersionMismatch && onSeriousBreach) {
+    await onSeriousBreach();
+  }
+
+  logRefreshReuseDetected({
+    role,
+    sessionId: decoded.sid,
+    principal: principalId,
+    ip: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+
+  if (onInvalid) {
+    await onInvalid();
+  }
+
+  throw new ApiError(401, "Refresh token is invalid or has been reused");
+};
+
+
+
+export const issuePrincipalSession = async ({
+  req,
+  res,
+  role,
+  principalId,
+  tokenVersion,
+  buildClaims,
+  metadata = {},
+}) => {
+  const sessionId = crypto.randomUUID();
+  const claims = buildClaims(sessionId, tokenVersion);
+
+  const {
+    refreshToken,
+    refreshTokenExpiresAt,
+    csrfToken,
+    accessTokenExpiresAt,
+  } = authCookies.setAuthCookies(res, role, claims);
+
+  await createAuthSession({
+    sessionId,
+    role,
+    refreshTokenHash: hashToken(refreshToken),
+    refreshTokenExpiresAt,
+    csrfTokenHash: hashToken(csrfToken),
+    tokenVersion,
+    req,
+    ...metadata,
+  });
+
+  return { csrfToken, accessTokenExpiresAt };
+};
+
+export const refreshPrincipalSession = async ({
+  req,
+  res,
+  role,
+  getPrincipal,
+  buildClaims,
+  onBreach,
+}) => {
+  // 1. Common Security Checks (duplicates removed from individual services)
+  if (!enforceCsrfForRole(req, role)) {
+    throw new ApiError(403, "Invalid or missing CSRF token");
+  }
+
+  const refreshToken = authCookies.getRefreshTokenFromRequest(req, role);
+  if (!refreshToken) {
+    throw new ApiError(401, "Refresh token missing");
+  }
+
+  const decoded = authCookies.verifyRefreshToken(role, refreshToken);
+
+  // 2. Fetch State in Parallel
+  const [principal, sessionRecord] = await Promise.all([
+    getPrincipal(decoded),
+    getAuthSessionForRefresh({ role, sessionId: decoded.sid }),
+  ]);
+
+  // 3. Centralized Validation (Rotation/Breach/Grace/Legacy)
+  const { isGraceMatch, sessionId, isTransitioningFromLegacy } =
+    await validateRefreshSessionOrThrow({
+      role,
+      refreshToken,
+      decoded,
+      sessionRecord,
+      principal,
+      principalTokenVersion: principal?.tokenVersion,
+      principalId: decoded.userId || decoded.bloodBankId || decoded.adminEmail,
+      req,
+      onSeriousBreach: () => onBreach(principal?._id || principal?.email),
+      onInvalid: () => authCookies.clearAuthCookies(res, role),
+    });
+
+  const nextTokenVersion = Number(principal?.tokenVersion || 0);
+
+  // 4. Issue New Tokens & Cookies
+  const {
+    refreshToken: nextRefreshToken,
+    refreshTokenExpiresAt,
+    csrfToken,
+    accessTokenExpiresAt,
+  } = authCookies.setAuthCookies(
+    res,
+    role,
+    buildClaims(principal, sessionId, nextTokenVersion),
+  );
+
+  // 5. Update/Rotate Session Record
+  if (isTransitioningFromLegacy) {
+    await createAuthSession({
+      sessionId,
+      role,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: nextTokenVersion,
+      req,
+      userId: principal?.id && role === "user" ? principal.id : null,
+      bloodBankId: principal?.id && role === "bloodbank" ? principal.id : null,
+      adminEmail: role === "admin" ? principal.email : null,
+    });
+  } else {
+    await rotateAuthSession({
+      role,
+      sessionId,
+      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenExpiresAt,
+      csrfTokenHash: hashToken(csrfToken),
+      tokenVersion: nextTokenVersion,
+      req,
+      isGraceUpdate: isGraceMatch,
+    });
+  }
+
+  return { principal, csrfToken, accessTokenExpiresAt };
 };

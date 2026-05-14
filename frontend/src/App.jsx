@@ -120,12 +120,19 @@ const Layout = ({ children }) => {
     ROUTE_PATH.BLOOD_BANK_BASE,
     ROUTE_PATH.ADMIN_BASE,
     ROUTE_PATH.LOGIN,
-    ROUTE_PATH.SIGNUP,
-  ];
-  const showNavbar = !noNavbarPaths.some(
-    (path) =>
-      location.pathname === path || location.pathname.startsWith(path + "/"),
-  );
+    ROUTE_PATH.FORGOT_PASSWORD,
+    ROUTE_PATH.RESET_PASSWORD,
+    ROUTE_PATH.BLOOD_BANK_FORGOT_PASSWORD,
+    ROUTE_PATH.BLOOD_BANK_RESET_PASSWORD,
+  ].filter(Boolean);
+
+  const showNavbar = !noNavbarPaths.some((path) => {
+    const currentPath = location.pathname.toLowerCase();
+    const targetPath = path.toLowerCase();
+    return (
+      currentPath === targetPath || currentPath.startsWith(targetPath + "/")
+    );
+  });
 
   return (
     <>

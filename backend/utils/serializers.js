@@ -171,6 +171,19 @@ export const sanitizeDonorSummary = (user) => {
   };
 };
 
+const formatAddress = (address) => {
+  if (!address) return "";
+  if (typeof address === "string") return address;
+  return [
+    address.street,
+    address.city,
+    address.state,
+    address.pincode || address.zipCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+};
+
 export const sanitizeBloodBank = (bloodBank) => {
   if (!bloodBank) return null;
   const normalizedId = bloodBank._id || bloodBank.id;
@@ -184,6 +197,7 @@ export const sanitizeBloodBank = (bloodBank) => {
     licenseNumber: bloodBank.licenseNumber || "",
     registrationNumber: bloodBank.registrationNumber || "",
     address: bloodBank.address || {},
+    formattedAddress: formatAddress(bloodBank.address),
     profileImage: optimizeCloudinaryUrl(bloodBank.profileImage || ""),
     logo: optimizeCloudinaryUrl(bloodBank.logo || ""),
     imageUrl: optimizeCloudinaryUrl(bloodBank.imageUrl || ""),

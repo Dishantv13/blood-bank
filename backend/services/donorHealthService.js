@@ -1,9 +1,6 @@
 import DonorHealth from "../models/DonorHealth.model.js";
 import { ApiError } from "../utils/apiError.js";
-import {
-  getPaginationParams,
-  buildPaginatedResponse,
-} from "../utils/pagination.js";
+import * as pagination from "../utils/pagination.js";
 
 export const submitHealthForm = async (userId, data) => {
   const { consent } = data;
@@ -68,7 +65,7 @@ export const checkEligibility = async (userId) => {
 };
 
 export const getAllForms = async (query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
   const filter = {};
   if (query.status) filter.status = query.status;
   if (query.isEligible !== undefined)
@@ -84,7 +81,7 @@ export const getAllForms = async (query) => {
     DonorHealth.countDocuments(filter),
   ]);
 
-  return buildPaginatedResponse(forms, total, page, limit);
+  return pagination.buildPaginatedResponse(forms, total, page, limit);
 };
 
 export const getFormById = async (id) => {

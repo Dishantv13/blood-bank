@@ -54,12 +54,12 @@ export const userApi = apiSlice.injectEndpoints({
       query: (data) => ({
         url: USER_API_URLS.FORGOT_PASSWORD,
         method: "POST",
-        body: data,
+        body: typeof data === "string" ? { email: data } : data,
       }),
     }),
     resetPassword: builder.mutation({
-      query: ({ token, ...data }) => ({
-        url: USER_API_URLS.RESET_PASSWORD(token),
+      query: (data) => ({
+        url: USER_API_URLS.RESET_PASSWORD,
         method: "POST",
         body: data,
       }),
@@ -68,7 +68,7 @@ export const userApi = apiSlice.injectEndpoints({
       query: (token) => ({
         url: USER_API_URLS.VERIFY_RESET_TOKEN,
         method: "POST",
-        body: { token },
+        body: typeof token === "string" ? { token } : token,
       }),
     }),
     changeUserPassword: builder.mutation({

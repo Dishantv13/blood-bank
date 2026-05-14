@@ -8,7 +8,11 @@ import {
   useUploadBloodBankPhotoMutation,
   useGetAllBloodBanksQuery,
   useChangeBloodBankPasswordMutation,
+  useExportInventoryDataMutation,
+  useExportCampReportsMutation,
+  useExportAllDataMutation,
 } from "../store/bloodBankApi";
+
 import {
   useGetBloodBankRequestsQuery,
   useUpdateRequestStatusMutation,
@@ -29,9 +33,15 @@ import BloodBankDonations from "../components/BloodBankDonations";
 import BloodBankSidebar from "../components/BloodBankSidebar";
 import ThemeToggle from "../components/ThemeToggle";
 import SkeletonLoader from "../components/SkeletonLoader";
+import DatePicker from "../components/DatePicker";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useAuth } from "../context/AuthContext";
-import { FaCalendarAlt, FaChartBar } from "react-icons/fa";
+import {
+  FaCalendarAlt,
+  FaChartBar,
+  FaEye,
+  FaEyeSlash,
+} from "react-icons/fa";
 import "../pages.css/BloodBankDashboard.css";
 
 const DEFAULT_INVENTORY = [
@@ -124,9 +134,15 @@ const BloodBankDashboard = () => {
     donorNotify: false,
   });
 
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // RTK Queries - Optimized with skipping to improve load times
   const { data: profileData, isFetching: loadingProfile } =
-    useGetBloodBankProfileQuery();
+    useGetBloodBankProfileQuery(undefined, {
+      skip: activeTab !== "settings",
+    });
 
   const { data: inventoryData, isFetching: loadingInventory } =
     useGetBloodBankInventoryQuery(undefined, {
@@ -177,7 +193,7 @@ const BloodBankDashboard = () => {
 
   const { data: bloodBanksData, isFetching: loadingBloodBanks } =
     useGetAllBloodBanksQuery(undefined, {
-      skip: activeTab !== "inventory" && activeTab !== "bloodbanks",
+      skip: activeTab !== "bloodbanks",
     });
 
   // RTK Mutations
@@ -194,6 +210,10 @@ const BloodBankDashboard = () => {
   const [triggerGetRegistrations] = useLazyGetCampRegistrationsQuery();
   const [changePassword, { isLoading: changingPassword }] =
     useChangeBloodBankPasswordMutation();
+  const [exportInventory] = useExportInventoryDataMutation();
+  const [exportCamps] = useExportCampReportsMutation();
+  const [exportAll] = useExportAllDataMutation();
+
   // Only show full-screen loader if we have NO profile data
   const loading = loadingProfile && !bloodBank;
 
@@ -230,7 +250,10 @@ const BloodBankDashboard = () => {
 
   // Map inventory from query
   useEffect(() => {
-    const dataToUse = inventoryData?.data || inventoryData?.inventory;
+    // Handle both array and object formats for backward compatibility and new security structure
+    const rawData = inventoryData?.data || inventoryData;
+    const dataToUse = Array.isArray(rawData) ? rawData : rawData?.inventory;
+
     if (dataToUse && !inventoryChanged) {
       const mappedInventory = dataToUse.map((item) => ({
         type: item.bloodGroup || item.type,
@@ -244,7 +267,8 @@ const BloodBankDashboard = () => {
 
   // Effect to automatically determine if inventory has changed based on server data
   useEffect(() => {
-    const dataToUse = inventoryData?.data || inventoryData?.inventory;
+    const rawData = inventoryData?.data || inventoryData;
+    const dataToUse = Array.isArray(rawData) ? rawData : rawData?.inventory;
     if (!dataToUse || !inventory.length) {
       setInventoryChanged(false);
       return;
@@ -326,7 +350,9 @@ const BloodBankDashboard = () => {
       setProfileForm({
         name: bb.name || "",
         phone: bb.phone || "",
-        address: bb.address || "",
+        address: bb.formattedAddress || (typeof bb.address === 'object' ? 
+          [bb.address?.street, bb.address?.city, bb.address?.state, bb.address?.pincode].filter(Boolean).join(", ") : 
+          bb.address || ""),
       });
 
       if (bb.operatingHours) {
@@ -846,6 +872,42 @@ const BloodBankDashboard = () => {
     }
   };
 
+  const handleDataExport = async (type) => {
+    try {
+      info(`Preparing ${type} data for export...`);
+
+      let blob;
+      if (type === "inventory") {
+        blob = await exportInventory().unwrap();
+      } else if (type === "camps") {
+        blob = await exportCamps().unwrap();
+      } else if (type === "all") {
+        blob = await exportAll().unwrap();
+      }
+
+      if (!blob) throw new Error("Export failed: No data received");
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute(
+        "download",
+        `${type}_data_${new Date().toISOString().split("T")[0]}.xlsx`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+      success(
+        `${type.charAt(0).toUpperCase() + type.slice(1)} data exported successfully`,
+      );
+    } catch (err) {
+      console.error("Export error:", err);
+      error(`Failed to export ${type} data. Please try again.`);
+    }
+  };
+
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (passwordForm.currentPassword === passwordForm.newPassword) {
@@ -1016,7 +1078,8 @@ const BloodBankDashboard = () => {
       }
 
       // Reset inventory state to match server data
-      const dataToUse = inventoryData?.data || inventoryData?.inventory;
+      const rawData = inventoryData?.data || inventoryData;
+      const dataToUse = Array.isArray(rawData) ? rawData : rawData?.inventory;
       if (dataToUse) {
         setInventory(
           dataToUse.map((item) => ({
@@ -2581,7 +2644,7 @@ const BloodBankDashboard = () => {
                         type="text"
                         id="regNum"
                         className="form-control"
-                        value={bloodBank?.registrationNumber || ""}
+                        value={bloodBank?.registrationNumber || bloodBank?.licenseNumber || ""}
                         placeholder="Hospital registration number"
                         readOnly
                         style={{
@@ -2634,7 +2697,7 @@ const BloodBankDashboard = () => {
                       id="hospitalAddress"
                       className="form-control"
                       rows="3"
-                      value={profileForm.address}
+                      value={profileForm.address || ""}
                       onChange={(e) =>
                         setProfileForm({
                           ...profileForm,
@@ -2889,60 +2952,105 @@ const BloodBankDashboard = () => {
                 <form className="settings-form" onSubmit={handleChangePassword}>
                   <div className="form-group">
                     <label htmlFor="currentPwd">Current Password</label>
-                    <input
-                      type="password"
-                      id="currentPwd"
-                      className="form-control"
-                      value={passwordForm.currentPassword}
-                      onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
-                          currentPassword: e.target.value,
-                        })
-                      }
-                      placeholder="Enter current password"
-                      disabled={changingPassword}
-                      required
-                    />
+                    <div className="password-input-wrapper">
+                      <input
+                        type={showCurrentPassword ? "text" : "password"}
+                        id="currentPwd"
+                        className="form-control"
+                        value={passwordForm.currentPassword}
+                        onChange={(e) =>
+                          setPasswordForm({
+                            ...passwordForm,
+                            currentPassword: e.target.value,
+                          })
+                        }
+                        placeholder="Enter current password"
+                        disabled={changingPassword}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() =>
+                          setShowCurrentPassword(!showCurrentPassword)
+                        }
+                        disabled={changingPassword}
+                        title={
+                          showCurrentPassword ? "Hide password" : "Show password"
+                        }
+                      >
+                        {showCurrentPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="form-group">
                     <label htmlFor="newPwd">New Password</label>
-                    <input
-                      type="password"
-                      id="newPwd"
-                      className="form-control"
-                      value={passwordForm.newPassword}
-                      onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
-                          newPassword: e.target.value,
-                        })
-                      }
-                      placeholder="Enter new password"
-                      disabled={changingPassword}
-                      required
-                      minLength="6"
-                    />
+                    <div className="password-input-wrapper">
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        id="newPwd"
+                        className="form-control"
+                        value={passwordForm.newPassword}
+                        onChange={(e) =>
+                          setPasswordForm({
+                            ...passwordForm,
+                            newPassword: e.target.value,
+                          })
+                        }
+                        placeholder="Enter new password"
+                        disabled={changingPassword}
+                        required
+                        minLength="6"
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        disabled={changingPassword}
+                        title={
+                          showNewPassword ? "Hide password" : "Show password"
+                        }
+                      >
+                        {showNewPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="form-group">
                     <label htmlFor="confirmPwd">Confirm New Password</label>
-                    <input
-                      type="password"
-                      id="confirmPwd"
-                      className="form-control"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) =>
-                        setPasswordForm({
-                          ...passwordForm,
-                          confirmPassword: e.target.value,
-                        })
-                      }
-                      placeholder="Confirm new password"
-                      disabled={changingPassword}
-                      required
-                    />
+                    <div className="password-input-wrapper">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        id="confirmPwd"
+                        className="form-control"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) =>
+                          setPasswordForm({
+                            ...passwordForm,
+                            confirmPassword: e.target.value,
+                          })
+                        }
+                        placeholder="Confirm new password"
+                        disabled={changingPassword}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="password-toggle-btn"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        disabled={changingPassword}
+                        title={
+                          showConfirmPassword
+                            ? "Hide password"
+                            : "Show password"
+                        }
+                      >
+                        {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
                   </div>
 
                   <button
@@ -2995,7 +3103,10 @@ const BloodBankDashboard = () => {
                   </p>
 
                   <div className="data-export-options">
-                    <button className="btn-export">
+                    <button
+                      className="btn-export"
+                      onClick={() => handleDataExport("inventory")}
+                    >
                       <svg
                         width="16"
                         height="16"
@@ -3012,7 +3123,10 @@ const BloodBankDashboard = () => {
                       </svg>
                       Export Inventory Data
                     </button>
-                    <button className="btn-export">
+                    <button
+                      className="btn-export"
+                      onClick={() => handleDataExport("camps")}
+                    >
                       <svg
                         width="16"
                         height="16"
@@ -3029,7 +3143,10 @@ const BloodBankDashboard = () => {
                       </svg>
                       Export Camp Reports
                     </button>
-                    <button className="btn-export">
+                    <button
+                      className="btn-export"
+                      onClick={() => handleDataExport("all")}
+                    >
                       <svg
                         width="16"
                         height="16"
@@ -3098,14 +3215,15 @@ const BloodBankDashboard = () => {
               </div>
 
               <div className="form-row">
-                <div className="form-group">
+                <div className="form-group" style={{ flex: 1.5 }}>
                   <label>Date</label>
-                  <input
-                    type="date"
-                    name="date"
+                  <DatePicker
                     value={campForm.date}
-                    onChange={handleCampFormChange}
-                    required
+                    onChange={(date) => {
+                      setCampForm({ ...campForm, date: date.toISOString().split('T')[0] });
+                    }}
+                    minDate={new Date()}
+                    placeholder="Select Date"
                   />
                 </div>
                 <div className="form-group">

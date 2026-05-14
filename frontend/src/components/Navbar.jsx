@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useGetAllBloodBanksQuery } from "../store/bloodBankApi";
-import { useGetDonorsQuery } from "../store/userApi";
 import ThemeToggle from "./ThemeToggle";
 import { ROUTE_PATH } from "../enum/routePath";
 import NotificationCenter from "./NotificationCenter";
@@ -29,16 +27,6 @@ const Navbar = () => {
     await logout();
     navigate(ROUTE_PATH.LOGIN);
   };
-
-  const skip = !isAuthenticated;
-  const { data: bbRes } = useGetAllBloodBanksQuery(undefined, {
-    pollingInterval: 600000,
-    skip,
-  });
-  const { data: donorsRes } = useGetDonorsQuery(
-    {},
-    { pollingInterval: 600000, skip },
-  );
 
   const getNavLinkClass = ({ isActive }) => (isActive ? "active" : "");
 

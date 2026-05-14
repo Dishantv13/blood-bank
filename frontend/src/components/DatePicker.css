@@ -1,0 +1,239 @@
+.custom-datepicker-container {
+  position: relative;
+  width: 100%;
+  user-select: none;
+}
+
+.datepicker-input {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--input-bg);
+  border: 2px solid var(--input-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.95rem;
+  color: var(--text-main);
+}
+
+.datepicker-input:hover {
+  border-color: #e63946;
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.1);
+}
+
+.datepicker-input.active {
+  border-color: #e63946;
+  box-shadow: 0 0 0 4px rgba(230, 57, 70, 0.15);
+}
+
+.calendar-icon {
+  color: #e63946;
+  font-size: 1.1rem;
+}
+
+.placeholder {
+  color: var(--text-muted);
+}
+
+.datepicker-overlay {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 320px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  padding: 16px;
+  transform-origin: top left;
+}
+
+[data-theme='dark'] .datepicker-overlay {
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.4);
+}
+
+.datepicker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.current-month-year {
+  display: flex;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.header-clickable {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.header-clickable:hover {
+  background: rgba(230, 57, 70, 0.1);
+  color: #e63946;
+}
+
+.month-grid, .year-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+  height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.year-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Custom Scrollbar for Year Grid */
+.year-grid::-webkit-scrollbar {
+  width: 4px;
+}
+
+.year-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.year-grid::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+
+.month-item, .year-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  color: var(--text-main);
+}
+
+.month-item:hover, .year-item:hover {
+  background: rgba(230, 57, 70, 0.1);
+  color: #e63946;
+}
+
+.month-item.active, .year-item.active {
+  background: #e63946;
+  color: white;
+  font-weight: 700;
+}
+
+.nav-btn {
+  background: transparent;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  background: rgba(230, 57, 70, 0.1);
+  color: #e63946;
+}
+
+.datepicker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 8px;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.datepicker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.datepicker-day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-main);
+}
+
+.datepicker-day:not(.empty):not(.disabled):hover {
+  background: rgba(230, 57, 70, 0.1);
+  color: #e63946;
+  transform: scale(1.1);
+}
+
+.datepicker-day.empty {
+  cursor: default;
+}
+
+.datepicker-day.selected {
+  background: #e63946 !important;
+  color: white !important;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+}
+
+.datepicker-day.today {
+  color: #e63946;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.datepicker-day.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.datepicker-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+}
+
+.today-btn {
+  background: transparent;
+  color: #e63946;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.today-btn:hover {
+  background: rgba(230, 57, 70, 0.1);
+}

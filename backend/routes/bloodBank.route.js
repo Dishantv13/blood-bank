@@ -8,20 +8,13 @@ import {
   bloodBankOtpResendLimiter,
 } from "../middleware/rateLimiter.js";
 import * as bloodBankController from "../controller/bloodBank.controller.js";
+import * as authValidation from "../validations/auth.validation.js";
 import { upload } from "../middleware/multer.js";
 
 const router = Router();
 
 router.route("/csrf-token").get(bloodBankController.getCsrfToken);
 
-router
-  .route("/register")
-  .post(
-    authLimiter,
-    bloodBankOtpInitiateLimiter,
-    upload.single("logo"),
-    bloodBankController.register,
-  );
 router
   .route("/register/initiate")
   .post(
@@ -62,10 +55,23 @@ router
 
 router
   .route("/forgot-password")
-  .post(authLimiter, bloodBankController.forgotPassword);
+  .post(
+    authValidation.forgotPasswordValidation,
+    authLimiter,
+    bloodBankController.forgotPassword,
+  );
 router
   .route("/reset-password")
-  .post(authLimiter, bloodBankController.resetPassword);
-router.route("/verify-reset-token").post(bloodBankController.verifyResetToken);
+  .post(
+    authValidation.resetPasswordValidation,
+    authLimiter,
+    bloodBankController.resetPassword,
+  );
+router
+  .route("/verify-reset-token")
+  .post(
+    authValidation.verifyResetTokenValidation,
+    bloodBankController.verifyResetToken,
+  );
 
 export default router;

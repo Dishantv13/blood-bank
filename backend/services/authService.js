@@ -1,48 +1,20 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import axios from "axios";
-import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.model.js";
 import RegistrationOtp from "../models/BloodBankRegistrationOtp.model.js";
-import {
-  sendPasswordResetEmail,
-  sendWelcomeEmail,
-  sendUserRegistrationOtpEmail,
-} from "../utils/emailService.js";
-import {
-  validateUserRegistration,
-  validateEmail,
-  validatePassword,
-  validatePhone,
-} from "./validationService.js";
-import { ApiError } from "../utils/apiError.js";
-import {
-  clearAuthCookies,
-  generateCsrfToken,
-  getAccessTokenExpiryFromRequest,
-  getCookieNamesForRole,
-  getRefreshTokenFromRequest,
-  hashToken,
-  setAuthCookies,
-  verifyRefreshToken,
-  getPublicCookieOptions,
-  getAccessTokenFromRequest,
-  verifyAccessToken,
-} from "../utils/authCookies.js";
 import { enforceCsrfForRole } from "../middleware/csrf.js";
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from "../config/authConfig.js";
-import { sanitizeUser, USER_SAFE_FIELDS } from "../utils/serializers.js";
-import {
-  createAuthSession,
-  getAuthSessionForRefresh,
-  logRefreshReuseDetected,
-  revokeAllPrincipalSessions,
-  revokeAuthSession,
-  rotateAuthSession,
-  updateCsrfToken,
-} from "./sessionService.js";
+import { OAuth2Client } from "google-auth-library";
+import { ApiError } from "../utils/apiError.js";
+import * as emailService from "../utils/emailService.js";
+import * as otpHelpers from "../utils/otpHelpers.js";
+import * as validationService from "./validationService.js";
+import * as authCookies from "../utils/authCookies.js";
+import * as serializers from "../utils/serializers.js";
+import * as sessionService from "./sessionService.js";
 
-const toPublicUser = (user) => sanitizeUser(user);
+const toPublicUser = (user) => serializers.sanitizeUser(user);
 
 const buildUserClaims = (user, sessionId) => ({
   userId: String(user.id),
@@ -81,66 +53,6 @@ const createPkcePair = () => {
     crypto.createHash("sha256").update(verifier).digest(),
   );
   return { verifier, challenge };
-};
-
-const USER_OTP_EXPIRY_MINUTES = 10;
-const USER_OTP_MAX_VERIFY_ATTEMPTS = 5;
-const USER_OTP_MAX_RESEND_ATTEMPTS = 5;
-const USER_OTP_RESEND_COOLDOWN_SECONDS = 60;
-const USER_PENDING_REGISTRATION_TTL_MINUTES = 60;
-
-const getOtpHashSecret = () => {
-  const secret = process.env.BLOODBANK_OTP_HASH_SECRET;
-  if (!secret)
-    throw new ApiError(500, "BLOODBANK_OTP_HASH_SECRET is not configured");
-  return secret;
-};
-
-const hashOtp = async (otp) => await bcrypt.hash(String(otp), 10);
-const verifyOtp = async (otp, hashedOtp) =>
-  await bcrypt.compare(String(otp), hashedOtp);
-
-const generateOtp = () => String(crypto.randomInt(100000, 1000000));
-
-const maskEmail = (email = "") => {
-  const [localPart, domain = ""] = String(email).split("@");
-  if (!localPart || !domain) return email;
-  if (localPart.length <= 2) return `${localPart[0]}***@${domain}`;
-  return `${localPart.slice(0, 2)}***${localPart.slice(-1)}@${domain}`;
-};
-
-const buildOtpMeta = (record) => {
-  const now = Date.now();
-  const resendAvailableInSeconds = Math.max(
-    0,
-    Math.ceil(
-      (new Date(record.lastOtpSentAt || now).getTime() +
-        USER_OTP_RESEND_COOLDOWN_SECONDS * 1000 -
-        now) /
-        1000,
-    ),
-  );
-  const otpExpiresInSeconds = Math.max(
-    0,
-    Math.ceil((new Date(record.otpExpiresAt).getTime() - now) / 1000),
-  );
-
-  return {
-    verificationId: record.verificationId,
-    maskedEmail: maskEmail(record.email),
-    attemptsRemaining: Math.max(
-      0,
-      USER_OTP_MAX_VERIFY_ATTEMPTS - (record.verifyAttemptsUsed || 0),
-    ),
-    resendAttemptsRemaining: Math.max(
-      0,
-      USER_OTP_MAX_RESEND_ATTEMPTS - (record.resendCount || 0),
-    ),
-    resendAvailableInSeconds,
-    otpExpiresInSeconds,
-    maxVerifyAttempts: USER_OTP_MAX_VERIFY_ATTEMPTS,
-    maxResendAttempts: USER_OTP_MAX_RESEND_ATTEMPTS,
-  };
 };
 
 const timingSafeEqual = (left, right) => {
@@ -189,7 +101,7 @@ const getGoogleRedirectUri = (req) => {
 };
 
 const getPrivateCookieOptions = () => ({
-  ...getPublicCookieOptions(),
+  ...authCookies.getPublicCookieOptions(),
   httpOnly: true,
   maxAge: GOOGLE_OAUTH_COOKIE_TTL_MS,
 });
@@ -233,19 +145,19 @@ const createUserSession = async (req, res, user) => {
     refreshTokenExpiresAt,
     csrfToken,
     accessTokenExpiresAt,
-  } = setAuthCookies(
+  } = authCookies.setAuthCookies(
     res,
     "user",
     buildUserClaims({ ...user, tokenVersion }, sessionId),
   );
 
-  await createAuthSession({
+  await sessionService.createAuthSession({
     sessionId,
     role: "user",
     userId: user.id,
-    refreshTokenHash: hashToken(refreshToken),
+    refreshTokenHash: authCookies.hashToken(refreshToken),
     refreshTokenExpiresAt,
-    csrfTokenHash: hashToken(csrfToken),
+    csrfTokenHash: authCookies.hashToken(csrfToken),
     tokenVersion,
     req,
   });
@@ -269,27 +181,36 @@ const incrementUserTokenVersion = async (userId, reason = "security_event") => {
     throw new ApiError(401, "User session is invalid");
   }
 
-  await revokeAllPrincipalSessions({ role: "user", userId, reason });
+  await sessionService.revokeAllPrincipalSessions({
+    role: "user",
+    userId,
+    reason,
+  });
+
+  // Invalidate the user state cache to prevent version mismatch from stale data
+  const { cacheManager } = await import("../utils/cacheManager.js");
+  await cacheManager.del(`auth:user:state:${userId}`);
+
   return updatedUser;
 };
 
 export const issueUserCsrfToken = async (req, res) => {
-  const { csrfCookie } = getCookieNamesForRole("user");
-  const csrfToken = generateCsrfToken();
+  const { csrfCookie } = authCookies.getCookieNamesForRole("user");
+  const csrfToken = authCookies.generateCsrfToken();
 
-  res.cookie(csrfCookie, csrfToken, getPublicCookieOptions());
+  res.cookie(csrfCookie, csrfToken, authCookies.getPublicCookieOptions());
 
   // If user has an active session, sync the new CSRF token so subsequent state-changing
   // requests are accepted without requiring a full session refresh.
-  const accessToken = getAccessTokenFromRequest(req, "user");
+  const accessToken = authCookies.getAccessTokenFromRequest(req, "user");
   if (accessToken) {
     try {
-      const decoded = verifyAccessToken("user", accessToken);
+      const decoded = authCookies.verifyAccessToken("user", accessToken);
       if (decoded.sid) {
-        await updateCsrfToken({
+        await sessionService.updateCsrfToken({
           role: "user",
           sessionId: decoded.sid,
-          csrfTokenHash: hashToken(csrfToken),
+          csrfTokenHash: authCookies.hashToken(csrfToken),
         });
       }
     } catch (_error) {
@@ -298,16 +219,6 @@ export const issueUserCsrfToken = async (req, res) => {
   }
 
   return { csrfToken };
-};
-
-export const registerAndCreateSession = async (req, res) => {
-  const result = await registerUser(req.body);
-  const { csrfToken, accessTokenExpiresAt } = await createUserSession(
-    req,
-    res,
-    result.user,
-  );
-  return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
 export const loginAndCreateSession = async (req, res) => {
@@ -336,12 +247,12 @@ export const getGoogleOAuthStartUrl = async (req, res) => {
 
   res.cookie(
     GOOGLE_OAUTH_STATE_COOKIE,
-    hashToken(stateRaw),
+    authCookies.hashToken(stateRaw),
     getPrivateCookieOptions(),
   );
   res.cookie(
     GOOGLE_OAUTH_NONCE_COOKIE,
-    hashToken(nonceRaw),
+    authCookies.hashToken(nonceRaw),
     getPrivateCookieOptions(),
   );
   res.cookie(GOOGLE_OAUTH_VERIFIER_COOKIE, verifier, getPrivateCookieOptions());
@@ -400,7 +311,7 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
     return fail("google_oauth_invalid_state");
   }
 
-  const incomingStateHash = hashToken(state);
+  const incomingStateHash = authCookies.hashToken(state);
   if (!timingSafeEqual(incomingStateHash, expectedStateHash)) {
     clearGoogleOauthCookies(res);
     return fail("google_oauth_state_mismatch");
@@ -444,7 +355,10 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
     const payload = ticket.getPayload();
 
     const nonce = payload?.nonce || "";
-    if (!nonce || !timingSafeEqual(hashToken(nonce), expectedNonceHash)) {
+    if (
+      !nonce ||
+      !timingSafeEqual(authCookies.hashToken(nonce), expectedNonceHash)
+    ) {
       throw new ApiError(401, "Google OAuth nonce validation failed");
     }
 
@@ -471,18 +385,21 @@ export const refreshUserSession = async (req, res) => {
     throw new ApiError(403, "Invalid or missing CSRF token");
   }
 
-  const refreshToken = getRefreshTokenFromRequest(req, "user");
+  const refreshToken = authCookies.getRefreshTokenFromRequest(req, "user");
   if (!refreshToken) {
     throw new ApiError(401, "Refresh token missing");
   }
 
-  const decoded = verifyRefreshToken("user", refreshToken);
+  const decoded = authCookies.verifyRefreshToken("user", refreshToken);
   const [sessionUser, sessionRecord] = await Promise.all([
     User.findById(decoded.userId).select("_id email role +tokenVersion").lean(),
-    getAuthSessionForRefresh({ role: "user", sessionId: decoded.sid }),
+    sessionService.getAuthSessionForRefresh({
+      role: "user",
+      sessionId: decoded.sid,
+    }),
   ]);
 
-  const incomingRefreshHash = hashToken(refreshToken);
+  const incomingRefreshHash = authCookies.hashToken(refreshToken);
   const isCurrentMatch =
     sessionRecord?.refreshTokenHash === incomingRefreshHash;
   const isGraceMatch =
@@ -504,7 +421,7 @@ export const refreshUserSession = async (req, res) => {
 
   if (requiresSessionRevoke) {
     if (sessionRecord?.sessionId) {
-      await revokeAuthSession({
+      await sessionService.revokeAuthSession({
         role: "user",
         sessionId: sessionRecord.sessionId,
         reason: "refresh_token_mismatch",
@@ -525,7 +442,7 @@ export const refreshUserSession = async (req, res) => {
       );
     }
 
-    logRefreshReuseDetected({
+    sessionService.logRefreshReuseDetected({
       role: "user",
       sessionId: decoded.sid,
       principal: decoded.userId,
@@ -533,7 +450,7 @@ export const refreshUserSession = async (req, res) => {
       userAgent: req.get("user-agent"),
     });
 
-    clearAuthCookies(res, "user");
+    authCookies.clearAuthCookies(res, "user");
     throw new ApiError(401, "Refresh token is invalid or has been reused");
   }
 
@@ -545,7 +462,7 @@ export const refreshUserSession = async (req, res) => {
     refreshTokenExpiresAt,
     csrfToken,
     accessTokenExpiresAt,
-  } = setAuthCookies(res, "user", {
+  } = authCookies.setAuthCookies(res, "user", {
     userId: decoded.userId,
     email: decoded.email,
     role: decoded.role,
@@ -555,23 +472,23 @@ export const refreshUserSession = async (req, res) => {
   });
 
   if (isTransitioningFromLegacy) {
-    await createAuthSession({
+    await sessionService.createAuthSession({
       sessionId: sessionId,
       role: "user",
       userId: sessionUser._id,
-      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenHash: authCookies.hashToken(nextRefreshToken),
       refreshTokenExpiresAt,
-      csrfTokenHash: hashToken(csrfToken),
+      csrfTokenHash: authCookies.hashToken(csrfToken),
       tokenVersion: Number(sessionUser.tokenVersion || 0),
       req,
     });
   } else {
-    await rotateAuthSession({
+    await sessionService.rotateAuthSession({
       role: "user",
       sessionId: sessionId,
-      refreshTokenHash: hashToken(nextRefreshToken),
+      refreshTokenHash: authCookies.hashToken(nextRefreshToken),
       refreshTokenExpiresAt,
-      csrfTokenHash: hashToken(csrfToken),
+      csrfTokenHash: authCookies.hashToken(csrfToken),
       tokenVersion: Number(sessionUser.tokenVersion || 0),
       req,
       isGraceUpdate: isGraceMatch,
@@ -587,12 +504,12 @@ export const logoutUserSession = async (req, res) => {
     if (!enforceCsrfForRole(req, "user")) {
       console.warn("[AUTH] CSRF validation failed during logout attempt");
     }
-    const refreshToken = getRefreshTokenFromRequest(req, "user");
+    const refreshToken = authCookies.getRefreshTokenFromRequest(req, "user");
     if (refreshToken) {
       try {
-        const decoded = verifyRefreshToken("user", refreshToken);
+        const decoded = authCookies.verifyRefreshToken("user", refreshToken);
         if (decoded?.sid) {
-          await revokeAuthSession({
+          await sessionService.revokeAuthSession({
             role: "user",
             sessionId: decoded.sid,
             reason: "logout",
@@ -601,52 +518,16 @@ export const logoutUserSession = async (req, res) => {
       } catch (_error) {}
     }
   } finally {
-    clearAuthCookies(res, "user");
+    authCookies.clearAuthCookies(res, "user");
   }
 
   return { success: true };
 };
 
-// Register new user
-export const registerUser = async (data) => {
-  validateUserRegistration(data);
-
-  const { name, email, password, phone, bloodGroup, isDonor, address } = data;
-
-  const existingUser = await User.findOne({ email }).lean();
-  if (existingUser) {
-    throw new ApiError(409, "User already exists with this email");
-  }
-
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
-
-  const user = new User({
-    name,
-    email,
-    password: hashedPassword,
-    phone,
-    bloodGroup,
-    isDonor: isDonor || false,
-    address,
-  });
-
-  await user.save();
-
-  // Send welcome email (asynchronously, won't block response)
-  sendWelcomeEmail(user.email, user.name).catch((err) =>
-    console.error("Welcome email failed:", err),
-  );
-
-  return {
-    user: toPublicUser(user),
-  };
-};
-
 // Login user with email & password
 export const loginUser = async (email, password) => {
-  validateEmail(email);
-  validatePassword(password);
+  validationService.validateEmail(email);
+  validationService.validatePassword(password);
 
   const user = await User.findOne({ email }).select(
     "_id name email +password bloodGroup phone role isDonor photoURL activeMode donorInfo address +loginAttempts +lockUntil +tokenVersion",
@@ -680,7 +561,7 @@ export const loginUser = async (email, password) => {
   }
 
   return {
-    user: toPublicUser(user),
+    user: { ...toPublicUser(user), tokenVersion: user.tokenVersion },
   };
 };
 
@@ -714,7 +595,7 @@ export const googleLoginWithClaims = async ({
       email: normalizedEmail,
       googleId: normalizedGoogleId,
       photoURL: normalizedPhotoUrl,
-      password: await bcrypt.hash(crypto.randomBytes(16).toString("hex"), 10),
+      password: crypto.randomBytes(16).toString("hex"),
       phone: "",
       isDonor: false,
       address: { street: "", city: "", state: "", pincode: "" },
@@ -735,12 +616,14 @@ export const googleLoginWithClaims = async ({
   }
 
   return {
-    user: toPublicUser(user),
+    user: { ...toPublicUser(user), tokenVersion: user.tokenVersion },
   };
 };
 
 export const getSessionUser = async (userId) => {
-  const user = await User.findById(userId).select(USER_SAFE_FIELDS).lean();
+  const user = await User.findById(userId)
+    .select(serializers.USER_SAFE_FIELDS)
+    .lean();
 
   if (!user) {
     throw new ApiError(401, "User session is invalid");
@@ -753,51 +636,53 @@ export const getUserSessionWithExpiry = async (req, userId) => {
   const result = await getSessionUser(userId);
   return {
     ...result,
-    accessTokenExpiresAt: getAccessTokenExpiryFromRequest(req, "user"),
+    accessTokenExpiresAt: authCookies.getAccessTokenExpiryFromRequest(
+      req,
+      "user",
+    ),
   };
 };
 
 // Request password reset
 // Uses constant-time response to prevent account enumeration
 export const requestPasswordReset = async (email) => {
-  validateEmail(email);
+  validationService.validateEmail(email);
 
   const user = await User.findOne({ email });
 
-  // Always generate a token even if user doesn't exist (timing attack prevention)
+  if (!user) {
+    throw new ApiError(404, "No account found with this email address");
+  }
+
   const resetToken = crypto.randomBytes(32).toString("hex");
   const resetTokenHash = crypto
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
 
-  if (user) {
-    user.passwordReset = {
-      token: resetTokenHash,
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour expiration
-    };
+  user.passwordReset = {
+    token: resetTokenHash,
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour expiration
+  };
 
-    await user.save();
+  await user.save();
 
-    try {
-      await sendPasswordResetEmail(email, resetToken, "user");
-    } catch (error) {
-      console.error("Email sending failed:", error);
-      throw new ApiError(
-        500,
-        "Failed to send reset email. Please try again later.",
-      );
-    }
+  try {
+    await emailService.sendPasswordResetEmail(email, resetToken, "user");
+  } catch (error) {
+    console.error("Email sending failed:", error);
+    throw new ApiError(
+      500,
+      "Failed to send reset email. Please try again later.",
+    );
   }
 
-  // Always return success to prevent user enumeration
-  // Attacker cannot determine if email exists in system
   return { success: true };
 };
 
 // Reset password with token
 export const resetPassword = async (token, newPassword) => {
-  validatePassword(newPassword);
+  validationService.validatePassword(newPassword);
 
   if (!token) {
     throw new ApiError(400, "Reset token is required");
@@ -817,16 +702,13 @@ export const resetPassword = async (token, newPassword) => {
     throw new ApiError(400, "Invalid or expired reset token");
   }
 
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-  user.password = hashedPassword;
+  user.password = newPassword;
   user.passwordReset = undefined;
   user.tokenVersion = Number(user.tokenVersion || 0) + 1;
   user.passwordChangedAt = new Date();
 
   await user.save();
-  await revokeAllPrincipalSessions({
+  await sessionService.revokeAllPrincipalSessions({
     role: "user",
     userId: user._id,
     reason: "password_reset",
@@ -842,28 +724,25 @@ export const initiateUserRegistration = async (req, registrationData) => {
     throw new ApiError(400, "Please provide name, email, and password");
   }
 
-  validateEmail(email);
-  validatePassword(password);
-  if (phone) validatePhone(phone);
+  validationService.validateEmail(email);
+  validationService.validatePassword(password);
+  if (phone) validationService.validatePhone(phone);
 
   const existingUser = await User.findOne({ email }).lean();
   if (existingUser) {
     throw new ApiError(400, "User with this email already exists");
   }
 
-  const otp = generateOtp();
-  const otpHash = await hashOtp(otp);
+  const otp = otpHelpers.generateOtp();
+  const otpHash = await otpHelpers.hashOtp(otp);
   const now = new Date();
   const otpExpiresAt = new Date(
-    now.getTime() + USER_OTP_EXPIRY_MINUTES * 60 * 1000,
+    now.getTime() + otpHelpers.OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000,
   );
   const recordExpiresAt = new Date(
-    now.getTime() + USER_PENDING_REGISTRATION_TTL_MINUTES * 60 * 1000,
+    now.getTime() + otpHelpers.OTP_CONFIG.PENDING_TTL_MINUTES * 60 * 1000,
   );
   const verificationId = crypto.randomUUID();
-
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
 
   const existingPending = await RegistrationOtp.findOne({
     email: email.toLowerCase(),
@@ -881,10 +760,7 @@ export const initiateUserRegistration = async (req, registrationData) => {
     verifyAttemptsUsed: 0,
     resendCount: 0,
     lastOtpSentAt: now,
-    registrationData: {
-      ...registrationData,
-      password: hashedPassword,
-    },
+    registrationData,
     clientMeta: {
       ip: String(req.ip || ""),
       userAgent: String(req.get("user-agent") || ""),
@@ -901,8 +777,8 @@ export const initiateUserRegistration = async (req, registrationData) => {
   }
 
   try {
-    await sendUserRegistrationOtpEmail(email, otp, {
-      expiresInMinutes: USER_OTP_EXPIRY_MINUTES,
+    await emailService.sendUserRegistrationOtpEmail(email, otp, {
+      expiresInMinutes: otpHelpers.OTP_CONFIG.EXPIRY_MINUTES,
     });
   } catch (error) {
     console.error("User OTP send failed:", error);
@@ -915,7 +791,7 @@ export const initiateUserRegistration = async (req, registrationData) => {
 
   const record = await RegistrationOtp.findOne({ verificationId }).lean();
   return {
-    ...buildOtpMeta(record),
+    ...otpHelpers.buildOtpMeta(record),
     nextStep: "verify_otp",
   };
 };
@@ -960,7 +836,10 @@ export const verifyUserRegistrationOtp = async (
     );
   }
 
-  if (pendingRegistration.verifyAttemptsUsed >= USER_OTP_MAX_VERIFY_ATTEMPTS) {
+  if (
+    pendingRegistration.verifyAttemptsUsed >=
+    otpHelpers.OTP_CONFIG.MAX_VERIFY_ATTEMPTS
+  ) {
     pendingRegistration.status = "locked";
     await pendingRegistration.save();
     throw new ApiError(
@@ -969,20 +848,21 @@ export const verifyUserRegistrationOtp = async (
     );
   }
 
-  const isOtpValid = await verifyOtp(
+  const isOtpValid = await otpHelpers.verifyOtp(
     String(otp).trim(),
     pendingRegistration.otpHash,
   );
   if (!isOtpValid) {
     pendingRegistration.verifyAttemptsUsed += 1;
     if (
-      pendingRegistration.verifyAttemptsUsed >= USER_OTP_MAX_VERIFY_ATTEMPTS
+      pendingRegistration.verifyAttemptsUsed >=
+      otpHelpers.OTP_CONFIG.MAX_VERIFY_ATTEMPTS
     ) {
       pendingRegistration.status = "locked";
     }
     await pendingRegistration.save();
 
-    const meta = buildOtpMeta(pendingRegistration.toObject());
+    const meta = otpHelpers.buildOtpMeta(pendingRegistration.toObject());
     throw new ApiError(
       pendingRegistration.status === "locked" ? 429 : 400,
       pendingRegistration.status === "locked"
@@ -1020,19 +900,19 @@ export const verifyUserRegistrationOtp = async (
     refreshTokenExpiresAt,
     csrfToken,
     accessTokenExpiresAt,
-  } = setAuthCookies(res, "user", buildUserClaims(user, sessionId));
+  } = authCookies.setAuthCookies(res, "user", buildUserClaims(user, sessionId));
 
-  await createAuthSession({
+  await sessionService.createAuthSession({
     sessionId,
     role: "user",
     userId: user._id,
-    refreshTokenHash: hashToken(refreshToken),
+    refreshTokenHash: authCookies.hashToken(refreshToken),
     refreshTokenExpiresAt,
     tokenVersion: user.tokenVersion || 0,
     req,
   });
 
-  await sendWelcomeEmail(user.email, user.name);
+  await emailService.sendWelcomeEmail(user.email, user.name);
 
   return {
     user: toPublicUser(user),
@@ -1063,7 +943,9 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
     );
   }
 
-  if (pendingRegistration.resendCount >= USER_OTP_MAX_RESEND_ATTEMPTS) {
+  if (
+    pendingRegistration.resendCount >= otpHelpers.OTP_CONFIG.MAX_RESEND_ATTEMPTS
+  ) {
     throw new ApiError(
       429,
       "Maximum resend attempts reached. Please restart registration.",
@@ -1072,7 +954,7 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
 
   const cooldownExpiry = new Date(
     pendingRegistration.lastOtpSentAt.getTime() +
-      USER_OTP_RESEND_COOLDOWN_SECONDS * 1000,
+      otpHelpers.OTP_CONFIG.RESEND_COOLDOWN_SECONDS * 1000,
   );
   if (now < cooldownExpiry) {
     const remaining = Math.ceil((cooldownExpiry - now) / 1000);
@@ -1082,8 +964,8 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
     );
   }
 
-  const otp = generateOtp();
-  const otpHash = await hashOtp(otp);
+  const otp = otpHelpers.generateOtp();
+  const otpHash = await otpHelpers.hashOtp(otp);
 
   pendingRegistration.otpHash = otpHash;
   pendingRegistration.otpExpiresAt = new Date(
@@ -1159,10 +1041,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
     );
   }
 
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-  user.password = hashedPassword;
+  user.password = newPassword;
   user.tokenVersion = Number(user.tokenVersion || 0) + 1;
   user.passwordChangedAt = new Date();
   await user.save();

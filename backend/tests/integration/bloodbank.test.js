@@ -30,43 +30,16 @@ describe("Blood Bank Portal Integration Tests", () => {
     cookies = loginRes.get("Set-Cookie");
   });
 
-  describe("GET /api/v1/bloodbank/settings/profile", () => {
+  describe("GET /api/v1/bloodbank/profile", () => {
     it("should fetch blood bank profile", async () => {
       const res = await request(app)
-        .get("/api/v1/bloodbank/settings/profile")
+        .get("/api/v1/bloodbank/profile")
         .set("Cookie", cookies);
 
       expect(res.status).toBe(200);
       expect(res.body.data.name).toBe("Portal Blood Bank");
     });
   });
-
-  // describe('PUT /api/v1/bloodbank/settings/inventory', () => {
-  //   it('should update blood bank inventory', async () => {
-  //     // Ensure inventory record exists
-  //     await Inventory.create({
-  //       bloodBank: bloodBank._id,
-  //       bloodBankName: bloodBank.name,
-  //       items: [{ bloodGroup: 'A+', units: 0 }]
-  //     });
-
-  //     const res = await request(app)
-  //       .put('/api/v1/bloodbank/settings/inventory')
-  //       .set('Cookie', cookies)
-  //       .send({
-  //         inventory: [
-  //           { bloodGroup: 'A+', units: 50 },
-  //           { bloodGroup: 'B+', units: 30 }
-  //         ]
-  //       });
-
-  //     expect(res.status).toBe(200);
-
-  //     const inv = await Inventory.findOne({ bloodBank: bloodBank._id });
-  //     expect(inv.items.find(i => i.bloodGroup === 'A+').units).toBe(50);
-  //     expect(inv.items.find(i => i.bloodGroup === 'B+').units).toBe(30);
-  //   });
-  // });
 
   describe("POST /api/v1/bloodbank/events", () => {
     it("should create a new event", async () => {

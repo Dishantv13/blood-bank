@@ -101,7 +101,7 @@ const ROLE_CONFIG = {
     accessExpiresIn: () =>
       process.env.BLOODBANK_ACCESS_TOKEN_EXPIRES_IN || "15m",
     refreshExpiresIn: () =>
-      process.env.BLOODBANK_REFRESH_TOKEN_EXPIRES_IN || "30d",
+      process.env.BLOODBANK_REFRESH_TOKEN_EXPIRES_IN || "7d",
     accessCookie: () =>
       process.env.BLOODBANK_ACCESS_COOKIE_NAME || "bb_bank_at",
     refreshCookie: () =>
@@ -157,6 +157,7 @@ const resolveSameSite = () => {
 const resolveSecure = () => {
   if (process.env.AUTH_COOKIE_SECURE === "true") return true;
   if (process.env.AUTH_COOKIE_SECURE === "false") return false;
+  // Only force Secure in production or when explicitly requested
   return process.env.NODE_ENV === "production";
 };
 

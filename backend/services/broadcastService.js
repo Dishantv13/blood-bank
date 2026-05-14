@@ -1,11 +1,11 @@
-import BloodRequest from "../models/BloodRequest.model.js";
-import User from "../models/User.model.js";
-import Notification from "../models/Notification.model.js";
+import requestRepository from "../repositories/RequestRepository.js";
+import userRepository from "../repositories/UserRepository.js";
+import notificationRepository from "../repositories/NotificationRepository.js";
 import { ApiError } from "../utils/apiError.js";
 import * as smsService from "../utils/smsService.js";
 
 export const broadcastEmergencyRequest = async (requestId, radiusKm = 15) => {
-  const request = await BloodRequest.findById(requestId);
+  const request = await requestRepository.findById(requestId);
   if (!request) throw new ApiError(404, "Blood request not found");
 
   if (
@@ -27,21 +27,12 @@ export const broadcastEmergencyRequest = async (requestId, radiusKm = 15) => {
 
   const radiusInMeters = radiusKm * 1000;
 
-  // Find nearby available donors of matching blood group
-  const nearbyDonors = await User.find({
-    location: {
-      $near: {
-        $geometry: { type: "Point", coordinates: center },
-        $maxDistance: radiusInMeters,
-      },
-    },
-    bloodGroup: request.bloodGroup,
-    isDonor: true,
-    isAvailable: true,
-    role: { $in: ["user", "donor"] },
-  })
-    .select("_id email name")
-    .limit(100);
+  // Find nearby available donors of matching blood group using repository method
+  const nearbyDonors = await userRepository.findNearbyDonors(
+    center,
+    radiusInMeters,
+    request.bloodGroup,
+  );
 
   if (nearbyDonors.length === 0) {
     return {
@@ -51,9 +42,10 @@ export const broadcastEmergencyRequest = async (requestId, radiusKm = 15) => {
     };
   }
 
-  // Create notifications in bulk
+  // Create notifications in bulk using repository
   const notifications = nearbyDonors.map((donor) => ({
     recipient: donor._id,
+    recipientModel: "User",
     type: "emergency_blood_request",
     title: "🚨 EMERGENCY BLOOD REQUEST NEARBY",
     message: `A critical request for ${request.bloodGroup} blood has been made at ${request.hospital?.name || "a nearby hospital"}. Please help if you can!`,
@@ -65,7 +57,7 @@ export const broadcastEmergencyRequest = async (requestId, radiusKm = 15) => {
     },
   }));
 
-  await Notification.insertMany(notifications);
+  await notificationRepository.insertMany(notifications);
 
   // Send SMS to nearby donors in parallel (fire and forget with error logging)
   nearbyDonors.forEach((donor) => {

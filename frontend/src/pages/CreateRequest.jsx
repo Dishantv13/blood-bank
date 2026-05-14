@@ -6,6 +6,7 @@ import { useCreateRequestMutation } from "../store/requestApi";
 import { ROUTE_PATH } from "../enum/routePath";
 import { BLOOD_GROUPS } from "../enum/constants";
 import CompatibilityChart from "../components/CompatibilityChart";
+import DatePicker from "../components/DatePicker";
 import "../pages.css/CreateRequest.css";
 
 const CreateRequest = () => {
@@ -213,15 +214,13 @@ const CreateRequest = () => {
 
               <div className="form-group">
                 <label htmlFor="requiredBy">Required By *</label>
-                <input
-                  type="date"
-                  id="requiredBy"
-                  name="requiredBy"
-                  className="form-control"
+                <DatePicker
                   value={formData.requiredBy}
-                  onChange={handleChange}
-                  required
-                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(date) => {
+                    setFormData({ ...formData, requiredBy: date.toISOString() });
+                  }}
+                  minDate={new Date()}
+                  placeholder="Select Date"
                 />
               </div>
             </div>

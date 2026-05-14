@@ -4,17 +4,6 @@ import { clearCacheByPrefix } from "../middleware/cache.js";
 import * as bloodBankService from "../services/bloodBankService.js";
 import { ensureValid } from "../middleware/validateRequest.js";
 
-export const register = asyncHandler(async (req, res) => {
-  ensureValid(req);
-  const result = await bloodBankService.registerBloodBankFromRequest(req);
-  successResponse(
-    res,
-    result,
-    200,
-    "OTP sent to your email. Please verify to complete registration.",
-  );
-});
-
 export const initiateRegistration = asyncHandler(async (req, res) => {
   ensureValid(req);
   const result =
@@ -109,8 +98,7 @@ export const updateBloodBankProfile = asyncHandler(async (req, res) => {
 export const createBloodBank = asyncHandler(async (req, res) => {
   ensureValid(req);
   const result = await bloodBankService.createBloodBank(req.body);
-  clearCacheByPrefix("/api/v1/bloodbanks");
-  clearCacheByPrefix("/api/v1/blood-banks");
+  await clearCacheByPrefix("/api/v1/blood-banks");
   successResponse(res, result, 201, "Blood bank created successfully");
 });
 
@@ -122,8 +110,7 @@ export const updateBloodBankInventory = asyncHandler(async (req, res) => {
     bloodGroup,
     units,
   );
-  clearCacheByPrefix("/api/v1/bloodbanks");
-  clearCacheByPrefix("/api/v1/blood-banks");
+  await clearCacheByPrefix("/api/v1/blood-banks");
   successResponse(res, result, 200, "Inventory updated successfully");
 });
 
@@ -135,13 +122,13 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     res,
     { success: true },
     200,
-    "If an account exists with this email, you will receive a password reset link shortly",
+    "Password reset link has been sent to your email",
   );
 });
 
 export const resetPassword = asyncHandler(async (req, res) => {
   ensureValid(req);
-  const { token, password } = req.body;
+  const { token, password } = req.body || {};
   await bloodBankService.resetPassword(token, password);
   successResponse(
     res,
@@ -153,7 +140,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
 
 export const verifyResetToken = asyncHandler(async (req, res) => {
   ensureValid(req);
-  const { token } = req.body;
+  const { token } = req.body || {};
   const result = await bloodBankService.verifyResetToken(token);
   successResponse(res, result, 200, "Token is valid");
 });

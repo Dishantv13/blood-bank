@@ -51,8 +51,8 @@ export const updateDonorInfo = asyncHandler(async (req, res) => {
 
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.updateDonorInfo(userId, req.body);
-  clearCacheByPrefix("/api/v1/users/donors");
-  successResponse(res, result, 200, "Donor information saved successfully");
+  await clearCacheByPrefix("/api/v1/users/donors");
+  successResponse(res, result, 200, "Donor information updated successfully");
 });
 
 // Get available donors by blood group
@@ -68,8 +68,8 @@ export const toggleMode = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const { mode } = req.body;
   const result = await userService.toggleMode(userId, mode);
-  clearCacheByPrefix("/api/v1/users/donors");
-  successResponse(res, result, 200, `Switched to ${mode} mode successfully`);
+  await clearCacheByPrefix("/api/v1/users/donors");
+  successResponse(res, result, 200, "User mode toggled successfully");
 });
 
 // Get dashboard statistics

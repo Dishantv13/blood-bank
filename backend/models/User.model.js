@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
+import { BLOOD_GROUPS } from "../validations/validation.constants.js";
 
 const UserSchema = new mongoose.Schema({
   name: {
@@ -31,7 +33,7 @@ const UserSchema = new mongoose.Schema({
   },
   bloodGroup: {
     type: String,
-    enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+    enum: BLOOD_GROUPS,
     required: false,
   },
   googleId: {
@@ -186,5 +188,23 @@ UserSchema.index({ bloodGroup: 1, isAvailable: 1, isDonor: 1 });
 UserSchema.index({ role: 1, isAvailable: 1 });
 UserSchema.index({ isAvailable: 1, bloodGroup: 1 });
 UserSchema.index({ createdAt: -1 });
+
+// Hash password before saving
+UserSchema.pre("save", async function () {
+  if (!this.isModified("password")) {
+    return;
+  }
+  // Allow pre-hashed bcrypt passwords from secure migration/verification flows.
+  if (/^\$2[aby]\$\d{2}\$/.test(this.password)) {
+    return;
+  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Compare password method
+UserSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 export default mongoose.model("User", UserSchema);

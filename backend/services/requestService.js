@@ -1,29 +1,20 @@
+import mongoose from "mongoose";
 import requestRepository from "../repositories/RequestRepository.js";
-import {
-  validateBloodRequest,
-  validateBloodGroup,
-} from "./validationService.js";
-import {
-  getPaginationParams,
-  buildPaginatedResponse,
-} from "../utils/pagination.js";
-import { ApiError } from "../utils/apiError.js";
-import { ensureValidObjectId } from "../utils/dbGuards.js";
-import {
-  sendRequestStatusUpdateEmail,
-} from "../utils/emailService.js";
-import { createNotification } from "./notificationService.js";
-import { notifyMatchingDonors } from "./donorMatchingService.js";
 import cacheManager from "../utils/cacheManager.js";
-import {
-  sanitizePrivateBloodRequest,
-  sanitizePublicBloodRequest,
-} from "../utils/serializers.js";
+import { ApiError } from "../utils/apiError.js";
+import { ensureValidObjectId, toObjectId } from "../utils/dbGuards.js";
+import { invalidateBloodBankCaches } from "../utils/cacheInvalidation.js";
+import * as validationService from "./validationService.js";
+import * as pagination from "../utils/pagination.js";
+import * as emailService from "../utils/emailService.js";
+import * as notificationService from "./notificationService.js";
+import * as donorMatchingService from "./donorMatchingService.js";
+import * as serializers from "../utils/serializers.js";
 import * as inventoryService from "./inventoryService.js";
 
 // Create blood
 export const createBloodRequest = async (userId, data) => {
-  validateBloodRequest(data);
+  validationService.validateBloodRequest(data);
 
   const {
     patientName,
@@ -57,7 +48,7 @@ export const createBloodRequest = async (userId, data) => {
   cacheManager.del("admin:dashboard_stats");
 
   // Trigger donor matching and notification (async)
-  notifyMatchingDonors(bloodRequest).catch((err) =>
+  donorMatchingService.notifyMatchingDonors(bloodRequest).catch((err) =>
     console.error("Donor notification failed:", err),
   );
 
@@ -77,7 +68,7 @@ export const createBloodRequest = async (userId, data) => {
 };
 
 export const getAllBloodRequests = async (query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
 
   // Build filter
   let filter = { requestType: "user" };
@@ -86,43 +77,33 @@ export const getAllBloodRequests = async (query) => {
   if (query.bloodGroup) filter.bloodGroup = query.bloodGroup;
   if (query.urgency) filter.urgency = query.urgency;
 
-  const [requests, total] = await Promise.all([
-    requestRepository.find(filter, {
-      select:
-        "_id patientName bloodGroup units urgency status createdAt requiredBy hospital",
-      sort: { createdAt: -1 },
-      skip,
-      limit,
-    }),
-    requestRepository.count(filter),
-  ]);
+  const { data: requests, total } = await requestRepository.findPaginated(filter, {
+    sort: { createdAt: -1 },
+    skip,
+    limit,
+  });
 
   const sanitizedRequests = requests.map((request) =>
-    sanitizePublicBloodRequest(request),
+    serializers.sanitizePublicBloodRequest(request),
   );
-  return buildPaginatedResponse(sanitizedRequests, total, page, limit);
+  return pagination.buildPaginatedResponse(sanitizedRequests, total, page, limit);
 };
 
 // Get user's blood requests
 export const getUserRequests = async (userId, query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
+  const objectId = toObjectId(userId);
 
-  // Optimized parallel queries
-  const [requests, total] = await Promise.all([
-    requestRepository.find(
-      { requestedBy: userId, requestType: "user" },
-      {
-        select:
-          "_id patientName bloodGroup units urgency status createdAt requiredBy hospital",
-        sort: { createdAt: -1 },
-        skip,
-        limit,
-      },
-    ),
-    requestRepository.count({ requestedBy: userId, requestType: "user" }),
-  ]);
+  const { data: requests, total } = await requestRepository.findPaginated(
+    { requestedBy: objectId, requestType: "user" },
+    {
+      sort: { createdAt: -1 },
+      skip,
+      limit,
+    },
+  );
 
-  return buildPaginatedResponse(requests, total, page, limit);
+  return pagination.buildPaginatedResponse(requests, total, page, limit);
 };
 
 // Get request by ID
@@ -169,7 +150,7 @@ export const getRequestById = async (requestId, viewer = {}) => {
     throw new ApiError(403, "Not authorized to view this blood request");
   }
 
-  return sanitizePrivateBloodRequest(request);
+  return serializers.sanitizePrivateBloodRequest(request);
 };
 
 // Update request (user can only update own request)
@@ -191,7 +172,7 @@ export const updateBloodRequest = async (requestId, userId, data) => {
   }
 
   // Validate data if provided
-  if (data.bloodGroup) validateBloodGroup(data.bloodGroup);
+  if (data.bloodGroup) validationService.validateBloodGroup(data.bloodGroup);
 
   const editableFields = [
     "patientName",
@@ -297,12 +278,16 @@ export const updateRequestStatus = async (
     oldStatus,
   );
 
-  if (isNowCommitted && !wasCommitted && actorType === "bloodbank") {
-    try {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    if (isNowCommitted && !wasCommitted && actorType === "bloodbank") {
       await inventoryService.subtractInventoryUnits(
         targetBankId,
         bloodGroup,
         units,
+        session,
       );
 
       // Inter-bank: Add units to the requesting blood bank
@@ -311,90 +296,80 @@ export const updateRequestStatus = async (
           String(request.requestingBloodBank),
           bloodGroup,
           units,
+          session,
         );
       }
-    } catch (err) {
-      // If inventory fails (e.g. insufficient units), we shouldn't change the status
-      throw err;
     }
-  }
 
-  // 2. Transition FROM a "committed" state to a "cancelled" or "rejected" state
-  const isNowReleased = ["cancelled", "rejected"].includes(status);
-  if (isNowReleased && wasCommitted && (request.bloodBank || targetBankId)) {
-    await inventoryService.addInventoryUnits(
-      String(request.bloodBank || targetBankId),
-      bloodGroup,
-      units,
-    );
-
-    // Inter-bank: Subtract units from the requesting blood bank if it was previously committed
-    if (request.requestType === "bloodbank" && request.requestingBloodBank) {
-      await inventoryService.subtractInventoryUnits(
-        String(request.requestingBloodBank),
+    // 2. Transition FROM a "committed" state to a "cancelled" or "rejected" state
+    const isNowReleased = ["cancelled", "rejected"].includes(status);
+    if (isNowReleased && wasCommitted && (request.bloodBank || targetBankId)) {
+      await inventoryService.addInventoryUnits(
+        String(request.bloodBank || targetBankId),
         bloodGroup,
         units,
+        session,
       );
+
+      // Inter-bank: Subtract units from the requesting blood bank if it was previously committed
+      if (request.requestType === "bloodbank" && request.requestingBloodBank) {
+        await inventoryService.subtractInventoryUnits(
+          String(request.requestingBloodBank),
+          bloodGroup,
+          units,
+          session,
+        );
+      }
     }
+
+    // Update status and timeline
+    request.status = status;
+    request.timeline.push({
+      status: status,
+      updatedBy: actorId,
+      updatedByModel: actorType === "user" ? "User" : "BloodBank",
+      timestamp: new Date(),
+      note: note || `Status changed to ${status}`,
+    });
+
+    if (status === "rejected" && note) {
+      request.bloodBankResponse = {
+        status: "rejected",
+        respondedAt: new Date(),
+        respondedBy: actorId,
+        responseNote: note,
+      };
+    }
+
+    await request.save({ session });
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  // Update status and timeline
-  request.status = status;
-  request.timeline.push({
-    status: status,
-    updatedBy: actorId,
-    updatedByModel: actorType === "user" ? "User" : "BloodBank",
-    timestamp: new Date(),
-    note: note || `Status changed to ${status}`,
-  });
-
-  if (status === "rejected" && note) {
-    request.bloodBankResponse = {
-      status: "rejected",
-      respondedAt: new Date(),
-      respondedBy: actorId,
-      responseNote: note,
-    };
-  }
-
-  await request.save();
   await request.populate([
     { path: "requestedBy", select: "name email" },
     { path: "bloodBank", select: "name email" },
   ]);
 
   // Proactively clear blood bank detail caches to ensure fresh inventory is shown
-  try {
-    const { clearCacheByPrefix } = await import("../middleware/cache.js");
-    const { invalidatePublicBloodBanksCache } = await import("./bloodBankService.js");
-
-    // 1. Invalidate the general directory/list cache
-    await invalidatePublicBloodBanksCache();
-
-    // 2. Clear specific bank detail caches
-    const targetId = String(targetBankId || request.bloodBank || "");
-    if (targetId) {
-      await clearCacheByPrefix(targetId); // Be more aggressive: clear anything with this ID
-    }
-
-    if (request.requestingBloodBank) {
-      const requesterId = String(request.requestingBloodBank._id || request.requestingBloodBank);
-      await clearCacheByPrefix(requesterId);
-    }
-
-    // 3. Clear admin/dashboard stats
-    cacheManager.del("admin:dashboard_stats");
-  } catch (cacheErr) {
-    console.error("[Cache] Invalidation failed after status update:", cacheErr.message);
+  await invalidateBloodBankCaches(targetBankId || request.bloodBank);
+  if (request.requestingBloodBank) {
+    const requesterId = String(
+      request.requestingBloodBank._id || request.requestingBloodBank,
+    );
+    await invalidateBloodBankCaches(requesterId);
   }
 
   // Notifications
   if (request.requestedBy) {
-    sendRequestStatusUpdateEmail(request.requestedBy, request, note).catch(
+    emailService.sendRequestStatusUpdateEmail(request.requestedBy, request, note).catch(
       (err) => console.error("Status email failed:", err),
     );
 
-    createNotification({
+    notificationService.createNotification({
       recipient: request.requestedBy._id,
       recipientModel: "User",
       title: "Blood Request Update",
@@ -448,42 +423,59 @@ export const fulfillRequest = async (
   const unitsToFulfill = request.fulfillment.unitsProvided || request.units;
   const bloodGroup = request.bloodGroup;
 
-  if (!wasAlreadyCommitted) {
-    // 1. Subtract from fulfilling blood bank
-    await inventoryService.subtractInventoryUnits(
-      bloodBankId,
-      bloodGroup,
-      unitsToFulfill,
-    );
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-    // 2. If it's a bloodbank-to-bloodbank request, add to the requesting bank
-    if (request.requestType === "bloodbank" && request.requestingBloodBank) {
-      await inventoryService.addInventoryUnits(
-        String(request.requestingBloodBank),
+  try {
+    if (!wasAlreadyCommitted) {
+      // 1. Subtract from fulfilling blood bank
+      await inventoryService.subtractInventoryUnits(
+        bloodBankId,
         bloodGroup,
         unitsToFulfill,
+        session,
       );
-    }
-  }
 
-  request.status = "fulfilled";
-  await request.save();
+      // 2. If it's a bloodbank-to-bloodbank request, add to the requesting bank
+      if (request.requestType === "bloodbank" && request.requestingBloodBank) {
+        await inventoryService.addInventoryUnits(
+          String(request.requestingBloodBank),
+          bloodGroup,
+          unitsToFulfill,
+          session,
+        );
+      }
+    }
+    await request.save({ session });
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 
   // Proactively clear blood bank detail caches
   try {
     const { clearCacheByPrefix } = await import("../middleware/cache.js");
-    const { invalidatePublicBloodBanksCache } = await import("./bloodBankService.js");
+    const { invalidatePublicBloodBanksCache } =
+      await import("./bloodBankService.js");
 
     await invalidatePublicBloodBanksCache();
     await clearCacheByPrefix(String(bloodBankId));
 
     if (request.requestType === "bloodbank" && request.requestingBloodBank) {
-      const requesterId = String(request.requestingBloodBank._id || request.requestingBloodBank);
+      const requesterId = String(
+        request.requestingBloodBank._id || request.requestingBloodBank,
+      );
       await clearCacheByPrefix(requesterId);
     }
     cacheManager.del("admin:dashboard_stats");
   } catch (cacheErr) {
-    console.error("[Cache] Invalidation failed after fulfillment:", cacheErr.message);
+    console.error(
+      "[Cache] Invalidation failed after fulfillment:",
+      cacheErr.message,
+    );
   }
 
   return request;
@@ -491,7 +483,8 @@ export const fulfillRequest = async (
 
 // Get blood bank requests
 export const getBloodBankRequests = async (bloodBankId, query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
+  const objectId = toObjectId(bloodBankId);
   const { status, requestType, direction } = query;
 
   let filter = {};
@@ -503,12 +496,13 @@ export const getBloodBankRequests = async (bloodBankId, query) => {
     if (status === "pending") {
       // For pending, show requests assigned to this bank OR public requests (no bank assigned)
       filter.$or = [
-        { bloodBank: bloodBankId },
+        { bloodBank: objectId },
         { bloodBank: { $exists: false } },
+        { bloodBank: null },
       ];
     } else {
       // For other statuses (approved, fulfilled, etc), only show those assigned to this bank
-      filter.bloodBank = bloodBankId;
+      filter.bloodBank = objectId;
     }
   } else if (requestType === "bloodbank") {
     // Inter-bank transfers
@@ -516,18 +510,18 @@ export const getBloodBankRequests = async (bloodBankId, query) => {
 
     if (direction === "sent") {
       // Requests made BY this blood bank to others
-      filter.requestingBloodBank = bloodBankId;
+      filter.requestingBloodBank = objectId;
     } else {
       // Requests made TO this blood bank by others
-      filter.targetBloodBank = bloodBankId;
+      filter.targetBloodBank = objectId;
     }
   } else {
     // Legacy/Default fallback logic: show anything related to this bank
     filter = {
       $or: [
-        { targetBloodBank: bloodBankId },
-        { bloodBank: bloodBankId },
-        { requestingBloodBank: bloodBankId },
+        { targetBloodBank: objectId },
+        { bloodBank: objectId },
+        { requestingBloodBank: objectId },
         { targetBloodBank: { $exists: false }, status: "pending" },
       ],
     };
@@ -542,47 +536,47 @@ export const getBloodBankRequests = async (bloodBankId, query) => {
     }
   }
 
-  const [requests, total] = await Promise.all([
-    requestRepository.find(filter, {
-      populate: [
-        { path: "requestedBy", select: "name email phone" },
-        { path: "requestingBloodBank", select: "name email phone" },
-        { path: "targetBloodBank", select: "name email phone" },
-      ],
+  const { data: requests, total } = await requestRepository.findPaginated(
+    filter,
+    {
       sort: { urgency: 1, createdAt: -1 },
       skip,
       limit,
-    }),
-    requestRepository.count(filter),
-  ]);
+    },
+  );
 
-  return buildPaginatedResponse(requests, total, page, limit);
+  if (requests.length > 0) {
+    await requestRepository.model.populate(requests, [
+      { path: "requestedBy", select: "name email phone" },
+      { path: "requestingBloodBank", select: "name email phone" },
+      { path: "targetBloodBank", select: "name email phone" },
+    ]);
+  }
+
+  return pagination.buildPaginatedResponse(requests, total, page, limit);
 };
 
 // Get approved requests
 export const getApprovedRequests = async (bloodBankId, query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
 
-  // Optimized parallel queries
-  const [requests, total] = await Promise.all([
-    requestRepository.find(
-      { targetBloodBank: bloodBankId, status: "approved" },
-      {
-        select:
-          "_id patientName bloodGroup units urgency createdAt requiredBy hospital",
-        populate: { path: "requestedBy", select: "name email phone" },
-        sort: { createdAt: -1 },
-        skip,
-        limit,
-      },
-    ),
-    requestRepository.count({
-      targetBloodBank: bloodBankId,
-      status: "approved",
-    }),
-  ]);
+  const { data: requests, total } = await requestRepository.findPaginated(
+    { targetBloodBank: toObjectId(bloodBankId), status: "approved" },
+    {
+      sort: { createdAt: -1 },
+      skip,
+      limit,
+    },
+  );
 
-  return buildPaginatedResponse(requests, total, page, limit);
+  if (requests.length > 0) {
+    await requestRepository.model.populate(requests, {
+      path: "requestedBy",
+      select: "name email phone",
+    });
+  }
+
+  return pagination.buildPaginatedResponse(requests, total, page, limit);
 };
 
 // Get request statistics

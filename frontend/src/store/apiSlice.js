@@ -51,7 +51,7 @@ const isBloodBankPath = (url = "", method = "GET") => {
   const cleanUrl = String(url).split("?")[0].toLowerCase();
   const cleanMethod = String(method || "GET").toUpperCase();
   const bloodBankDashboardPrefix =
-    BLOODBANK_API_URLS.GET_DASHBOARD.toLowerCase().split("/dashboard")[0];
+    BLOODBANK_API_URLS.GET_DASHBOARD.toLowerCase().split("/dashboard")[0]; // "/bloodbank"
 
   const isCampPath = cleanUrl.startsWith("/blood-camps");
   const isCampRegistrationPath = /^\/blood-camps\/[^/]+\/register$/.test(
@@ -69,12 +69,22 @@ const isBloodBankPath = (url = "", method = "GET") => {
   const isNotificationPath = cleanUrl.startsWith("/notifications");
   const isChatPath = cleanUrl.startsWith("/chats");
 
+  // Specific authentication / blood bank portal routes
+  const isBloodBankAuthRoute = 
+    cleanUrl === BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase() ||
+    cleanUrl === BLOODBANK_API_URLS.REFRESH_BLOOD_BANK.toLowerCase() ||
+    cleanUrl === BLOODBANK_API_URLS.LOGOUT_BLOOD_BANK.toLowerCase() ||
+    cleanUrl === BLOODBANK_API_URLS.SESSION_BLOOD_BANK.toLowerCase() ||
+    cleanUrl === BLOODBANK_API_URLS.CSRF_TOKEN_BLOOD_BANK.toLowerCase() ||
+    cleanUrl.startsWith("/blood-banks/register") ||
+    cleanUrl.startsWith("/blood-banks/forgot-password") ||
+    cleanUrl.startsWith("/blood-banks/reset-password") ||
+    cleanUrl.startsWith("/blood-banks/verify-reset-token");
+
   return (
     isBloodBankCampManagementPath ||
     cleanUrl.startsWith(bloodBankDashboardPrefix) ||
-    cleanUrl.startsWith(
-      BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase().split("/login")[0],
-    ) ||
+    isBloodBankAuthRoute ||
     cleanUrl.startsWith(
       DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS.toLowerCase(),
     ) ||
@@ -133,7 +143,13 @@ const isLoginOrAuthMutationPath = (url = "") => {
     cleanUrl === AUTH_API_URLS.LOGIN.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.REGISTER.toLowerCase() ||
     cleanUrl === AUTH_API_URLS.ADMIN_LOGIN.toLowerCase() ||
-    cleanUrl === BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase()
+    cleanUrl === BLOODBANK_API_URLS.LOGIN_BLOOD_BANK.toLowerCase() ||
+    cleanUrl.startsWith("/auth/forgot-password") ||
+    cleanUrl.startsWith("/auth/reset-password") ||
+    cleanUrl.startsWith("/auth/verify-reset-token") ||
+    cleanUrl.startsWith("/blood-banks/forgot-password") ||
+    cleanUrl.startsWith("/blood-banks/reset-password") ||
+    cleanUrl.startsWith("/blood-banks/verify-reset-token")
   );
 };
 
@@ -170,10 +186,10 @@ const normalizeApiPayload = (rawResponse) => {
     }
 
     const { pagination, ...payloadWithoutPagination } = payload;
-
     return {
       ...meta,
       ...payloadWithoutPagination,
+      pagination,
       data: normalizedData,
     };
   }
@@ -297,7 +313,11 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     result = await baseQuery(args, api, extraOptions);
   }
 
-  if (result.error && result.error.status === 401) {
+  if (
+    result.error &&
+    (result.error.status === 401 ||
+      (result.error.status === 403 && !isCsrfError(result)))
+  ) {
     if (logoutInProgress && !isLogoutPath(requestUrl)) {
       return result;
     }
@@ -308,7 +328,11 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
     const onAuthPage =
       currentPath === ROUTE_PATH.LOGIN.toLowerCase() ||
       currentPath === ROUTE_PATH.BLOOD_BANK_LOGIN.toLowerCase() ||
-      currentPath === ROUTE_PATH.ADMIN_LOGIN.toLowerCase();
+      currentPath === ROUTE_PATH.ADMIN_LOGIN.toLowerCase() ||
+      currentPath === ROUTE_PATH.FORGOT_PASSWORD.toLowerCase() ||
+      currentPath === ROUTE_PATH.RESET_PASSWORD.toLowerCase() ||
+      currentPath === ROUTE_PATH.BLOOD_BANK_FORGOT_PASSWORD.toLowerCase() ||
+      currentPath === ROUTE_PATH.BLOOD_BANK_RESET_PASSWORD.toLowerCase();
 
     if (
       !isRefreshCall &&

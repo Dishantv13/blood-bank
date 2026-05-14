@@ -15,7 +15,7 @@ export const createEvent = asyncHandler(async (req, res) => {
   ensureValid(req);
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await eventService.createEvent(userId, req.body);
-  clearCacheByPrefix("/api/v1/events");
+  await clearCacheByPrefix("/api/v1/events");
   successResponse(res, result, 201, "Event created successfully");
 });
 
@@ -23,7 +23,7 @@ export const createEvent = asyncHandler(async (req, res) => {
 export const registerEvent = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await eventService.registerEvent(req.params.id, userId);
-  clearCacheByPrefix("/api/v1/events");
+  await clearCacheByPrefix("/api/v1/events");
   successResponse(res, result, 200, "Registered successfully");
 });
 
@@ -31,6 +31,6 @@ export const registerEvent = asyncHandler(async (req, res) => {
 export const deleteEvent = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   await eventService.deleteEvent(req.params.id, userId);
-  clearCacheByPrefix("/api/v1/events");
+  await clearCacheByPrefix("/api/v1/events");
   successResponse(res, null, 200, "Event deleted successfully");
 });

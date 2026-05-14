@@ -1,12 +1,9 @@
 import notificationRepository from "../repositories/NotificationRepository.js";
-import User from "../models/User.model.js";
-import BloodBank from "../models/BloodBank.model.js";
+import userRepository from "../repositories/UserRepository.js";
+import bloodBankRepository from "../repositories/BloodBankRepository.js";
 import { ApiError } from "../utils/apiError.js";
-import {
-  getPaginationParams,
-  buildPaginatedResponse,
-} from "../utils/pagination.js";
-import { emitToUser, emitToRole } from "../utils/socket.js";
+import * as pagination from "../utils/pagination.js";
+import * as socket from "../utils/socket.js";
 
 export const createNotification = async (data) => {
   const notificationData = {
@@ -19,12 +16,12 @@ export const createNotification = async (data) => {
   };
 
   const notification = await notificationRepository.create(notificationData);
-  emitToUser(data.recipient, "notification", notification);
+  socket.emitToUser(data.recipient, "notification", notification);
   return notification;
 };
 
 export const broadcastNotification = async (data) => {
-  const users = await User.find({ role: "user" }).select("_id").lean();
+  const users = await userRepository.find({ role: "user" }, { select: "_id" });
 
   if (!users.length) return { success: true, count: 0 };
 
@@ -38,17 +35,17 @@ export const broadcastNotification = async (data) => {
   }));
 
   const createdNotifications =
-    await notificationRepository.model.insertMany(notifications);
+    await notificationRepository.insertMany(notifications);
 
   users.forEach((user, index) => {
-    emitToUser(user._id, "notification", createdNotifications[index]);
+    socket.emitToUser(user._id, "notification", createdNotifications[index]);
   });
 
   return { success: true, count: users.length };
 };
 
 export const notifyAllBloodBanks = async (data) => {
-  const bloodBanks = await BloodBank.find({}).select("_id").lean();
+  const bloodBanks = await bloodBankRepository.find({}, { select: "_id" });
 
   if (!bloodBanks.length) return { success: true, count: 0 };
 
@@ -62,9 +59,9 @@ export const notifyAllBloodBanks = async (data) => {
   }));
 
   const createdNotifications =
-    await notificationRepository.model.insertMany(notifications);
+    await notificationRepository.insertMany(notifications);
 
-  emitToRole("bloodbank", "notification", {
+  socket.emitToRole("bloodbank", "notification", {
     title: data.title,
     message: data.message,
     type: "request",
@@ -76,7 +73,7 @@ export const notifyAllBloodBanks = async (data) => {
 
 // Notifies all admins about critical system events (e.g., new registrations)
 export const notifyAdmins = async (data) => {
-  const admins = await User.find({ role: "admin" }).select("_id").lean();
+  const admins = await userRepository.find({ role: "admin" }, { select: "_id" });
 
   if (!admins.length) return { success: true, count: 0 };
 
@@ -90,10 +87,10 @@ export const notifyAdmins = async (data) => {
   }));
 
   const createdNotifications =
-    await notificationRepository.model.insertMany(notifications);
+    await notificationRepository.insertMany(notifications);
 
   // Broadcast via socket to all admins instantly
-  emitToRole("admin", "notification", {
+  socket.emitToRole("admin", "notification", {
     title: data.title,
     message: data.message,
     type: data.type || "system",
@@ -104,7 +101,7 @@ export const notifyAdmins = async (data) => {
 };
 
 export const getNotifications = async (recipientId, query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
 
   const filter = { recipient: recipientId };
   if (query.isRead !== undefined) {
@@ -120,7 +117,7 @@ export const getNotifications = async (recipientId, query) => {
     notificationRepository.count(filter),
   ]);
 
-  return buildPaginatedResponse(notifications, total, page, limit);
+  return pagination.buildPaginatedResponse(notifications, total, page, limit);
 };
 
 export const markAsRead = async (notificationId, recipientId) => {

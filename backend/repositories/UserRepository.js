@@ -72,6 +72,88 @@ class UserRepository extends BaseRepository {
       .limit(limit)
       .lean();
   }
+
+  async getAllUsersPaginated(options = {}) {
+    const { query = {}, skip = 0, limit = 10 } = options;
+
+    const pipeline = [
+      { $match: query },
+      {
+        $facet: {
+          data: [
+            { $sort: { createdAt: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $lookup: {
+                from: "bloodrequests",
+                localField: "_id",
+                foreignField: "requestedBy",
+                as: "requests",
+              },
+            },
+            {
+              $lookup: {
+                from: "donations",
+                localField: "_id",
+                foreignField: "donor",
+                as: "donations",
+              },
+            },
+            {
+              $project: {
+                _id: 1,
+                name: 1,
+                email: 1,
+                mobileNumber: "$phone",
+                bloodType: { $ifNull: ["$bloodGroup", "$donorInfo.bloodGroup"] },
+                requestCount: { $size: "$requests" },
+                donationCount: { $size: "$donations" },
+                status: {
+                  $cond: { if: "$isAvailable", then: "active", else: "inactive" },
+                },
+                lastDonationDate: 1,
+                createdAt: 1,
+              },
+            },
+          ],
+          totalCount: [{ $count: "count" }],
+        },
+      },
+    ];
+
+    return this.model.aggregate(pipeline);
+  }
+
+  async findAvailableDonorsNear(point, radiusInMeters, bloodGroup) {
+    return this.model.aggregate([
+      {
+        $geoNear: {
+          near: point,
+          distanceField: "distance",
+          maxDistance: radiusInMeters,
+          query: {
+            bloodGroup,
+            isDonor: true,
+            isAvailable: true,
+            role: { $in: ["user", "donor"] },
+          },
+          spherical: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          bloodGroup: 1,
+          isAvailable: 1,
+          phone: 1,
+          photoURL: 1,
+          address: 1,
+          distance: 1,
+        },
+      },
+    ]);
+  }
 }
 
 export default new UserRepository();

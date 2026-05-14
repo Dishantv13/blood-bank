@@ -1,29 +1,17 @@
-import User from "../models/User.model.js";
-import DonorHealth from "../models/DonorHealth.model.js";
-import BloodRequest from "../models/BloodRequest.model.js";
-import Donation from "../models/Donation.model.js";
-import Event from "../models/Event.model.js";
 import mongoose from "mongoose";
-import * as validationService from "./validationService.js";
-import { checkAndSendSingleReminder } from "./reminderService.js";
-import { ApiError } from "../utils/apiError.js";
-import {
-  uploadOnCloudinary,
-  deleteFromCloudinary,
-} from "../utils/cloudinary.js";
-import {
-  sanitizeDonorSummary,
-  sanitizeUser,
-  USER_DONOR_FIELDS,
-  USER_PROFILE_FIELDS,
-} from "../utils/serializers.js";
-import {
-  getPaginationParams,
-  buildPaginatedResponse,
-} from "../utils/pagination.js";
-import userRepository from "../repositories/UserRepository.js";
 import Tesseract from "tesseract.js";
 import fs from "fs";
+import userRepository from "../repositories/UserRepository.js";
+import donorHealthRepository from "../repositories/DonorHealthRepository.js";
+import requestRepository from "../repositories/RequestRepository.js";
+import donationRepository from "../repositories/DonationRepository.js";
+import eventRepository from "../repositories/EventRepository.js";
+import { checkAndSendSingleReminder } from "./reminderService.js";
+import { ApiError } from "../utils/apiError.js";
+import * as validationService from "./validationService.js";
+import * as cloudinary from "../utils/cloudinary.js";
+import * as serializers from "../utils/serializers.js";
+import * as pagination from "../utils/pagination.js";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 
 import { getRedisClient } from "../config/redis.js";
@@ -71,7 +59,7 @@ const invalidateDashboardStatsCache = async (userId) => {
 // Get user profile
 export const getUserProfile = async (userId) => {
   const user = await userRepository.findById(userId, {
-    select: USER_PROFILE_FIELDS,
+    select: serializers.USER_PROFILE_FIELDS,
     populate: "healthForm",
   });
 
@@ -84,7 +72,7 @@ export const getUserProfile = async (userId) => {
     user.activeMode = "patient";
   }
 
-  return sanitizeUser(user);
+  return serializers.sanitizeUser(user);
 };
 
 // Update user profile photo
@@ -98,11 +86,11 @@ export const updateProfilePhoto = async (userId, localFilePath) => {
 
   // Delete old photo from Cloudinary if it exists
   if (user.photoURLPublicId) {
-    await deleteFromCloudinary(user.photoURLPublicId);
+    await cloudinary.deleteFromCloudinary(user.photoURLPublicId);
   }
 
   // Upload to Cloudinary
-  const cloudinaryResponse = await uploadOnCloudinary(
+  const cloudinaryResponse = await cloudinary.uploadOnCloudinary(
     localFilePath,
     "users/profiles",
   );
@@ -149,7 +137,7 @@ export const updateUserProfile = async (userId, updateData) => {
     {
       returnDocument: "after",
       runValidators: true,
-      select: USER_PROFILE_FIELDS,
+      select: serializers.USER_PROFILE_FIELDS,
     },
   );
 
@@ -159,7 +147,7 @@ export const updateUserProfile = async (userId, updateData) => {
 
   invalidateDashboardStatsCache(userId);
 
-  return sanitizeUser(user);
+  return serializers.sanitizeUser(user);
 };
 
 // Update donor information
@@ -224,9 +212,10 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
   const eligibility = calculateEligibility(donorData);
 
   // Create/Update DonorHealth record
-  let healthForm = await DonorHealth.findOne({ donor: userId }).sort({
-    submittedAt: -1,
-  });
+  let healthForm = await donorHealthRepository.findOne(
+    { donor: userId },
+    { sort: { submittedAt: -1 }, lean: false },
+  );
 
   const mappingData = {
     donor: userId,
@@ -285,42 +274,54 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
     status: eligibility.eligible ? "approved" : "requires_review",
   };
 
-  if (healthForm) {
-    Object.assign(healthForm, mappingData);
-    await healthForm.save();
-  } else {
-    healthForm = new DonorHealth(mappingData);
-    await healthForm.save();
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    if (healthForm) {
+      Object.assign(healthForm, mappingData);
+      await healthForm.save({ session });
+    } else {
+      healthForm = (
+        await donorHealthRepository.create([mappingData], { session })
+      )[0];
+    }
+
+    // Update summary stats in User model
+    user.healthForm = healthForm._id;
+    user.donorInfo = {
+      totalDonations: user.donorInfo?.totalDonations || 0,
+      totalDonatedVolume: user.donorInfo?.totalDonatedVolume || 0,
+      lastDonationDate: healthForm.donationHistory.lastDonationDate,
+      isEligible: eligibility.eligible,
+      eligibilityReasons: eligibility.reasons,
+      lastUpdated: new Date(),
+      dateOfBirth: mappingData.dateOfBirth,
+      gender: mappingData.gender,
+      bloodGroup: user.bloodGroup,
+    };
+
+    user.isDonor = true;
+    if (location) user.location = location;
+
+    await user.save({ session });
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-
-  // Update summary stats in User model
-  user.healthForm = healthForm._id;
-  user.donorInfo = {
-    totalDonations: user.donorInfo?.totalDonations || 0,
-    totalDonatedVolume: user.donorInfo?.totalDonatedVolume || 0,
-    lastDonationDate: healthForm.donationHistory.lastDonationDate,
-    isEligible: eligibility.eligible,
-    eligibilityReasons: eligibility.reasons,
-    lastUpdated: new Date(),
-    dateOfBirth: mappingData.dateOfBirth,
-    gender: mappingData.gender,
-    bloodGroup: user.bloodGroup,
-  };
-
-  user.isDonor = true;
-  if (location) user.location = location;
-
-  await user.save();
 
   invalidateDashboardStatsCache(userId);
 
-  return sanitizeUser(user.toObject());
+  return serializers.sanitizeUser(user.toObject());
 };
 
 // Get available donors by blood group
 export const getAvailableDonors = async (query) => {
   const { bloodGroup, latitude, longitude, maxDistance } = query;
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
 
   let filterQuery = { isDonor: true, isAvailable: true };
   if (bloodGroup) {
@@ -337,23 +338,22 @@ export const getAvailableDonors = async (query) => {
       maxDistance ? parseInt(maxDistance) : 10000,
       bloodGroup,
     );
-
-    total = await userRepository.count(filterQuery);
+    total = donors.length;
   } else {
-    const [donorDocs, donorCount] = await Promise.all([
-      userRepository.find(filterQuery, {
-        select: USER_DONOR_FIELDS,
+    const { data, total: count } = await userRepository.findPaginated(
+      filterQuery,
+      {
+        select: serializers.USER_DONOR_FIELDS,
         skip,
         limit,
-      }),
-      userRepository.count(filterQuery),
-    ]);
-    donors = donorDocs;
-    total = donorCount;
+      },
+    );
+    donors = data;
+    total = count;
   }
 
-  const results = donors.map((donor) => sanitizeDonorSummary(donor));
-  return buildPaginatedResponse(results, total, page, limit);
+  const results = donors.map((donor) => serializers.sanitizeDonorSummary(donor));
+  return pagination.buildPaginatedResponse(results, total, page, limit);
 };
 
 // Toggle between donor and patient mode
@@ -413,76 +413,12 @@ export const getDashboardStats = async (userId) => {
     totalUsers,
     user,
   ] = await Promise.all([
-    BloodRequest.aggregate([
-      {
-        $facet: {
-          myRequests: [
-            { $match: { requestedBy: userObjectId } },
-            { $group: { _id: "$status", count: { $sum: 1 } } },
-          ],
-          bloodGroups: [
-            { $match: { status: "pending" } },
-            { $group: { _id: "$bloodGroup", count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-          ],
-          urgency: [
-            { $match: { status: "pending" } },
-            { $group: { _id: "$urgency", count: { $sum: 1 } } },
-          ],
-          monthlyTrend: [
-            { $match: { createdAt: { $gte: sixMonthsAgo } } },
-            {
-              $group: {
-                _id: {
-                  year: { $year: "$createdAt" },
-                  month: { $month: "$createdAt" },
-                },
-                count: { $sum: 1 },
-              },
-            },
-            { $sort: { "_id.year": 1, "_id.month": 1 } },
-          ],
-        },
-      },
-    ]),
-    Event.aggregate([
-      {
-        $facet: {
-          upcoming: [
-            { $match: { date: { $gte: now }, isActive: true } },
-            { $count: "count" },
-          ],
-          registered: [
-            { $match: { registeredDonors: userObjectId, date: { $gte: now } } },
-            { $count: "count" },
-          ],
-        },
-      },
-    ]),
-    Donation.aggregate([
-      { $match: { donor: userObjectId, status: "completed" } },
-      {
-        $facet: {
-          summary: [
-            {
-              $group: {
-                _id: null,
-                totalCount: { $sum: 1 },
-                totalVolume: { $sum: "$volumeDonated" },
-              },
-            },
-          ],
-          latest: [
-            { $sort: { donationDate: -1 } },
-            { $limit: 1 },
-            { $project: { _id: 0, donationDate: 1 } },
-          ],
-        },
-      },
-    ]),
-    User.countDocuments({ isDonor: true, isAvailable: true }),
-    User.countDocuments({}),
-    User.findById(userId).select(USER_PROFILE_FIELDS).lean(),
+    requestRepository.getUserDashboardStats(userId, sixMonthsAgo),
+    eventRepository.getUserDashboardStats(userId, now),
+    donationRepository.getUserDonationSummary(userId),
+    userRepository.count({ isDonor: true, isAvailable: true }),
+    userRepository.count({}),
+    userRepository.findById(userId, { select: serializers.USER_PROFILE_FIELDS }),
   ]);
 
   const requestFacet = requestFacetResult[0] || {};
@@ -531,7 +467,8 @@ export const getDashboardStats = async (userId) => {
         user.donorInfo.lastDonationDate?.toString() !==
           realLastDonationDate.toString()))
   ) {
-    User.findById(userId)
+    userRepository
+      .findById(userId, { lean: false })
       .then(async (userDoc) => {
         if (!userDoc) return;
         userDoc.donorInfo.totalDonations = realTotalDonations;
@@ -715,7 +652,7 @@ export const getAadhaarVerificationStatus = async (userId) => {
 };
 
 export const processAadhaarVerificationJob = async ({ userId, filePath }) => {
-  const user = await User.findById(userId);
+  const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
     throw new Error("User not found for Aadhaar verification");
   }

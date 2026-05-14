@@ -123,12 +123,12 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ["'self'"],
+        defaultSrc: ["'self'", "http://localhost:*", "http://127.0.0.1:*"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
         fontSrc: ["'self'"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "http://localhost:*", "http://127.0.0.1:*", "https://*.googleapis.com"],
         frameSrc: ["'none'"],
         objectSrc: ["'none'"],
       },
@@ -198,13 +198,6 @@ app.get("/", (_req, res) => {
 });
 
 // Health check endpoint (unversioned for infrastructure monitoring)
-app.get("/health", (_req, res) => {
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-  });
-});
-
 app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
@@ -224,21 +217,10 @@ app.use(
   }),
 );
 
+// EXTERNAL & LEGACY AUTH ROUTES (Required for Google OAuth Callbacks)
+
 // VERSIONED API ROUTES
 app.use("/api/v1", v1Router);
-
-// Legacy /api redirect to /api/v1
-app.use("/api", (req, res, next) => {
-  if (req.path.startsWith("/v1") || req.path === "/health") return next();
-
-  const cleanPath = req.path.startsWith("/") ? req.path : `/${req.path}`;
-  const queryPart = req.url.includes("?")
-    ? req.url.substring(req.url.indexOf("?"))
-    : "";
-  const nextPath = `/api/v1${cleanPath}${queryPart}`;
-
-  res.redirect(307, nextPath);
-});
 
 // ERROR HANDLING MIDDLEWARE (must be AFTER routes)
 app.use(globalErrorHandler);

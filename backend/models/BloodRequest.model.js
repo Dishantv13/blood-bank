@@ -1,4 +1,8 @@
 import mongoose from "mongoose";
+import {
+  BLOOD_GROUPS,
+  URGENCY_LEVELS,
+} from "../validations/validation.constants.js";
 
 const BloodRequestSchema = new mongoose.Schema(
   {
@@ -30,7 +34,7 @@ const BloodRequestSchema = new mongoose.Schema(
     },
     bloodGroup: {
       type: String,
-      enum: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"],
+      enum: BLOOD_GROUPS,
       required: true,
     },
     units: {
@@ -40,7 +44,7 @@ const BloodRequestSchema = new mongoose.Schema(
     },
     urgency: {
       type: String,
-      enum: ["critical", "urgent", "normal"],
+      enum: URGENCY_LEVELS,
       default: "normal",
     },
     hospital: {

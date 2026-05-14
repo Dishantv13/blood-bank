@@ -1,27 +1,41 @@
 import ExcelJS from "exceljs";
+import mongoose from "mongoose";
 import bloodCampRepository from "../repositories/BloodCampRepository.js";
 import userRepository from "../repositories/UserRepository.js";
 import donationRepository from "../repositories/DonationRepository.js";
+import cacheManager from "../utils/cacheManager.js";
 import { ApiError } from "../utils/apiError.js";
-import {
-  getPaginationParams,
-  buildPaginatedResponse,
-} from "../utils/pagination.js";
-import {
-  createNotification,
-  broadcastNotification,
-} from "./notificationService.js";
+import * as pagination from "../utils/pagination.js";
+import * as notificationService from "./notificationService.js";
 import * as auditService from "./auditService.js";
 
 const CAMP_LIST_FIELDS =
   "_id name organizer organizerName date startTime endTime venue address city state targetUnits collectedUnits description contactPhone status registeredDonors.donor";
 
+const CAMPS_CACHE_TTL_SECONDS = 300; // 5 minutes
+const CACHE_KEYS = {
+  CAMPS: "camps",
+};
+
+export const invalidateCampsCache = async () => {
+  return cacheManager.invalidatePattern(`${CACHE_KEYS.CAMPS}:*`);
+};
+
 export const getAllCamps = async (query) => {
-  const { city, status, upcoming } = query;
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { city, status, upcoming, search } = query;
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
+
+  const cacheKey = JSON.stringify({ query, page, limit });
+  const cached = await cacheManager.get(`${CACHE_KEYS.CAMPS}:${cacheKey}`);
+  if (cached) return cached;
+
   const filter = {};
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
+
+  if (search) {
+    filter.name = { $regex: search, $options: "i" };
+  }
 
   if (city) filter.city = new RegExp(city, "i");
   if (status) filter.status = status;
@@ -30,18 +44,20 @@ export const getAllCamps = async (query) => {
     filter.status = { $in: ["scheduled", "upcoming"] };
   }
 
-  const [camps, total] = await Promise.all([
-    bloodCampRepository.find(filter, {
-      select: CAMP_LIST_FIELDS,
-      populate: { path: "organizer", select: "name email phone" },
-      sort: { date: 1 },
-      skip,
-      limit,
-    }),
-    bloodCampRepository.count(filter),
-  ]);
+  // Use the new optimized aggregation search
+  const { data: camps, total } = await bloodCampRepository.searchCamps(filter, {
+    skip,
+    limit,
+    sort: { date: 1 },
+  });
 
-  return buildPaginatedResponse(camps, total, page, limit);
+  const response = pagination.buildPaginatedResponse(camps, total, page, limit);
+  await cacheManager.set(
+    `${CACHE_KEYS.CAMPS}:${cacheKey}`,
+    response,
+    CAMPS_CACHE_TTL_SECONDS,
+  );
+  return response;
 };
 
 export const getCampById = async (campId) => {
@@ -63,15 +79,18 @@ export const createCamp = async (bloodBank, data) => {
   });
 
   // Notify all users about the new camp
-  broadcastNotification({
-    title: "New Blood Donation Camp",
-    message: `${bloodBank.name} has organized a new blood donation camp: ${camp.name}. Join us to save lives!`,
-    type: "event", // Use 'event' type for both events and camps in notifications
-    actionUrl: "/events",
-  }).catch((err) =>
-    console.error("Broadcast notification for camp failed:", err),
-  );
+  notificationService
+    .broadcastNotification({
+      title: "New Blood Donation Camp",
+      message: `${bloodBank.name} has organized a new blood donation camp: ${camp.name}. Join us to save lives!`,
+      type: "event", // Use 'event' type for both events and camps in notifications
+      actionUrl: "/events",
+    })
+    .catch((err) =>
+      console.error("Broadcast notification for camp failed:", err),
+    );
 
+  await invalidateCampsCache();
   return camp;
 };
 
@@ -103,6 +122,7 @@ export const updateCamp = async (campId, bloodBankId, data) => {
   });
 
   await camp.save();
+  await invalidateCampsCache();
   return camp;
 };
 
@@ -115,6 +135,7 @@ export const deleteCamp = async (campId, bloodBankId) => {
   }
 
   await bloodCampRepository.deleteOne({ _id: campId });
+  await invalidateCampsCache();
   return { success: true };
 };
 
@@ -165,17 +186,33 @@ export const registerCamp = async (campId, userId) => {
     status: "pending",
   });
 
-  await Promise.all([camp.save(), donation.save()]);
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    await camp.save({ session });
+    await donation.save({ session });
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 
   // Create in-app notification
-  createNotification({
-    recipient: user._id,
-    recipientModel: "User",
-    title: "Camp Registration Confirmed",
-    message: `You have successfully registered for the camp: ${camp.name}.`,
-    type: "event",
-    actionUrl: "/dashboard",
-  }).catch((err) => console.error("In-app notification failed:", err));
+  notificationService
+    .createNotification({
+      recipient: user._id,
+      recipientModel: "User",
+      title: "Camp Registration Confirmed",
+      message: `You have successfully registered for the camp: ${camp.name}.`,
+      type: "event",
+      actionUrl: "/dashboard",
+    })
+    .catch((err) => console.error("In-app notification failed:", err));
+
+  await invalidateCampsCache();
 
   return {
     registration: {
@@ -205,6 +242,7 @@ export const updateCollectedUnits = async (
 
   camp.collectedUnits = collectedUnits;
   await camp.save();
+  await invalidateCampsCache();
   return camp;
 };
 
@@ -227,17 +265,31 @@ export const cleanupRegistrations = async (req) => {
       }
       return true;
     });
-    if (before !== camp.registeredDonors.length) await camp.save();
+    if (before !== camp.registeredDonors.length) {
+      await camp.save();
+    }
   }
 
-  await auditService.logAction({
-    action: "BLOOD_CAMP_REGISTRATIONS_CLEANED",
-    req,
-    actorModel: "Admin",
-    targetModel: "BloodCamp",
-    changes: { removed, campsProcessed: camps.length },
-    metadata: { adminEmail: req?.admin?.adminEmail || null },
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    await auditService.logAction(
+      {
+        action: "BLOOD_CAMP_REGISTRATIONS_CLEANED",
+        actorModel: "Admin",
+        targetModel: "BloodCamp",
+        changes: { removed, campsProcessed: camps.length },
+        metadata: { adminEmail: req?.admin?.adminEmail || null },
+      },
+      { session },
+    );
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 
   return { removed, campsProcessed: camps.length };
 };
@@ -247,9 +299,34 @@ export const fixRegistrations = async (req) => {
     { "registeredDonors.0": { $exists: true } },
     { lean: false },
   );
+
+  // 1. Collect all unique donor IDs that need fixing
+  const donorIdsToFetch = new Set();
+  camps.forEach((camp) => {
+    camp.registeredDonors.forEach((donor) => {
+      if (
+        !donor.name ||
+        !donor.phone ||
+        !donor.bloodGroup ||
+        donor.name === "Unknown" ||
+        donor.phone === "Not provided"
+      ) {
+        if (donor.donor) donorIdsToFetch.add(donor.donor.toString());
+      }
+    });
+  });
+
+  // 2. Fetch all users in one batch
+  const users = await userRepository.find(
+    { _id: { $in: Array.from(donorIdsToFetch) } },
+    { select: "name phone bloodGroup" },
+  );
+  const userMap = new Map(users.map((u) => [u._id.toString(), u]));
+
   let fixed = 0;
   let errors = 0;
 
+  // 3. Apply fixes
   for (const camp of camps) {
     let updated = false;
     for (let i = 0; i < camp.registeredDonors.length; i += 1) {
@@ -261,36 +338,44 @@ export const fixRegistrations = async (req) => {
         donor.name === "Unknown" ||
         donor.phone === "Not provided"
       ) {
-        try {
-          const user = await userRepository.findById(donor.donor, {
-            select: "name phone bloodGroup",
-          });
-          if (user) {
-            camp.registeredDonors[i].name = user.name || "Unknown";
-            camp.registeredDonors[i].phone = user.phone || "Not provided";
-            camp.registeredDonors[i].bloodGroup =
-              user.bloodGroup || "Not specified";
-            fixed += 1;
-            updated = true;
-          } else {
-            errors += 1;
-          }
-        } catch {
+        const user = userMap.get(donor.donor?.toString());
+        if (user) {
+          camp.registeredDonors[i].name = user.name || "Unknown";
+          camp.registeredDonors[i].phone = user.phone || "Not provided";
+          camp.registeredDonors[i].bloodGroup =
+            user.bloodGroup || "Not specified";
+          fixed += 1;
+          updated = true;
+        } else {
           errors += 1;
         }
       }
     }
-    if (updated) await camp.save();
+    if (updated) {
+      await camp.save();
+    }
   }
 
-  await auditService.logAction({
-    action: "BLOOD_CAMP_REGISTRATIONS_FIXED",
-    req,
-    actorModel: "Admin",
-    targetModel: "BloodCamp",
-    changes: { fixed, errors, campsProcessed: camps.length },
-    metadata: { adminEmail: req?.admin?.adminEmail || null },
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    await auditService.logAction(
+      {
+        action: "BLOOD_CAMP_REGISTRATIONS_FIXED",
+        actorModel: "Admin",
+        targetModel: "BloodCamp",
+        changes: { fixed, errors, campsProcessed: camps.length },
+        metadata: { adminEmail: req?.admin?.adminEmail || null },
+      },
+      { session },
+    );
+    await session.commitTransaction();
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 
   return { fixed, errors, campsProcessed: camps.length };
 };

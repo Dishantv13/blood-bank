@@ -1,30 +1,21 @@
+import mongoose from "mongoose";
 import donationRepository from "../repositories/DonationRepository.js";
 import userRepository from "../repositories/UserRepository.js";
-import mongoose from "mongoose";
-import { validateDonation } from "./validationService.js";
-import {
-  getPaginationParams,
-  buildPaginatedResponse,
-} from "../utils/pagination.js";
-import { ApiError } from "../utils/apiError.js";
-import {
-  sendDonationUpdateEmail,
-  sendCertificateNotificationEmail,
-} from "../utils/emailService.js";
-import { createNotification } from "./notificationService.js";
-import {
-  generateVerificationCode,
-  generateDonationCertificate,
-} from "./certificateService.js";
-import { createBloodUnit } from "./bloodUnitService.js";
 import cacheManager from "../utils/cacheManager.js";
-import Donation from "../models/Donation.model.js";
+import { ApiError } from "../utils/apiError.js";
+import { createBloodUnit } from "./bloodUnitService.js";
+import { toObjectId } from "../utils/dbGuards.js";
+import * as emailService from "../utils/emailService.js";
+import * as notificationService from "./notificationService.js";
+import * as certificateService from "./certificateService.js";
+import * as validationService from "./validationService.js";
+import * as pagination from "../utils/pagination.js";
 
 const DONATION_ELIGIBILITY_PERIOD = 90 * 24 * 60 * 60 * 1000; // 90 days in ms
 
 // Create donation request
 export const createDonationRequest = async (donorId, bloodBankId, data) => {
-  validateDonation({ bloodBankId, date: data.date });
+  validationService.validateDonation({ bloodBankId, date: data.date });
 
   // Get user with optimized query
   const user = await userRepository.findById(donorId, {
@@ -66,54 +57,48 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
 
 // Get user's donation history (paginated, optimized)
 export const getUserDonations = async (donorId, query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
 
-  // Optimized queries - parallel execution
-  const [donations, total] = await Promise.all([
-    donationRepository.find(
-      { donor: donorId },
-      {
-        select:
-          "_id bloodGroup status volumeDonated donationDate type createdAt certificateCode certificateIssuedAt",
-        populate: [
-          { path: "bloodBank", select: "name phone" },
-          { path: "camp", select: "name date" },
-        ],
-        sort: { createdAt: -1 },
-        skip,
-        limit,
-      },
-    ),
-    donationRepository.count({ donor: donorId }),
-  ]);
+  const { data: donations, total } = await donationRepository.findPaginated(
+    { donor: toObjectId(donorId) },
+    {
+      sort: { createdAt: -1 },
+      skip,
+      limit,
+    },
+  );
 
-  return buildPaginatedResponse(donations, total, page, limit);
+  if (donations.length > 0) {
+    await donationRepository.model.populate(donations, [
+      { path: "bloodBank", select: "name phone" },
+      { path: "camp", select: "name date" },
+    ]);
+  }
+
+  return pagination.buildPaginatedResponse(donations, total, page, limit);
 };
 
 // Get blood bank's donations (paginated, optimized)
 export const getBloodBankDonations = async (bloodBankId, query) => {
-  const { page, limit, skip } = getPaginationParams({ query });
+  const { page, limit, skip } = pagination.getPaginationParams({ query });
 
-  // Optimized queries - parallel execution
-  const [donations, total] = await Promise.all([
-    donationRepository.find(
-      { bloodBank: bloodBankId },
-      {
-        select:
-          "_id donor bloodGroup status volumeDonated donationDate type createdAt",
-        populate: [
-          { path: "donor", select: "name phone email bloodGroup" },
-          { path: "camp", select: "name date" },
-        ],
-        sort: { createdAt: -1 },
-        skip,
-        limit,
-      },
-    ),
-    donationRepository.count({ bloodBank: bloodBankId }),
-  ]);
+  const { data: donations, total } = await donationRepository.findPaginated(
+    { bloodBank: toObjectId(bloodBankId) },
+    {
+      sort: { createdAt: -1 },
+      skip,
+      limit,
+    },
+  );
 
-  return buildPaginatedResponse(donations, total, page, limit);
+  if (donations.length > 0) {
+    await donationRepository.model.populate(donations, [
+      { path: "donor", select: "name phone email bloodGroup" },
+      { path: "camp", select: "name date" },
+    ]);
+  }
+
+  return pagination.buildPaginatedResponse(donations, total, page, limit);
 };
 
 // Record/approve donation (atomic operation)
@@ -155,7 +140,7 @@ export const recordDonation = async (
           status: "completed",
           volumeDonated,
           donationDate: new Date(),
-          certificateCode: generateVerificationCode(),
+          certificateCode: certificateService.generateVerificationCode(),
           certificateIssuedAt: new Date(),
         },
       },
@@ -193,18 +178,18 @@ export const recordDonation = async (
       updatedDonation.donor &&
       updatedDonation.type === "request"
     ) {
-      sendDonationUpdateEmail(
+      emailService.sendDonationUpdateEmail(
         updatedDonation.donor,
         updatedDonation,
         `Your donation of ${volumeDonated} units was successfully completed and recorded.`,
       ).catch((err) => console.error("Donation record email failed:", err));
 
-      sendCertificateNotificationEmail(
+      emailService.sendCertificateNotificationEmail(
         updatedDonation.donor,
         updatedDonation,
       ).catch((err) => console.error("Certificate email failed:", err));
 
-      createNotification({
+      notificationService.createNotification({
         recipient: updatedDonation.donor._id,
         recipientModel: "User",
         title: "Donation Completed ✨",
@@ -273,14 +258,14 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
         ? "Unfortunately, your donation request was not approved at this time. Please contact the blood bank for details."
         : `Your donation request has been marked as ${status}.`;
 
-    sendDonationUpdateEmail(
+    emailService.sendDonationUpdateEmail(
       updatedDonation.donor,
       updatedDonation,
       message,
     ).catch((err) => console.error("Donation status email failed:", err));
 
     // Create in-app notification
-    createNotification({
+    notificationService.createNotification({
       recipient: updatedDonation.donor._id,
       recipientModel: "User",
       title: "Donation Request Update",
@@ -328,16 +313,7 @@ export const checkDonorEligibility = async (donorId) => {
 
 // Get donation statistics
 export const getDonationStats = async (bloodBankId, query) => {
-  const stats = await Donation.aggregate([
-    { $match: { bloodBank: new mongoose.Types.ObjectId(bloodBankId) } },
-    {
-      $group: {
-        _id: "$status",
-        count: { $sum: 1 },
-        totalVolume: { $sum: "$volumeDonated" },
-      },
-    },
-  ]);
+  const stats = await donationRepository.getStatusStats(bloodBankId);
 
   const formattedStats = {
     total: 0,
@@ -388,7 +364,7 @@ export const getDonationCertificate = async (donationId, user) => {
     );
   }
 
-  const pdfBuffer = await generateDonationCertificate(donation);
+  const pdfBuffer = await certificateService.generateDonationCertificate(donation);
 
   return {
     pdfBuffer,

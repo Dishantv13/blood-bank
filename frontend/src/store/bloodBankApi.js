@@ -67,13 +67,6 @@ export const bloodBankApi = apiSlice.injectEndpoints({
     getBloodBankCsrfToken: builder.query({
       query: () => BLOODBANK_API_URLS.CSRF_TOKEN_BLOOD_BANK,
     }),
-    registerBloodBank: builder.mutation({
-      query: (data) => ({
-        url: BLOODBANK_API_URLS.REGISTER_BLOOD_BANK,
-        method: "POST",
-        body: data,
-      }),
-    }),
     initiateBloodBankRegistration: builder.mutation({
       query: (data) => ({
         url: BLOODBANK_API_URLS.INITIATE_BLOOD_BANK_REGISTRATION,
@@ -122,12 +115,12 @@ export const bloodBankApi = apiSlice.injectEndpoints({
       query: (data) => ({
         url: BLOODBANK_API_URLS.FORGOT_PASSWORD,
         method: "POST",
-        body: data,
+        body: typeof data === "string" ? { email: data } : data,
       }),
     }),
     resetBloodBankPassword: builder.mutation({
-      query: ({ token, ...data }) => ({
-        url: BLOODBANK_API_URLS.RESET_PASSWORD(token),
+      query: (data) => ({
+        url: BLOODBANK_API_URLS.RESET_PASSWORD,
         method: "POST",
         body: data,
       }),
@@ -136,7 +129,7 @@ export const bloodBankApi = apiSlice.injectEndpoints({
       query: (token) => ({
         url: BLOODBANK_API_URLS.VERIFY_RESET_TOKEN,
         method: "POST",
-        body: { token },
+        body: typeof token === "string" ? { token } : token,
       }),
     }),
     getBloodBankInventory: builder.query({
@@ -171,7 +164,26 @@ export const bloodBankApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: tagList(TAGS.BLOOD_BANK),
     }),
+    exportInventoryData: builder.mutation({
+      query: () => ({
+        url: BLOODBANK_API_URLS.EXPORT_INVENTORY,
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
+    exportCampReports: builder.mutation({
+      query: () => ({
+        url: BLOODBANK_API_URLS.EXPORT_CAMPS,
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
+    exportAllData: builder.mutation({
+      query: () => ({
+        url: BLOODBANK_API_URLS.EXPORT_ALL,
+        responseHandler: (response) => response.blob(),
+      }),
+    }),
   }),
+
   overrideExisting: false,
 });
 
@@ -184,7 +196,6 @@ export const {
   useRefreshBloodBankSessionMutation,
   useLazyGetBloodBankSessionQuery,
   useLazyGetBloodBankCsrfTokenQuery,
-  useRegisterBloodBankMutation,
   useInitiateBloodBankRegistrationMutation,
   useVerifyBloodBankRegistrationOtpMutation,
   useResendBloodBankRegistrationOtpMutation,
@@ -199,4 +210,8 @@ export const {
   useForgotBloodBankPasswordMutation,
   useResetBloodBankPasswordMutation,
   useVerifyBloodBankResetTokenMutation,
+  useExportInventoryDataMutation,
+  useExportCampReportsMutation,
+  useExportAllDataMutation,
 } = bloodBankApi;
+
