@@ -175,10 +175,6 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  isFake: {
-    type: Boolean,
-    default: false,
-  },
 });
 
 // Index for geospatial queries

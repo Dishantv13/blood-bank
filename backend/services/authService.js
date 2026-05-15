@@ -1,6 +1,5 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import axios from "axios";
 import User from "../models/User.model.js";
 import RegistrationOtp from "../models/BloodBankRegistrationOtp.model.js";
 import { enforceCsrfForRole } from "../middleware/csrf.js";
@@ -321,9 +320,12 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
   const redirectUri = getGoogleRedirectUri(req);
 
   try {
-    const tokenResponse = await axios.post(
-      GOOGLE_OAUTH_TOKEN_ENDPOINT,
-      new URLSearchParams({
+    const response = await fetch(GOOGLE_OAUTH_TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
         code,
         client_id: clientId,
         client_secret: clientSecret,
@@ -331,15 +333,19 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
         grant_type: "authorization_code",
         code_verifier: codeVerifier,
       }).toString(),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        timeout: 10000,
-      },
-    );
+      signal: AbortSignal.timeout(10000),
+    });
 
-    const idToken = tokenResponse?.data?.id_token;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        response.status,
+        `Google OAuth token exchange failed: ${errorData.error_description || response.statusText}`,
+      );
+    }
+
+    const tokenData = await response.json();
+    const idToken = tokenData?.id_token;
     if (!idToken) {
       throw new ApiError(
         401,

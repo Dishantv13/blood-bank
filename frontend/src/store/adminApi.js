@@ -262,55 +262,113 @@ export const adminApi = apiSlice.injectEndpoints({
 
     // Export
     exportUsersXlsx: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.USERS_XLSX,
-        responseHandler: "blob",
-      }),
+      queryFn: async (_arg, _queryApi, _extraOptions, baseQuery) => {
+        const result = await baseQuery({
+          url: ADMIN_URLS.EXPORT.USERS_XLSX,
+          responseHandler: (response) => response.blob(),
+        });
+        return result;
+      },
     }),
-
+    exportRequestsXlsx: builder.query({
+      queryFn: async (_arg, _queryApi, _extraOptions, baseQuery) => {
+        const result = await baseQuery({
+          url: ADMIN_URLS.EXPORT.REQUESTS_XLSX,
+          responseHandler: (response) => response.blob(),
+        });
+        return result;
+      },
+    }),
+    exportBloodBanksXlsx: builder.query({
+      queryFn: async (_arg, _queryApi, _extraOptions, baseQuery) => {
+        const result = await baseQuery({
+          url: ADMIN_URLS.EXPORT.BLOODBANKS_XLSX,
+          responseHandler: (response) => response.blob(),
+        });
+        return result;
+      },
+    }),
+    exportCampsXlsx: builder.query({
+      queryFn: async (_arg, _queryApi, _extraOptions, baseQuery) => {
+        const result = await baseQuery({
+          url: ADMIN_URLS.EXPORT.CAMPS_XLSX,
+          responseHandler: (response) => response.blob(),
+        });
+        return result;
+      },
+    }),
+    exportEventsXlsx: builder.query({
+      queryFn: async (_arg, _queryApi, _extraOptions, baseQuery) => {
+        const result = await baseQuery({
+          url: ADMIN_URLS.EXPORT.EVENTS_XLSX,
+          responseHandler: (response) => response.blob(),
+        });
+        return result;
+      },
+    }),
     exportAllDataXlsx: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.ALL_XLSX,
-        responseHandler: "blob",
-      }),
+      queryFn: async (_arg, _queryApi, _extraOptions, baseQuery) => {
+        const result = await baseQuery({
+          url: ADMIN_URLS.EXPORT.ALL_XLSX,
+          responseHandler: (response) => response.blob(),
+        });
+        return result;
+      },
     }),
   }),
 });
 
-const {
+export const {
+  // Stats
   useGetAdminDashboardStatsQuery,
+
+  // Users
   useGetAdminUsersQuery,
   useGetAdminUserByIdQuery,
   useUpdateAdminUserStatusMutation,
+
+  // Blood Banks
   useGetAdminBloodBanksQuery,
   useGetAdminBloodBankByIdQuery,
   useUpdateAdminBloodBankStatusMutation,
+
+  // Camps
   useGetAdminCampsQuery,
   useGetAdminCampsByBloodBankQuery,
   useGetAdminCampByIdQuery,
   useUpdateAdminCampStatusMutation,
+
+  // Events
   useGetAdminEventsQuery,
   useGetAdminEventsByBloodBankQuery,
   useGetAdminEventByIdQuery,
   useUpdateAdminEventStatusMutation,
+
+  // Requests
   useGetAdminRequestsQuery,
   useGetAdminRequestByIdQuery,
   useUpdateAdminRequestStatusMutation,
+
+  // Donations
   useGetAdminDonationsQuery,
   useGetAdminDonationByIdQuery,
   useUpdateAdminDonationStatusMutation,
+
+  // Inventory
   useGetAdminInventoryOverviewQuery,
   useGetAdminInventoryByIdQuery,
-  useExportUsersXlsxQuery,
-  useExportRequestsXlsxQuery,
-  useExportBloodBanksXlsxQuery,
-  useExportCampsXlsxQuery,
-  useExportEventsXlsxQuery,
-  useExportAllDataXlsxQuery,
+
+  // Export Center (XLSX)
+  useLazyExportUsersXlsxQuery,
+  useLazyExportRequestsXlsxQuery,
+  useLazyExportBloodBanksXlsxQuery,
+  useLazyExportCampsXlsxQuery,
+  useLazyExportEventsXlsxQuery,
+  useLazyExportAllDataXlsxQuery,
 } = adminApi;
 
+// Backward-compatible hook aliases for existing admin components
 export {
-  // Backward-compatible hook names used by admin pages
   useGetAdminDashboardStatsQuery as useGetDashboardStatsQuery,
   useGetAdminUsersQuery as useGetAllUsersQuery,
   useGetAdminUserByIdQuery as useGetUserByIdQuery,
@@ -334,10 +392,4 @@ export {
   useUpdateAdminDonationStatusMutation as useUpdateDonationStatusMutation,
   useGetAdminInventoryOverviewQuery as useGetInventoryOverviewQuery,
   useGetAdminInventoryByIdQuery as useGetInventoryByIdQuery,
-  useExportUsersXlsxQuery,
-  useExportRequestsXlsxQuery,
-  useExportBloodBanksXlsxQuery,
-  useExportCampsXlsxQuery,
-  useExportEventsXlsxQuery,
-  useExportAllDataXlsxQuery,
 };

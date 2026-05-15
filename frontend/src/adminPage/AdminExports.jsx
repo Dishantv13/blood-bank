@@ -1,9 +1,35 @@
 import { useState } from "react";
+import { toast } from "react-toastify";
 import "../adminPage.css/AdminExports.css";
+import {
+  useLazyExportUsersXlsxQuery,
+  useLazyExportRequestsXlsxQuery,
+  useLazyExportBloodBanksXlsxQuery,
+  useLazyExportCampsXlsxQuery,
+  useLazyExportEventsXlsxQuery,
+  useLazyExportAllDataXlsxQuery,
+} from "../store/adminApi.js";
 
 const AdminExports = () => {
   const [module, setModule] = useState("users");
   const [isExporting, setIsExporting] = useState(false);
+
+  // Lazy triggers for each module
+  const [triggerUsers] = useLazyExportUsersXlsxQuery();
+  const [triggerRequests] = useLazyExportRequestsXlsxQuery();
+  const [triggerBloodBanks] = useLazyExportBloodBanksXlsxQuery();
+  const [triggerCamps] = useLazyExportCampsXlsxQuery();
+  const [triggerEvents] = useLazyExportEventsXlsxQuery();
+  const [triggerAll] = useLazyExportAllDataXlsxQuery();
+
+  const triggers = {
+    users: triggerUsers,
+    requests: triggerRequests,
+    "blood-banks": triggerBloodBanks,
+    camps: triggerCamps,
+    events: triggerEvents,
+    all: triggerAll,
+  };
 
   const modules = [
     { id: "users", name: "Users" },
@@ -15,23 +41,31 @@ const AdminExports = () => {
   ];
 
   const handleExport = async () => {
+    const trigger = triggers[module];
+    if (!trigger) {
+      toast.error("Invalid export module selected");
+      return;
+    }
+
     setIsExporting(true);
     try {
-      const baseUrl =
-        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      // Trigger the RTK Query request and unwrap the result directly
+      const response = await trigger().unwrap();
 
-      const url = `${baseUrl}/admin/export/${module}`;
+      if (!response) throw new Error("No data received from server");
 
-      const response = await fetch(url, {
-        credentials: "include",
-      });
-
-      if (!response.ok) throw new Error("Export failed");
-
-      const blob = await response.blob();
+      // Robustly handle both direct Blobs and wrapped data objects
+      let blob;
+      if (response instanceof Blob || response?.constructor?.name === "Blob") {
+        blob = response;
+      } else if (response.data instanceof Blob || response.data?.constructor?.name === "Blob") {
+        blob = response.data;
+      } else {
+        // Fallback for cases where data might be a Uint8Array or similar
+        blob = new Blob([response.data || response]);
+      }
       const filename = `${module}_${new Date().toISOString().split("T")[0]}.xlsx`;
 
-      // Create download link
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
@@ -40,9 +74,12 @@ const AdminExports = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
+
+      toast.success(`${module.replace("-", " ")} exported successfully`);
     } catch (error) {
       console.error("Export failed:", error);
-      alert("Failed to export data. Please try again.");
+      const errorMessage = error?.data?.message || error?.message || "Failed to export data. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsExporting(false);
     }

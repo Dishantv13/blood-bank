@@ -40,10 +40,6 @@ const DonationSchema = new mongoose.Schema(
     notes: {
       type: String,
     },
-    isFake: {
-      type: Boolean,
-      default: false,
-    },
     certificateCode: {
       type: String,
       unique: true,

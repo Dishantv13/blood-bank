@@ -140,10 +140,6 @@ const BloodRequestSchema = new mongoose.Schema(
       },
       responseNote: String,
     },
-    isFake: {
-      type: Boolean,
-      default: false,
-    },
   },
   {
     timestamps: true,

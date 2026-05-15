@@ -81,10 +81,6 @@ const EventSchema = new mongoose.Schema(
       type: Number,
       default: 100,
     },
-    isFake: {
-      type: Boolean,
-      default: false,
-    },
   },
   {
     timestamps: true,

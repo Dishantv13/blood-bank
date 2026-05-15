@@ -154,19 +154,32 @@ const isLoginOrAuthMutationPath = (url = "") => {
 };
 
 const normalizeApiPayload = (rawResponse) => {
-  // If result is a Blob (file download), return it as is to avoid wrapping
-  if (rawResponse instanceof Blob) return rawResponse;
+  // CRITICAL: If result is a Blob or looks like one, return immediately.
+  if (
+    rawResponse instanceof Blob ||
+    rawResponse?.constructor?.name === "Blob" ||
+    (rawResponse && typeof rawResponse === "object" && rawResponse.size && rawResponse.type)
+  ) {
+    return rawResponse;
+  }
 
   const isObject =
     rawResponse &&
     typeof rawResponse === "object" &&
     !Array.isArray(rawResponse);
+  
   const isWrappedSuccess =
     isObject &&
     Object.prototype.hasOwnProperty.call(rawResponse, "success") &&
     Object.prototype.hasOwnProperty.call(rawResponse, "data");
 
   const payload = isWrappedSuccess ? rawResponse.data : rawResponse;
+  
+  // If the payload itself is a Blob, return it directly
+  if (payload instanceof Blob || payload?.constructor?.name === 'Blob') {
+    return payload;
+  }
+
   const meta = isWrappedSuccess
     ? { success: rawResponse.success, message: rawResponse.message }
     : {};
