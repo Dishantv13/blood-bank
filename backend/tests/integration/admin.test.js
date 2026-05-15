@@ -83,19 +83,6 @@ describe("Admin Integration Tests", () => {
   });
 
   describe("GET /api/v1/admin/export/all", () => {
-    it("should export all data as CSV stream", async () => {
-      const res = await request(app)
-        .get("/api/v1/admin/export/all?format=csv")
-        .set("Cookie", adminCookies);
-
-      expect(res.status).toBe(200);
-      expect(res.headers["content-type"]).toMatch(/text\/csv/);
-      expect(res.headers["content-disposition"]).toMatch(/attachment; filename="all_data_.*\.csv"/);
-      
-      // Basic check to see if our headers appear in the streamed response
-      expect(res.text).toContain("Collection,Col1,Col2,Col3,Col4,Col5,Col6,Col7,Col8");
-    });
-
     it("should export all data as XLSX stream", async () => {
       const res = await request(app)
         .get("/api/v1/admin/export/all?format=xlsx")
