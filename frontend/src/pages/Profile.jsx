@@ -214,9 +214,11 @@ const Profile = () => {
 
       setTimeout(() => setMessage(""), MESSAGE_DISPLAY_MS);
     } catch (error) {
+      console.error("Profile update error:", error);
+      const errorDetail = error.data?.errors?.[0]?.msg || error.data?.message || error.message;
       setMessageType("error");
-      setMessage("Failed to update profile");
-      toast.error("Failed to update profile. Please try again.");
+      setMessage(errorDetail || "Failed to update profile");
+      toast.error(errorDetail || "Failed to update profile. Please try again.");
       setTimeout(() => setMessage(""), MESSAGE_DISPLAY_MS);
     }
   };

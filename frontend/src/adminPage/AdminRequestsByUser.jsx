@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetAllRequestsQuery,
   useGetUserByIdQuery,
 } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
+import { usePaginationParams } from "../hooks/usePaginationParams.js";
+import SearchFilter from "../components/SearchFilter.jsx";
 const AdminRequestsByUser = () => {
   const navigate = useNavigate();
   const { userId } = useParams();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
+  const { page, limit, setPage, setLimit } = usePaginationParams(10);
   const [filters, setFilters] = useState({
     search: "",
     status: "",
@@ -22,7 +23,7 @@ const AdminRequestsByUser = () => {
     {
       userId,
       page,
-      limit: 10,
+      limit,
       ...filters,
     },
     {
@@ -35,19 +36,10 @@ const AdminRequestsByUser = () => {
     setPage(1);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmedSearch = searchInput.trim();
-      setFilters((prev) =>
-        prev.search === trimmedSearch
-          ? prev
-          : { ...prev, search: trimmedSearch },
-      );
-      setPage(1);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const handleSearch = (value) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+    setPage(1);
+  };
 
   const columns = [
     { key: "patientName", label: "Patient Name", width: "20%" },
@@ -88,12 +80,10 @@ const AdminRequestsByUser = () => {
       </div>
 
       <div className="filters-panel">
-        <input
-          type="text"
+        <SearchFilter
           placeholder="Search by patient name or hospital..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="filter-input"
+          onSearch={handleSearch}
+          initialValue={filters.search}
         />
         <select
           value={filters.bloodType}
@@ -140,6 +130,7 @@ const AdminRequestsByUser = () => {
         isLoading={isLoading}
         pagination={requestsData?.pagination}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
     </>
   );

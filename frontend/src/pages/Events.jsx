@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   useGetAllEventsQuery,
   useRegisterForEventMutation,
@@ -13,33 +14,57 @@ import { FaTint, FaBullhorn, FaHospital, FaStethoscope, FaSearch } from "react-i
 import "../pages.css/Events.css";
 import SkeletonLoader from "../components/SkeletonLoader";
 import EmptyState from "../components/EmptyState";
+import Pagination from "../components/Pagination";
 
 const Events = () => {
   const { user } = useAuth();
   const { success, error, info } = useToast();
-  const [activeTab, setActiveTab] = useState("events");
   const [registeredEventIds, setRegisteredEventIds] = useState(new Set());
   const [registeredCampIds, setRegisteredCampIds] = useState(new Set());
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  const activeTab = searchParams.get("tab") || "events";
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+  const pageSize = parseInt(searchParams.get("limit") || "6", 10);
+  const debouncedSearch = searchParams.get("search") || "";
+
+  const [searchTerm, setSearchTerm] = useState(debouncedSearch);
+
+  const updateParams = (updates) => {
+    setSearchParams(prev => {
+      const newParams = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          newParams.set(key, value);
+        } else {
+          newParams.delete(key);
+        }
+      });
+      return newParams;
+    });
+  };
 
   const currentUserId = user?.id || user?._id || null;
 
-  // Debounce search effect
+  // Debounce search effect to update URL
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
+      if (searchTerm !== debouncedSearch) {
+        updateParams({ search: searchTerm, page: 1 });
+      }
     }, 500);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Remove the old reset effect as it's handled in updateParams
 
   const {
     data: campsResponse,
     isLoading: loadingCamps,
     refetch: refetchCamps,
   } = useGetAllCampsQuery(
-    { upcoming: true, search: debouncedSearch },
+    { upcoming: true, search: debouncedSearch, page: currentPage, limit: pageSize },
     { skip: activeTab !== "camps" },
   );
   const {
@@ -47,7 +72,7 @@ const Events = () => {
     isLoading: loadingEvents,
     refetch: refetchEvents,
   } = useGetAllEventsQuery(
-    { search: debouncedSearch },
+    { search: debouncedSearch, page: currentPage, limit: pageSize },
     { skip: activeTab !== "events" },
   );
 
@@ -173,6 +198,10 @@ const Events = () => {
 
   const { events: filteredEvents, camps: filteredCamps } = getFilteredContent();
 
+  const paginationData = activeTab === "events" 
+    ? eventsResponse?.pagination 
+    : campsResponse?.pagination;
+
   if (loading) {
     return <SkeletonLoader variant="list" />;
   }
@@ -198,7 +227,10 @@ const Events = () => {
             className="search-input"
           />
           {searchTerm && (
-            <button className="clear-search" onClick={() => setSearchTerm("")}>
+            <button className="clear-search" onClick={() => {
+              setSearchTerm("");
+              updateParams({ search: "", page: 1 });
+            }}>
               &times;
             </button>
           )}
@@ -209,7 +241,7 @@ const Events = () => {
       <div className="events-tabs">
         <button
           className={`tab-btn ${activeTab === "events" ? "active" : ""}`}
-          onClick={() => setActiveTab("events")}
+          onClick={() => updateParams({ tab: "events", page: 1, limit: "" })}
         >
           <svg
             viewBox="0 0 24 24"
@@ -226,7 +258,7 @@ const Events = () => {
         </button>
         <button
           className={`tab-btn ${activeTab === "camps" ? "active" : ""}`}
-          onClick={() => setActiveTab("camps")}
+          onClick={() => updateParams({ tab: "camps", page: 1, limit: "" })}
         >
           <svg
             viewBox="0 0 24 24"
@@ -291,6 +323,7 @@ const Events = () => {
                         weekday: "short",
                         month: "short",
                         day: "numeric",
+                        year: "numeric",
                       })}
                     </span>
                   </div>
@@ -478,6 +511,7 @@ const Events = () => {
                         weekday: "short",
                         month: "short",
                         day: "numeric",
+                        year: "numeric",
                       })}
                     </span>
                   </div>
@@ -603,6 +637,20 @@ const Events = () => {
           message={debouncedSearch 
             ? `No ${activeTab} found matching "${debouncedSearch}". Try a different keyword.` 
             : "Check back soon for new blood donation opportunities!"}
+        />
+      )}
+
+      {/* Pagination */}
+      {paginationData && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={paginationData.totalPages}
+          totalRecords={paginationData.total}
+          pageSize={pageSize}
+          onPageChange={(page) => updateParams({ page })}
+          onPageSizeChange={(size) => {
+            updateParams({ limit: size, page: 1 });
+          }}
         />
       )}
     </div>

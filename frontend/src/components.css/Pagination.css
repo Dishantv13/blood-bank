@@ -10,6 +10,14 @@
   align-items: center;
   z-index: 1000;
   padding: 0 1.5rem;
+  transition: left 0.3s ease;
+}
+
+/* Offset for Dashboard Sidebar on Desktop */
+@media (min-width: 1025px) {
+  .blood-bank-dashboard .admin-footer-pagination {
+    left: 280px;
+  }
 }
 
 [data-theme='dark'] .admin-footer-pagination {

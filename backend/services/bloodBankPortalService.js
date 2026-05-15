@@ -38,6 +38,7 @@ export const getAllRequests = async (bloodBankId, query) => {
     direction,
     limit,
     page,
+    search,
   } = query;
   const normalizedStatus = String(status).toLowerCase();
   const isPending = normalizedStatus === "pending";
@@ -91,6 +92,24 @@ export const getAllRequests = async (bloodBankId, query) => {
   if (bloodGroup) filter.bloodGroup = bloodGroup;
   if (urgency) filter.urgency = urgency;
 
+  if (search) {
+    const searchRegex = new RegExp(search, "i");
+    const existingOr = filter.$or;
+    delete filter.$or;
+    filter.$and = [
+      { $or: existingOr },
+      {
+        $or: [
+          { patientName: searchRegex },
+          { "hospital.name": searchRegex },
+          { "hospital.address": searchRegex },
+          { description: searchRegex },
+          { bloodGroup: searchRegex },
+        ],
+      },
+    ];
+  }
+
   const {
     page: parsedPage,
     limit: parsedLimit,
@@ -123,7 +142,7 @@ export const getAllRequests = async (bloodBankId, query) => {
 };
 
 export const getApprovedRequests = async (bloodBankId, query) => {
-  const { requestType, direction, limit, page } = query;
+  const { requestType, direction, limit, page, search } = query;
 
   const approvedQuery = {
     status: "approved",
@@ -168,10 +187,29 @@ export const getApprovedRequests = async (bloodBankId, query) => {
       })
       .filter(Boolean);
   }
+  if (search) {
+    const searchRegex = new RegExp(search, "i");
+    const existingOr = approvedQuery.$or;
+    delete approvedQuery.$or;
+    approvedQuery.$and = [
+      { $or: existingOr },
+      {
+        $or: [
+          { patientName: searchRegex },
+          { "hospital.name": searchRegex },
+          { "hospital.address": searchRegex },
+          { description: searchRegex },
+          { bloodGroup: searchRegex },
+        ],
+      },
+    ];
+  }
 
-  const parsedLimit = Number(limit) || 20;
-  const parsedPage = Number(page) || 1;
-  const skip = (parsedPage - 1) * parsedLimit;
+  const {
+    page: parsedPage,
+    limit: parsedLimit,
+    skip,
+  } = pagination.getPaginationParams({ query: { page, limit } });
 
   const { data: requests, total } = await requestRepository.findPaginated(
     approvedQuery,
@@ -194,13 +232,12 @@ export const getApprovedRequests = async (bloodBankId, query) => {
     ]);
   }
 
-  return {
-    count: requests.length,
-    total,
-    page: parsedPage,
-    pages: Math.ceil(total / parsedLimit),
+  return pagination.buildPaginatedResponse(
     requests,
-  };
+    total,
+    parsedPage,
+    parsedLimit,
+  );
 };
 
 export const getRequestDetails = async (id, requesterBankId) => {
@@ -436,19 +473,58 @@ export const getRequestStats = async (bloodBankId) => {
   };
 };
 
-export const getAllEvents = async (bloodBankId) => {
-  const events = await eventRepository.findByOrganizer(
-    bloodBankId,
-    "BloodBank",
-    {
-      populate: {
-        path: "registeredDonors",
-        select: "name email phone bloodGroup",
-      },
-      sort: { date: 1 },
+export const getAllEvents = async (bloodBankId, query = {}) => {
+  const { time, search, page, limit } = query;
+  const organizerId = toObjectId(bloodBankId);
+  const filter = { organizedBy: organizerId };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Get counts for both regardless of current filter
+  const [upcomingCount, pastCount] = await Promise.all([
+    eventRepository.count({ organizedBy: organizerId, date: { $gte: today } }),
+    eventRepository.count({ organizedBy: organizerId, date: { $lt: today } }),
+  ]);
+
+  if (time === "upcoming") {
+    filter.date = { $gte: today };
+  } else if (time === "past") {
+    filter.date = { $lt: today };
+  }
+
+  if (search) {
+    filter.$or = [
+      { title: { $regex: search, $options: "i" } },
+      { description: { $regex: search, $options: "i" } },
+      { location: { $regex: search, $options: "i" } },
+    ];
+  }
+
+  const {
+    page: parsedPage,
+    limit: parsedLimit,
+    skip,
+  } = pagination.getPaginationParams({ query: { page, limit } });
+
+  const { data: events, total } = await eventRepository.findPaginated(filter, {
+    populate: {
+      path: "registeredDonors",
+      select: "name email phone bloodGroup",
     },
-  );
-  return { count: events.length, events };
+    sort: { date: time === "past" ? -1 : 1 },
+    skip,
+    limit: parsedLimit,
+  });
+
+  return {
+    events,
+    pagination: {
+      ...pagination.getPaginationMetadata(parsedPage, parsedLimit, total),
+      upcomingCount,
+      pastCount,
+    },
+  };
 };
 
 export const createEvent = async (bloodBankId, eventData) => {
@@ -525,11 +601,85 @@ export const getEventRegistrations = async (eventId, bloodBankId) => {
   };
 };
 
-export const getAllCamps = async (bloodBankId) => {
-  const camps = await bloodCampRepository.findByOrganizer(bloodBankId, {
-    sort: { date: -1 },
-  });
-  return { camps };
+export const getAllCamps = async (bloodBankId, query = {}) => {
+  const { tab, time, search, page, limit } = query;
+  const organizerId = toObjectId(bloodBankId);
+  const filter = { organizer: organizerId };
+
+  // Date Logic for Filtering
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Get counts
+  const [upcomingCount, pastCount] = await Promise.all([
+    bloodCampRepository.count({
+      organizer: organizerId,
+      date: { $gte: today },
+      status: { $ne: "completed" },
+    }),
+    bloodCampRepository.count({
+      organizer: organizerId,
+      $or: [{ date: { $lt: today } }, { status: "completed" }],
+    }),
+  ]);
+
+  if (time === "upcoming") {
+    filter.date = { $gte: today };
+    filter.status = { $ne: "completed" };
+  } else if (time === "past") {
+    filter.$or = [{ date: { $lt: today } }, { status: "completed" }];
+  } else if (tab === "registrations") {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Only Today's camps
+    filter.date = { $gte: today, $lt: tomorrow };
+  } else if (tab === "collections") {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Past and Today's camps (<= Today)
+    filter.date = { $lt: tomorrow };
+  }
+
+  if (search) {
+    const searchFilter = {
+      $or: [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { city: { $regex: search, $options: "i" } },
+        { venue: { $regex: search, $options: "i" } },
+      ],
+    };
+    if (filter.$or) {
+      const originalOr = filter.$or;
+      delete filter.$or;
+      filter.$and = [{ $or: originalOr }, searchFilter];
+    } else {
+      Object.assign(filter, searchFilter);
+    }
+  }
+
+  const {
+    page: parsedPage,
+    limit: parsedLimit,
+    skip,
+  } = pagination.getPaginationParams({ query: { page, limit } });
+
+  const { data: camps, total } = await bloodCampRepository.findPaginated(
+    filter,
+    {
+      sort: { date: time === "past" ? -1 : 1 },
+      skip,
+      limit: parsedLimit,
+    },
+  );
+  return {
+    camps,
+    pagination: {
+      ...pagination.getPaginationMetadata(parsedPage, parsedLimit, total),
+      upcomingCount,
+      pastCount,
+    },
+  };
 };
 
 export const getCampRegistrations = async (campId, bloodBankId) => {

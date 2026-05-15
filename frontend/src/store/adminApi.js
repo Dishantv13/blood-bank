@@ -268,79 +268,9 @@ export const adminApi = apiSlice.injectEndpoints({
       }),
     }),
 
-    exportUsersCSV: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.USERS_CSV,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportRequestsXlsx: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.REQUESTS_XLSX,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportRequestsCSV: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.REQUESTS_CSV,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportBloodBanksXlsx: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.BLOODBANKS_XLSX,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportBloodBanksCSV: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.BLOODBANKS_CSV,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportCampsXlsx: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.CAMPS_XLSX,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportCampsCSV: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.CAMPS_CSV,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportEventsXlsx: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.EVENTS_XLSX,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportEventsCSV: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.EVENTS_CSV,
-        responseHandler: "blob",
-      }),
-    }),
-
     exportAllDataXlsx: builder.query({
       query: () => ({
-        url: ADMIN_URLS.EXPORT.ALL_DATA_XLSX,
-        responseHandler: "blob",
-      }),
-    }),
-
-    exportAllDataCSV: builder.query({
-      query: () => ({
-        url: ADMIN_URLS.EXPORT.ALL_DATA_CSV,
+        url: ADMIN_URLS.EXPORT.ALL_XLSX,
         responseHandler: "blob",
       }),
     }),
@@ -372,17 +302,11 @@ const {
   useGetAdminInventoryOverviewQuery,
   useGetAdminInventoryByIdQuery,
   useExportUsersXlsxQuery,
-  useExportUsersCSVQuery,
   useExportRequestsXlsxQuery,
-  useExportRequestsCSVQuery,
   useExportBloodBanksXlsxQuery,
-  useExportBloodBanksCSVQuery,
   useExportCampsXlsxQuery,
-  useExportCampsCSVQuery,
   useExportEventsXlsxQuery,
-  useExportEventsCSVQuery,
   useExportAllDataXlsxQuery,
-  useExportAllDataCSVQuery,
 } = adminApi;
 
 export {
@@ -411,15 +335,9 @@ export {
   useGetAdminInventoryOverviewQuery as useGetInventoryOverviewQuery,
   useGetAdminInventoryByIdQuery as useGetInventoryByIdQuery,
   useExportUsersXlsxQuery,
-  useExportUsersCSVQuery,
   useExportRequestsXlsxQuery,
-  useExportRequestsCSVQuery,
   useExportBloodBanksXlsxQuery,
-  useExportBloodBanksCSVQuery,
   useExportCampsXlsxQuery,
-  useExportCampsCSVQuery,
   useExportEventsXlsxQuery,
-  useExportEventsCSVQuery,
   useExportAllDataXlsxQuery,
-  useExportAllDataCSVQuery,
 };

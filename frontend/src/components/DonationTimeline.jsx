@@ -41,7 +41,7 @@ const DonationTimeline = ({ donations }) => {
               {donation.volumeDonated > 0 && (
                 <div className="metric">
                   <span className="label">Volume</span>
-                  <span className="value">{donation.volumeDonated} U</span>
+                  <span className="value">{donation.volumeDonated} L</span>
                 </div>
               )}
             </div>

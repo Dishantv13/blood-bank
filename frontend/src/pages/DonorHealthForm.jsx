@@ -269,7 +269,9 @@ const DonorHealthForm = () => {
       toast.success("Health Profile Updated Successfully!");
       navigate(ROUTE_PATH.DASHBOARD);
     } catch (err) {
-      toast.error("Failed to update. Please try again.");
+      console.error("Donor info update error:", err);
+      const errorDetail = err.data?.errors?.[0]?.msg || err.data?.message || err.message;
+      toast.error(errorDetail || "Failed to update. Please try again.");
     }
   };
 
@@ -462,7 +464,10 @@ const DonorHealthForm = () => {
                 <DatePicker
                   value={watch("dateOfBirth")}
                   onChange={(date) => {
-                    setValue("dateOfBirth", date.toISOString().split("T")[0]);
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    setValue("dateOfBirth", `${year}-${month}-${day}`);
                   }}
                   placeholder="Will be filled after scan"
                 />

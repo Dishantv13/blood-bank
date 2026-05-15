@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import BaseRepository from "./BaseRepository.js";
 import BloodBank from "../models/BloodBank.model.js";
 
@@ -16,6 +17,8 @@ class BloodBankRepository extends BaseRepository {
       latitude,
       longitude,
       maxDistance,
+      search,
+      excludeId,
     } = options;
 
     const pipeline = [];
@@ -25,6 +28,19 @@ class BloodBankRepository extends BaseRepository {
       isActive: true,
       approvalStatus: "approved",
     };
+
+    if (excludeId && mongoose.Types.ObjectId.isValid(excludeId)) {
+      matchStage._id = { $ne: new mongoose.Types.ObjectId(excludeId) };
+    }
+
+    if (search && typeof search === "string" && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      matchStage.$or = [
+        { name: searchRegex },
+        { "address.city": searchRegex },
+        { "address.state": searchRegex },
+      ];
+    }
 
     // 2. Geospatial search if coordinates provided
     if (latitude && longitude) {

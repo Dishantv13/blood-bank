@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   useGetBloodUnitInventoryQuery,
   useUpdateScreeningStatusMutation,
@@ -10,29 +11,51 @@ import { useAuth } from "../context/AuthContext";
 import BloodBankSidebar from "../components/BloodBankSidebar";
 import ThemeToggle from "../components/ThemeToggle";
 import SkeletonLoader from "../components/SkeletonLoader";
+import Pagination from "../components/Pagination";
 import "../pages.css/BloodBankInventoryDetail.css";
 
 const BloodBankUnitTracking = () => {
   const toast = useToast();
   const { logoutBloodBank, bloodBank } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const activeSubTab = searchParams.get("tab") || "inventory";
+  const bloodGroup = searchParams.get("bloodGroup") || "";
+  const statusFilter = searchParams.get("status") || "";
+  const componentType = searchParams.get("componentType") || "";
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+  const pageSize = parseInt(searchParams.get("limit") || "10", 10);
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState("inventory"); // 'inventory' or 'raw'
-  const [filter, setFilter] = useState({
-    status: "",
-    bloodGroup: "",
-    componentType: "",
-    page: 1,
-  });
+
+  const updateParams = (updates) => {
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          newParams.set(key, value);
+        } else {
+          newParams.delete(key);
+        }
+      });
+      return newParams;
+    });
+  };
 
   // RTK Query hooks
+  const queryParams = {
+    bloodGroup,
+    componentType,
+    page: currentPage,
+    limit: pageSize,
+    status: activeSubTab === "raw" ? "raw" : statusFilter,
+  };
+
   const {
     data: inventoryData,
     isLoading,
     isError,
-  } = useGetBloodUnitInventoryQuery({
-    ...filter,
-    status: activeSubTab === "raw" ? "raw" : filter.status,
-  });
+  } = useGetBloodUnitInventoryQuery(queryParams);
   const [updateScreening] = useUpdateScreeningStatusMutation();
   const [addColdChain] = useAddColdChainLogMutation();
   const [refineUnit] = useRefineBloodUnitMutation();
@@ -125,6 +148,16 @@ const BloodBankUnitTracking = () => {
     return `${days} days left`;
   };
 
+  const formatVolume = (vol) => {
+    if (vol === undefined || vol === null) return "N/A";
+    const v = Number(vol);
+    // If volume is less than 10, it's likely in Liters (e.g. 0.45)
+    if (v < 10) {
+      return `${(v * 1000).toFixed(0)} ml`;
+    }
+    return `${v} ml`;
+  };
+
   return (
     <div className="blood-bank-dashboard">
       {mobileMenuOpen && (
@@ -204,20 +237,31 @@ const BloodBankUnitTracking = () => {
                     <button
                       className={`sub-tab ${activeSubTab === "inventory" ? "active" : ""}`}
                       onClick={() => {
-                        setActiveSubTab("inventory");
-                        setFilter({ ...filter, status: "" });
+                        updateParams({ tab: "inventory", status: "", page: 1, limit: "" });
                       }}
                     >
+                      <span className="tab-icon">📦</span>
                       Refined Inventory
+                      {activeSubTab === "inventory" && (
+                        <span className="tab-count">
+                          {" "}
+                          {pagination.total || 0}
+                        </span>
+                      )}
                     </button>
                     <button
                       className={`sub-tab ${activeSubTab === "raw" ? "active" : ""}`}
                       onClick={() => {
-                        setActiveSubTab("raw");
-                        setFilter({ ...filter, status: "raw" });
+                        updateParams({ tab: "raw", status: "raw", page: 1, limit: "" });
                       }}
                     >
+                      <span className="tab-icon">🩸</span>
                       Raw Collections
+                      {activeSubTab === "raw" && (
+                        <span className="tab-count">
+                          {pagination.total || 0}
+                        </span>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -225,9 +269,9 @@ const BloodBankUnitTracking = () => {
                 <div className="filter-bar">
                   <select
                     onChange={(e) =>
-                      setFilter({ ...filter, bloodGroup: e.target.value })
+                      updateParams({ bloodGroup: e.target.value, page: 1 })
                     }
-                    value={filter.bloodGroup}
+                    value={bloodGroup}
                   >
                     <option value="">All Blood Groups</option>
                     {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(
@@ -242,9 +286,9 @@ const BloodBankUnitTracking = () => {
                   {activeSubTab === "inventory" && (
                     <select
                       onChange={(e) =>
-                        setFilter({ ...filter, status: e.target.value })
+                        updateParams({ status: e.target.value, page: 1 })
                       }
-                      value={filter.status}
+                      value={statusFilter}
                     >
                       <option value="">All Statuses</option>
                       <option value="quarantine">Quarantine</option>
@@ -256,9 +300,9 @@ const BloodBankUnitTracking = () => {
 
                   <select
                     onChange={(e) =>
-                      setFilter({ ...filter, componentType: e.target.value })
+                      updateParams({ componentType: e.target.value, page: 1 })
                     }
-                    value={filter.componentType}
+                    value={componentType}
                   >
                     <option value="">All Components</option>
                     <option value="Whole Blood">Whole Blood</option>
@@ -303,10 +347,15 @@ const BloodBankUnitTracking = () => {
                         <tr className="unit-table-empty-row">
                           <td colSpan={tableColumnCount}>
                             <div className="unit-table-empty-content">
-                              <h3>No Units Found</h3>
+                              <h3>
+                                {activeSubTab === "raw"
+                                  ? "No Raw Collections"
+                                  : "No Refined Units"}
+                              </h3>
                               <p>
-                                No blood units available for the selected
-                                filters.
+                                {activeSubTab === "raw"
+                                  ? "New blood collections will appear here before they are processed and refined."
+                                  : "Processed and screened blood units ready for transfusion will appear here."}
                               </p>
                             </div>
                           </td>
@@ -327,11 +376,11 @@ const BloodBankUnitTracking = () => {
                             </td>
                             <td>
                               {activeSubTab === "raw" ? (
-                                `${unit.volume}L`
+                                formatVolume(unit.volume)
                               ) : (
                                 <div className="comp-vol-box">
                                   <span>{unit.componentType}</span>
-                                  <small>{unit.volume}ml</small>
+                                  <small>{formatVolume(unit.volume)}</small>
                                 </div>
                               )}
                             </td>
@@ -423,7 +472,16 @@ const BloodBankUnitTracking = () => {
                   </table>
                 </div>
 
-                {/* Pagination component here */}
+                {pagination.totalPages > 0 && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={pagination.totalPages}
+                    totalRecords={pagination.total}
+                    pageSize={pageSize}
+                    onPageChange={(page) => updateParams({ page })}
+                    onPageSizeChange={(size) => updateParams({ limit: size, page: 1 })}
+                  />
+                )}
 
                 {/* Screening Modal */}
                 {showScreeningModal && (
@@ -542,7 +600,7 @@ const BloodBankUnitTracking = () => {
                       <h2>Process Raw Blood Unit</h2>
                       <p>
                         Unit ID: {selectedUnit?.unitId} | Volume:{" "}
-                        {selectedUnit?.volume}ml
+                        {formatVolume(selectedUnit?.volume)}
                       </p>
 
                       <div className="refine-options">
@@ -576,15 +634,15 @@ const BloodBankUnitTracking = () => {
                             <ul>
                               <li>
                                 <strong>RBC (55%):</strong>{" "}
-                                {(selectedUnit?.volume * 0.55).toFixed(1)} ml
+                                {((selectedUnit?.volume < 10 ? selectedUnit?.volume * 1000 : selectedUnit?.volume) * 0.55).toFixed(1)} ml
                               </li>
                               <li>
                                 <strong>Plasma (40%):</strong>{" "}
-                                {(selectedUnit?.volume * 0.4).toFixed(1)} ml
+                                {((selectedUnit?.volume < 10 ? selectedUnit?.volume * 1000 : selectedUnit?.volume) * 0.4).toFixed(1)} ml
                               </li>
                               <li>
                                 <strong>Platelets (5%):</strong>{" "}
-                                {(selectedUnit?.volume * 0.05).toFixed(1)} ml
+                                {((selectedUnit?.volume < 10 ? selectedUnit?.volume * 1000 : selectedUnit?.volume) * 0.05).toFixed(1)} ml
                               </li>
                             </ul>
                           </div>

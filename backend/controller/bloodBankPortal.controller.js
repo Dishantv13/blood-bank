@@ -75,7 +75,10 @@ export const getRequestStats = asyncHandler(async (req, res) => {
 });
 
 export const getAllEvents = asyncHandler(async (req, res) => {
-  const result = await bloodBankPortalService.getAllEvents(getBloodBankId(req));
+  const result = await bloodBankPortalService.getAllEvents(
+    getBloodBankId(req),
+    req.query,
+  );
   successResponse(res, result, 200, "Events fetched successfully");
 });
 
@@ -122,7 +125,10 @@ export const getEventRegistrations = asyncHandler(async (req, res) => {
 
 
 export const getAllCamps = asyncHandler(async (req, res) => {
-  const result = await bloodBankPortalService.getAllCamps(getBloodBankId(req));
+  const result = await bloodBankPortalService.getAllCamps(
+    getBloodBankId(req),
+    req.query,
+  );
   successResponse(res, result, 200, "Camps fetched successfully");
 });
 

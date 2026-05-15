@@ -2,17 +2,15 @@ import { useState } from "react";
 import "../adminPage.css/AdminExports.css";
 
 const AdminExports = () => {
-  const [format, setFormat] = useState("xlsx");
   const [module, setModule] = useState("users");
   const [isExporting, setIsExporting] = useState(false);
 
   const modules = [
     { id: "users", name: "Users" },
-    { id: "bloodbanks", name: "Blood Banks" },
+    { id: "blood-banks", name: "Blood Banks" },
     { id: "camps", name: "Blood Camps" },
     { id: "events", name: "Events" },
     { id: "requests", name: "Blood Requests" },
-    { id: "donations", name: "Donations" },
     { id: "all", name: "All Data (All-in-One)" },
   ];
 
@@ -22,13 +20,7 @@ const AdminExports = () => {
       const baseUrl =
         import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-      let url = "";
-      if (module === "all") {
-        url = `${baseUrl}/admin/export/all?format=${format}`;
-      } else {
-        const ext = format === "csv" ? "/csv" : "";
-        url = `${baseUrl}/admin/export/${module}${ext}`;
-      }
+      const url = `${baseUrl}/admin/export/${module}`;
 
       const response = await fetch(url, {
         credentials: "include",
@@ -37,7 +29,7 @@ const AdminExports = () => {
       if (!response.ok) throw new Error("Export failed");
 
       const blob = await response.blob();
-      const filename = `${module}_${new Date().toISOString().split("T")[0]}.${format}`;
+      const filename = `${module}_${new Date().toISOString().split("T")[0]}.xlsx`;
 
       // Create download link
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -60,7 +52,7 @@ const AdminExports = () => {
     <>
       <div className="dashboard-header-premium">
         <h1 className="page-title">Data Export Center</h1>
-        <p className="page-subtitle">Download system data in various formats</p>
+        <p className="page-subtitle">Download system data in professional Excel format</p>
       </div>
 
       <div className="export-container">
@@ -86,27 +78,13 @@ const AdminExports = () => {
               <p className="help-text">Choose which data module to export</p>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="format">Export Format</label>
-              <select
-                id="format"
-                value={format}
-                onChange={(e) => setFormat(e.target.value)}
-                className="filter-select"
-                style={{ width: "100%", marginBottom: "0.5rem" }}
-              >
-                <option value="xlsx">Excel (XLSX)</option>
-                <option value="csv">CSV</option>
-              </select>
-              <p className="help-text">Choose your preferred file format</p>
-            </div>
-
             <button
               onClick={handleExport}
               disabled={isExporting}
               className="btn-premium"
+              style={{ marginTop: "1rem" }}
             >
-              {isExporting ? "Exporting..." : "Download Export"}
+              {isExporting ? "Exporting..." : "Download Excel Report"}
             </button>
           </div>
         </div>
@@ -148,39 +126,14 @@ const AdminExports = () => {
           </div>
 
           <div className="info-section">
-            <h4>Format Comparison</h4>
-            <table className="format-table">
-              <thead>
-                <tr>
-                  <th>Format</th>
-                  <th>Best For</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Excel (XLSX)</td>
-                  <td>Data analysis, pivot tables, professional reports</td>
-                </tr>
-                <tr>
-                  <td>CSV</td>
-                  <td>Data import, system integration, lightweight files</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="info-section">
-            <h4>Tips</h4>
+            <h4>Tip</h4>
             <ul>
-              <li>Use Excel format for complex analysis and presentations</li>
-              <li>Use CSV format for data import to other systems</li>
+              <li>Use Excel format for professional analysis, pivot tables, and presentations</li>
               <li>
-                All-in-one exports include multiple sheets (Excel) or combined
-                CSV
+                All-in-one exports include multiple sheets for different data modules
               </li>
               <li>
-                Exports are generated with current timestamp for easy
-                identification
+                Exports are generated with the current date for easy identification
               </li>
             </ul>
           </div>

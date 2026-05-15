@@ -14,26 +14,56 @@ const REQUEST_STATUSES = [
 const DONATION_STATUSES = ["pending", "approved", "rejected", "completed"];
 
 export const updateUserStatusValidation = [
-  body("status").exists().isIn(USER_STATUSES),
+  body("status")
+    .exists()
+    .withMessage("Status is required")
+    .isIn(USER_STATUSES)
+    .withMessage(`Invalid status. Must be one of: ${USER_STATUSES.join(", ")}`),
 ];
 
 export const updateBloodBankStatusValidation = [
-  body("status").exists().isIn(APPROVAL_STATUSES),
-  body("rejectionReason").optional().isString().trim().isLength({ max: 500 }),
+  body("status")
+    .exists()
+    .withMessage("Status is required")
+    .isIn(APPROVAL_STATUSES)
+    .withMessage(`Invalid status. Must be one of: ${APPROVAL_STATUSES.join(", ")}`),
+  body("rejectionReason")
+    .optional()
+    .isString()
+    .withMessage("Rejection reason must be a string")
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Rejection reason cannot exceed 500 characters"),
 ];
 
 export const updateCampStatusValidation = [
-  body("status").exists().isIn(CAMP_STATUSES),
+  body("status")
+    .exists()
+    .withMessage("Status is required")
+    .isIn(CAMP_STATUSES)
+    .withMessage(`Invalid status. Must be one of: ${CAMP_STATUSES.join(", ")}`),
 ];
 
 export const updateEventStatusValidation = [
-  body("status").exists().isIn(EVENT_STATUSES),
+  body("status")
+    .exists()
+    .withMessage("Status is required")
+    .isIn(EVENT_STATUSES)
+    .withMessage(`Invalid status. Must be one of: ${EVENT_STATUSES.join(", ")}`),
 ];
 
 export const updateRequestStatusValidation = [
-  body("status").exists().isIn(REQUEST_STATUSES),
+  body("status")
+    .exists()
+    .withMessage("Status is required")
+    .isIn(REQUEST_STATUSES)
+    .withMessage(`Invalid status. Must be one of: ${REQUEST_STATUSES.join(", ")}`),
 ];
 
 export const updateDonationStatusValidation = [
-  body("status").exists().isIn(DONATION_STATUSES),
+  body("status")
+    .exists()
+    .withMessage("Status is required")
+    .isIn(DONATION_STATUSES)
+    .withMessage(`Invalid status. Must be one of: ${DONATION_STATUSES.join(", ")}`),
 ];

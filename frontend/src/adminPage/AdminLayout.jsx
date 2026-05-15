@@ -22,6 +22,8 @@ import {
 } from "react-icons/fi";
 import ThemeToggle from "../components/ThemeToggle";
 import NotificationCenter from "../components/NotificationCenter";
+import { usePagination } from "../context/PaginationContext";
+import Pagination from "../components/Pagination.jsx";
 import "../adminPage.css/AdminPremium.css";
 
 const AdminLayout = () => {
@@ -40,6 +42,7 @@ const AdminLayout = () => {
   const { adminUser, logoutAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { paginationData } = usePagination();
 
   const isLargeView = !isMobileView && !isCompactView;
   const isSidebarOpen = isMobileView
@@ -130,7 +133,7 @@ const AdminLayout = () => {
   const pageTitle = currentItem ? currentItem.title : "Admin Panel";
 
   return (
-    <div className="admin-premium-root">
+    <div className={`admin-premium-root ${isSidebarOpen ? "sidebar-expanded" : "sidebar-collapsed"}`}>
       {/* Sidebar */}
       <aside
         className={`admin-sidebar ${isSidebarOpen ? "open" : "closed"} fade-in-up`}
@@ -246,6 +249,12 @@ const AdminLayout = () => {
         <section className="admin-page-body fade-in-up" key={location.pathname}>
           <Outlet />
         </section>
+
+        {paginationData && (
+          <Pagination
+            {...paginationData}
+          />
+        )}
       </main>
 
       {isMobileView && isMobileSidebarOpen && (
@@ -257,10 +266,10 @@ const AdminLayout = () => {
         />
       )}
 
-      <NotificationCenter
+      {/* <NotificationCenter
         isOpen={isNotificationOpen}
         onClose={() => setIsNotificationOpen(false)}
-      />
+      /> */}
     </div>
   );
 };

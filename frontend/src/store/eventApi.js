@@ -29,7 +29,10 @@ export const eventApi = apiSlice.injectEndpoints({
 
     // Blood Bank Portal Endpoints
     getBloodBankEvents: builder.query({
-      query: () => EVENT_API_URLS.GET_BLOOD_BANK_EVENTS,
+      query: (params) => ({
+        url: EVENT_API_URLS.GET_BLOOD_BANK_EVENTS,
+        params,
+      }),
       providesTags: (result) =>
         tagListWithIds(TAGS.EVENT, result?.events || result?.data),
     }),

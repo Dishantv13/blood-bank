@@ -104,32 +104,24 @@ export default class BaseRepository {
   }
 
   async findPaginated(filter = {}, options = {}) {
-    const { sort = { createdAt: -1 }, skip = 0, limit = 10, session } = options;
+    const { 
+      sort = { createdAt: -1 }, 
+      skip = 0, 
+      limit = 10, 
+      session,
+      select,
+      populate,
+      lean = true 
+    } = options;
     
-    const pipeline = [
-      { $match: filter },
-      {
-        $facet: {
-          metadata: [{ $count: "total" }],
-          data: [
-            { $sort: sort },
-            { $skip: skip },
-            { $limit: limit }
-          ]
-        }
-      },
-      {
-        $project: {
-          total: { $arrayElemAt: ["$metadata.total", 0] },
-          data: 1
-        }
-      }
-    ];
+    const [data, total] = await Promise.all([
+      this.find(filter, { sort, skip, limit, session, select, populate, lean }),
+      this.count(filter, { session })
+    ]);
 
-    const [result] = await this.aggregate(pipeline, { session });
     return {
-      data: result?.data || [],
-      total: result?.total || 0
+      data,
+      total
     };
   }
 }

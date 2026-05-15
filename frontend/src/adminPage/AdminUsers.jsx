@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   useGetAllUsersQuery,
   useUpdateUserStatusMutation,
 } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
+import { usePaginationParams } from "../hooks/usePaginationParams.js";
+import SearchFilter from "../components/SearchFilter.jsx";
 
 const AdminUsers = () => {
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
+  const { page, limit, setPage, setLimit } = usePaginationParams(10);
   const [filters, setFilters] = useState({
     search: "",
     status: "",
@@ -17,7 +18,7 @@ const AdminUsers = () => {
 
   const { data: usersData, isLoading } = useGetAllUsersQuery({
     page,
-    limit: 10,
+    limit,
     ...filters,
   });
 
@@ -26,19 +27,10 @@ const AdminUsers = () => {
     setPage(1);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmedSearch = searchInput.trim();
-      setFilters((prev) =>
-        prev.search === trimmedSearch
-          ? prev
-          : { ...prev, search: trimmedSearch },
-      );
-      setPage(1);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const handleSearch = (value) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+    setPage(1);
+  };
 
   const columns = [
     { key: "name", label: "Name", width: "15%" },
@@ -69,12 +61,10 @@ const AdminUsers = () => {
       </div>
 
       <div className="filters-panel">
-        <input
-          type="text"
+        <SearchFilter
           placeholder="Search by name, email, or phone..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="filter-input"
+          onSearch={handleSearch}
+          initialValue={filters.search}
         />
         <select
           value={filters.status}
@@ -109,6 +99,7 @@ const AdminUsers = () => {
         isLoading={isLoading}
         pagination={usersData?.pagination}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
     </>
   );

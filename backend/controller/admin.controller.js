@@ -90,77 +90,19 @@ export const exportEvents = asyncHandler(async (req, res) => {
 });
 
 // NEW: Export handlers for CSV and all-in-one
-export const exportUsersCsv = asyncHandler(async (req, res) => {
-  const result = await adminService.exportUsersCsv();
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${safeFilename(result.filename)}"`,
-  );
-  res.setHeader("Content-Type", "text/csv");
-  if (result.rowsLimited) res.setHeader("X-Export-Row-Limit", "true");
-  res.send(result.buffer);
-});
-
-export const exportRequestsCsv = asyncHandler(async (req, res) => {
-  const result = await adminService.exportRequestsCsv();
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${safeFilename(result.filename)}"`,
-  );
-  res.setHeader("Content-Type", "text/csv");
-  if (result.rowsLimited) res.setHeader("X-Export-Row-Limit", "true");
-  res.send(result.buffer);
-});
-
-export const exportBloodBanksCsv = asyncHandler(async (req, res) => {
-  const result = await adminService.exportBloodBanksCsv();
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${safeFilename(result.filename)}"`,
-  );
-  res.setHeader("Content-Type", "text/csv");
-  if (result.rowsLimited) res.setHeader("X-Export-Row-Limit", "true");
-  res.send(result.buffer);
-});
-
-export const exportCampsCsv = asyncHandler(async (req, res) => {
-  const result = await adminService.exportCampsCsv();
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${safeFilename(result.filename)}"`,
-  );
-  res.setHeader("Content-Type", "text/csv");
-  if (result.rowsLimited) res.setHeader("X-Export-Row-Limit", "true");
-  res.send(result.buffer);
-});
-
-export const exportEventsCsv = asyncHandler(async (req, res) => {
-  const result = await adminService.exportEventsCsv();
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="${safeFilename(result.filename)}"`,
-  );
-  res.setHeader("Content-Type", "text/csv");
-  if (result.rowsLimited) res.setHeader("X-Export-Row-Limit", "true");
-  res.send(result.buffer);
-});
-
 export const exportAllData = asyncHandler(async (req, res) => {
-  const { format = "xlsx" } = req.query; // 'xlsx' or 'csv'
+  res.setHeader(
+    "Content-Type",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
 
-  const contentType =
-    format === "csv"
-      ? "text/csv"
-      : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-  const timestamp = new Date().toISOString().split('T')[0];
+  const timestamp = new Date().toISOString().split("T")[0];
   res.setHeader(
     "Content-Disposition",
-    `attachment; filename="${safeFilename(`all_data_${timestamp}.${format}`)}"`,
+    `attachment; filename="${safeFilename(`all_data_${timestamp}.xlsx`)}"`,
   );
-  res.setHeader("Content-Type", contentType);
 
-  await adminService.exportAllData(format, res);
+  await adminService.exportAllData(res);
 });
 
 // Users Management

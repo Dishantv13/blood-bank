@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { gsap } from 'gsap';
 import { FaCalendarAlt, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import './DatePicker.css';
+import '../components.css/DatePicker.css';
 
 const DatePicker = ({ value, onChange, placeholder = "Select Date", minDate }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -77,6 +77,14 @@ const DatePicker = ({ value, onChange, placeholder = "Select Date", minDate }) =
     return days;
   }, [viewDate]);
 
+  // Memoized minDate timestamp for efficient comparison
+  const minTimestamp = useMemo(() => {
+    if (!minDate) return null;
+    const min = new Date(minDate);
+    min.setHours(0, 0, 0, 0);
+    return min.getTime();
+  }, [minDate]);
+
   const handlePrevMonth = (e) => {
     e.stopPropagation();
     setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
@@ -90,8 +98,8 @@ const DatePicker = ({ value, onChange, placeholder = "Select Date", minDate }) =
   const handleDateSelect = (date) => {
     if (!date) return;
     
-    // Check minDate
-    if (minDate && date < new Date(minDate).setHours(0,0,0,0)) return;
+    // Strict minDate check using timestamps
+    if (minTimestamp && date.getTime() < minTimestamp) return;
 
     onChange(date);
     setIsOpen(false);
@@ -120,11 +128,8 @@ const DatePicker = ({ value, onChange, placeholder = "Select Date", minDate }) =
   };
 
   const isDisabled = (date) => {
-    if (!date || !minDate) return false;
-    const d = new Date(date);
-    const min = new Date(minDate);
-    min.setHours(0, 0, 0, 0);
-    return d < min;
+    if (!date || !minTimestamp) return false;
+    return date.getTime() < minTimestamp;
   };
 
   return (
@@ -221,6 +226,14 @@ const DatePicker = ({ value, onChange, placeholder = "Select Date", minDate }) =
               className="today-btn" 
               onClick={() => {
                 const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                // Check if today is allowed
+                if (minTimestamp && today.getTime() < minTimestamp) {
+                  // If today is disabled, just jump to minDate month
+                  const jumpDate = new Date(minTimestamp);
+                  setViewDate(jumpDate);
+                  return;
+                }
                 setViewDate(today);
                 handleDateSelect(today);
               }}

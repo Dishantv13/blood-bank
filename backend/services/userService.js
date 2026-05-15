@@ -13,6 +13,7 @@ import * as cloudinary from "../utils/cloudinary.js";
 import * as serializers from "../utils/serializers.js";
 import * as pagination from "../utils/pagination.js";
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+import { toObjectId } from "../utils/dbGuards.js";
 
 import { getRedisClient } from "../config/redis.js";
 import { queueAadhaarVerification } from "../queues/aadhaarVerificationQueue.js";
@@ -319,20 +320,47 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
 };
 
 // Get available donors by blood group
-export const getAvailableDonors = async (query) => {
-  const { bloodGroup, latitude, longitude, maxDistance } = query;
+export const getAvailableDonors = async (req) => {
+  const { query, user } = req;
+  const currentUserId = user?.userId || user?._id || user?.id;
+  const { bloodGroup, latitude, longitude, maxDistance, availability } = query;
   const { page, limit, skip } = pagination.getPaginationParams({ query });
 
-  let filterQuery = { isDonor: true, isAvailable: true };
+  let filterQuery = { isDonor: true };
+  if (currentUserId) {
+    filterQuery._id = { $ne: toObjectId(currentUserId) };
+  }
   if (bloodGroup) {
     validationService.validateBloodGroup(bloodGroup);
     filterQuery.bloodGroup = bloodGroup;
+  }
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+  // Filter based on availability status
+  if (availability === "available") {
+    filterQuery.isAvailable = true;
+    filterQuery.$or = [
+      { "donorInfo.lastDonationDate": { $lt: threeMonthsAgo } },
+      { "donorInfo.lastDonationDate": { $exists: false } },
+      { "donorInfo.lastDonationDate": null },
+    ];
+  } else if (availability === "recently") {
+    filterQuery.$or = [
+      { isAvailable: false },
+      { "donorInfo.lastDonationDate": { $gte: threeMonthsAgo } },
+    ];
   }
 
   let donors;
   let total;
 
   if (latitude && longitude) {
+    // Note: Nearby donors currently doesn't support the complex availability filter in the same way
+    // but we can pass the filterQuery to it if findNearbyDonors supports it.
     donors = await userRepository.findNearbyDonors(
       [parseFloat(longitude), parseFloat(latitude)],
       maxDistance ? parseInt(maxDistance) : 10000,
@@ -344,6 +372,7 @@ export const getAvailableDonors = async (query) => {
       filterQuery,
       {
         select: serializers.USER_DONOR_FIELDS,
+        sort: { "donorInfo.lastDonationDate": -1 },
         skip,
         limit,
       },

@@ -194,12 +194,9 @@
 }
 
 .events-scroll-grid {
-  max-height: min(60vh, 980px);
-  overflow-y: auto;
   padding-top: 10px;
   padding-right: 6px;
   scroll-padding-top: 10px;
-  scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
 }
 

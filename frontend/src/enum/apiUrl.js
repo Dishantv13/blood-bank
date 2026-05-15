@@ -200,17 +200,11 @@ export const ADMIN_URLS = {
 
   EXPORT: {
     USERS_XLSX: "/admin/export/users",
-    USERS_CSV: "/admin/export/users/csv",
     REQUESTS_XLSX: "/admin/export/requests",
-    REQUESTS_CSV: "/admin/export/requests/csv",
     BLOODBANKS_XLSX: "/admin/export/blood-banks",
-    BLOODBANKS_CSV: "/admin/export/blood-banks/csv",
     CAMPS_XLSX: "/admin/export/camps",
-    CAMPS_CSV: "/admin/export/camps/csv",
     EVENTS_XLSX: "/admin/export/events",
-    EVENTS_CSV: "/admin/export/events/csv",
-    ALL_XLSX: "/admin/export/all?format=xlsx",
-    ALL_CSV: "/admin/export/all?format=csv",
+    ALL_XLSX: "/admin/export/all",
   },
 };
 

@@ -1,18 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useGetInventoryOverviewQuery } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
+import { usePaginationParams } from "../hooks/usePaginationParams.js";
+import SearchFilter from "../components/SearchFilter.jsx";
 
 const AdminInventory = () => {
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
+  const { page, limit, setPage, setLimit } = usePaginationParams(10);
   const [filters, setFilters] = useState({ search: "", bloodType: "" });
 
   const { data: inventoryData, isLoading } = useGetInventoryOverviewQuery({
     page,
-    limit: 10,
+    limit,
     ...filters,
   });
 
@@ -21,19 +22,10 @@ const AdminInventory = () => {
     setPage(1);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmedSearch = searchInput.trim();
-      setFilters((prev) =>
-        prev.search === trimmedSearch
-          ? prev
-          : { ...prev, search: trimmedSearch },
-      );
-      setPage(1);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const handleSearch = (value) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+    setPage(1);
+  };
 
   const columns = [
     { key: "bloodBank", label: "Blood Bank", width: "35%" },
@@ -74,12 +66,10 @@ const AdminInventory = () => {
       )} */}
 
       <div className="filters-panel">
-        <input
-          type="text"
+        <SearchFilter
           placeholder="Search by blood bank..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="filter-input"
+          onSearch={handleSearch}
+          initialValue={filters.search}
         />
         <select
           value={filters.bloodType}
@@ -109,6 +99,7 @@ const AdminInventory = () => {
         }
         pagination={inventoryData?.pagination}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
     </div>
   );

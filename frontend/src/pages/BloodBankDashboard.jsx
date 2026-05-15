@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useGetBloodBankInventoryQuery,
   useGetBloodBankProfileQuery,
@@ -28,6 +28,8 @@ import {
 import { useGetBloodBankEventsQuery } from "../store/eventApi";
 import { useToast } from "../components/ToastContainer";
 import MapModal from "../components/MapModal";
+import Pagination from "../components/Pagination";
+import SearchFilter from "../components/SearchFilter";
 import BloodBankEventManager from "../components/BloodBankEventManager";
 import BloodBankDonations from "../components/BloodBankDonations";
 import BloodBankSidebar from "../components/BloodBankSidebar";
@@ -36,12 +38,7 @@ import SkeletonLoader from "../components/SkeletonLoader";
 import DatePicker from "../components/DatePicker";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useAuth } from "../context/AuthContext";
-import {
-  FaCalendarAlt,
-  FaChartBar,
-  FaEye,
-  FaEyeSlash,
-} from "react-icons/fa";
+import { FaCalendarAlt, FaChartBar, FaEye, FaEyeSlash } from "react-icons/fa";
 import "../pages.css/BloodBankDashboard.css";
 
 const DEFAULT_INVENTORY = [
@@ -57,6 +54,7 @@ const DEFAULT_INVENTORY = [
 
 const BloodBankDashboard = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     bloodBank: sessionBloodBank,
     isBloodBankAuthenticated,
@@ -70,10 +68,7 @@ const BloodBankDashboard = () => {
   const [bloodBank, setBloodBank] = useState(sessionBloodBank || null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
-  const [camps, setCamps] = useState([]);
-  const [events, setEvents] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [approvedRequests, setApprovedRequests] = useState([]);
+  const [bloodBanksList, setBloodBanksList] = useState([]);
   const [showCampModal, setShowCampModal] = useState(false);
   const [editingCamp, setEditingCamp] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -81,15 +76,39 @@ const BloodBankDashboard = () => {
   const [selectedCamp, setSelectedCamp] = useState(null);
   const [showCampDetails, setShowCampDetails] = useState(false);
   const [showRegistrations, setShowRegistrations] = useState(false);
-  const [bloodBanksList, setBloodBanksList] = useState([]);
   const [bloodBankPhoto, setBloodBankPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [savingInventory, setSavingInventory] = useState(false);
   const [savingSection, setSavingSection] = useState(null); // 'profile', 'hours', 'preferences'
   const [inventoryChanged, setInventoryChanged] = useState(false);
   const [inventorySaveError, setInventorySaveError] = useState("");
-  const [requestsSubTab, setRequestsSubTab] = useState("pending"); // 'pending' or 'approved'
-  const [requestSourceTab, setRequestSourceTab] = useState("user");
+  const requestsSubTab = searchParams.get("r_status") || "pending";
+  const requestSourceTab = searchParams.get("r_source") || "user";
+  const requestSearch = searchParams.get("r_search") || "";
+  const requestPage = parseInt(searchParams.get("r_page")) || 1;
+  const requestLimit = parseInt(searchParams.get("r_limit")) || 6;
+
+  const bbSearch = searchParams.get("bb_search") || "";
+  const bbPage = parseInt(searchParams.get("bb_page")) || 1;
+  const bbLimit = parseInt(searchParams.get("bb_limit")) || 6;
+
+  const updateBBParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) newParams.set(`bb_${key}`, value);
+      else newParams.delete(`bb_${key}`);
+    });
+    setSearchParams(newParams, { replace: true });
+  };
+
+  const updateRequestParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) newParams.set(`r_${key}`, value);
+      else newParams.delete(`r_${key}`);
+    });
+    setSearchParams(newParams, { replace: true });
+  };
   const [campForm, setCampForm] = useState({
     name: "",
     date: "",
@@ -109,6 +128,20 @@ const BloodBankDashboard = () => {
   const [gettingBankLocation, setGettingBankLocation] = useState(false);
   const [bankLocation, setBankLocation] = useState(null);
   const [showBankMapModal, setShowBankMapModal] = useState(false);
+
+  const campsSubTab = searchParams.get("c_time") || "upcoming";
+  const campSearch = searchParams.get("c_search") || "";
+  const campPage = parseInt(searchParams.get("c_page")) || 1;
+  const campPageSize = parseInt(searchParams.get("c_limit")) || 5;
+
+  const updateCampParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) newParams.set(`c_${key}`, value);
+      else newParams.delete(`c_${key}`);
+    });
+    setSearchParams(newParams, { replace: true });
+  };
 
   // Settings States
   const [profileForm, setProfileForm] = useState({
@@ -152,49 +185,54 @@ const BloodBankDashboard = () => {
   const { data: requestsData, isFetching: loadingRequests } =
     useGetBloodBankRequestsQuery(
       {
-        status: "pending",
+        status: requestsSubTab,
         ...(requestSourceTab === "user"
           ? { requestType: "user" }
           : requestSourceTab === "bank"
             ? { requestType: "bloodbank", direction: "received" }
             : { requestType: "bloodbank", direction: "sent" }),
-        limit: 500,
+        search: requestSearch,
+        page: requestPage,
+        limit: requestLimit,
       },
       {
         skip: activeTab !== "requests" && activeTab !== "overview",
       },
     );
 
-  const { data: approvedRequestsData, isFetching: loadingApprovedRequests } =
-    useGetBloodBankRequestsQuery(
+  const { data: campsData, isFetching: loadingCamps } =
+    useGetBloodBankCampsQuery(
       {
-        status: "approved",
-        ...(requestSourceTab === "user"
-          ? { requestType: "user" }
-          : requestSourceTab === "bank"
-            ? { requestType: "bloodbank", direction: "received" }
-            : { requestType: "bloodbank", direction: "sent" }),
-        limit: 500,
+        time: campsSubTab,
+        search: campSearch,
+        page: campPage,
+        limit: campPageSize,
       },
       {
-        skip: activeTab !== "requests" || requestsSubTab !== "approved",
+        skip: activeTab !== "camps" && activeTab !== "overview",
       },
     );
 
-  const { data: campsData, isFetching: loadingCamps } =
-    useGetBloodBankCampsQuery(undefined, {
-      skip: activeTab !== "camps" && activeTab !== "overview",
-    });
-
   const { data: eventsData, isFetching: loadingEvents } =
-    useGetBloodBankEventsQuery(undefined, {
-      skip: activeTab !== "events" && activeTab !== "overview",
-    });
+    useGetBloodBankEventsQuery(
+      { time: "upcoming" },
+      {
+        skip: activeTab !== "overview",
+      },
+    );
 
   const { data: bloodBanksData, isFetching: loadingBloodBanks } =
-    useGetAllBloodBanksQuery(undefined, {
-      skip: activeTab !== "bloodbanks",
-    });
+    useGetAllBloodBanksQuery(
+      {
+        search: bbSearch,
+        page: bbPage,
+        limit: bbLimit,
+        excludeId: sessionBloodBank?._id || sessionBloodBank?.id,
+      },
+      {
+        skip: activeTab !== "bloodbanks",
+      },
+    );
 
   // RTK Mutations
   const [updateProfile, { isLoading: updatingProfile }] =
@@ -286,39 +324,8 @@ const BloodBankDashboard = () => {
     setInventoryChanged(differencesFound);
   }, [inventory, inventoryData]);
 
-  // Map requests from query
+  // Map blood banks
   useEffect(() => {
-    if (requestsData) {
-      const reqs =
-        requestsData.requests ||
-        requestsData.data?.data ||
-        (Array.isArray(requestsData.data) ? requestsData.data : []);
-      setRequests(reqs);
-    }
-  }, [requestsData]);
-
-  useEffect(() => {
-    if (approvedRequestsData) {
-      const appReqs =
-        approvedRequestsData.requests ||
-        approvedRequestsData.data?.data ||
-        (Array.isArray(approvedRequestsData.data)
-          ? approvedRequestsData.data
-          : []);
-      setApprovedRequests(appReqs);
-    }
-  }, [approvedRequestsData]);
-
-  // Map camps/events
-  useEffect(() => {
-    if (campsData) {
-      setCamps(Array.isArray(campsData) ? campsData : campsData.camps || []);
-    }
-    if (eventsData) {
-      setEvents(
-        Array.isArray(eventsData) ? eventsData : eventsData.events || [],
-      );
-    }
     if (bloodBanksData) {
       setBloodBanksList(
         Array.isArray(bloodBanksData)
@@ -326,7 +333,7 @@ const BloodBankDashboard = () => {
           : bloodBanksData.data || [],
       );
     }
-  }, [campsData, eventsData, bloodBanksData]);
+  }, [bloodBanksData]);
 
   // Handle browser back/refresh with unsaved changes
   useEffect(() => {
@@ -350,9 +357,18 @@ const BloodBankDashboard = () => {
       setProfileForm({
         name: bb.name || "",
         phone: bb.phone || "",
-        address: bb.formattedAddress || (typeof bb.address === 'object' ? 
-          [bb.address?.street, bb.address?.city, bb.address?.state, bb.address?.pincode].filter(Boolean).join(", ") : 
-          bb.address || ""),
+        address:
+          bb.formattedAddress ||
+          (typeof bb.address === "object"
+            ? [
+                bb.address?.street,
+                bb.address?.city,
+                bb.address?.state,
+                bb.address?.pincode,
+              ]
+                .filter(Boolean)
+                .join(", ")
+            : bb.address || ""),
       });
 
       if (bb.operatingHours) {
@@ -793,7 +809,12 @@ const BloodBankDashboard = () => {
       });
     } catch (err) {
       console.error("Error saving camp:", err);
-      error("Failed to save camp. Please try again.");
+      const msg =
+        err.data?.errors?.[0]?.msg ||
+        err.data?.message ||
+        err.message ||
+        "Failed to save camp. Please try again.";
+      error(msg);
     }
   };
 
@@ -826,6 +847,7 @@ const BloodBankDashboard = () => {
     } catch (err) {
       console.error("Error saving profile:", err);
       const msg =
+        err.data?.errors?.[0]?.msg ||
         err.data?.message ||
         err.data?.error ||
         err.message ||
@@ -844,6 +866,7 @@ const BloodBankDashboard = () => {
     } catch (err) {
       console.error("Error saving hours:", err);
       const msg =
+        err.data?.errors?.[0]?.msg ||
         err.data?.message ||
         err.data?.error ||
         err.message ||
@@ -862,6 +885,7 @@ const BloodBankDashboard = () => {
     } catch (err) {
       console.error("Error saving preferences:", err);
       const msg =
+        err.data?.errors?.[0]?.msg ||
         err.data?.message ||
         err.data?.error ||
         err.message ||
@@ -946,6 +970,7 @@ const BloodBankDashboard = () => {
     } catch (err) {
       console.error("Password change error details:", err);
       const msg =
+        err.data?.errors?.[0]?.msg ||
         err.data?.message ||
         err.data?.error ||
         err.message ||
@@ -1023,15 +1048,17 @@ const BloodBankDashboard = () => {
     return parsedDate >= today;
   };
 
-  const upcomingCampsList = camps
-    .filter((camp) => camp.status !== "completed" && isUpcomingDate(camp.date))
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const upcomingCampsList =
+    campsSubTab === "upcoming" ? campsData?.data || campsData?.camps || [] : [];
+  const pastCampsList =
+    campsSubTab === "past" ? campsData?.data || campsData?.camps || [] : [];
 
-  const pastCampsList = camps
-    .filter((camp) => camp.status === "completed" || !isUpcomingDate(camp.date))
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const upcomingEventsList = events
+  const upcomingEventsList = (
+    eventsData?.data ||
+    eventsData?.events ||
+    eventsData ||
+    []
+  )
     .filter((event) => isUpcomingDate(event.date))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
@@ -1039,7 +1066,8 @@ const BloodBankDashboard = () => {
   const criticalTypes = inventory.filter(
     (item) => item.status === "critical",
   ).length;
-  const upcomingCamps = upcomingCampsList.length;
+  const upcomingCamps = campsData?.pagination?.upcomingCount || 0;
+  const upcomingEventsCount = eventsData?.pagination?.upcomingCount || 0;
   const currentBankId = String(bloodBank?._id || bloodBank?.id || "");
 
   const isInterBankRequest = (request) => request?.requestType === "bloodbank";
@@ -1053,15 +1081,9 @@ const BloodBankDashboard = () => {
     return isInterBankRequest(request) && requesterId === currentBankId;
   };
 
-  const pendingRequests = requests.filter((request) => {
-    const requestStatus = String(request?.status || "").toLowerCase();
-    const responseStatus = String(
-      request?.bloodBankResponse?.status || "",
-    ).toLowerCase();
-
-    if (requestStatus !== "pending") return false;
-    return !responseStatus || responseStatus === "pending";
-  });
+  const requests = requestsData?.data || requestsData?.requests || [];
+  const pendingRequests = requestsSubTab === "pending" ? requests : [];
+  const approvedRequests = requestsSubTab === "approved" ? requests : [];
 
   if (loading) {
     return <SkeletonLoader />;
@@ -1093,12 +1115,15 @@ const BloodBankDashboard = () => {
       }
     }
     setActiveTab(tab);
+    setSearchParams({});
     setMobileMenuOpen(false);
   };
 
   const formatAddress = (address) => {
     if (!address) return "Address not available";
     if (typeof address === "string") return address;
+    if (typeof address === "object" && address.type === "Point")
+      return "Location Captured";
 
     const parts = [
       address.street,
@@ -1544,7 +1569,7 @@ const BloodBankDashboard = () => {
                     </svg>
                   </div>
                   <div className="stat-info">
-                    <h3>{upcomingEventsList.length}</h3>
+                    <h3>{upcomingEventsCount}</h3>
                     <p>Upcoming Events</p>
                   </div>
                 </div>
@@ -1575,8 +1600,9 @@ const BloodBankDashboard = () => {
                 </div>
               </div>
 
-              <div className="overview-grid">
-                <div className="overview-card">
+              <div className="overview-grid three-columns">
+                {/* Quick Inventory Status */}
+                <div className="overview-card inventory-overview-card">
                   <h3>Quick Inventory Status</h3>
                   <div className="mini-inventory">
                     {inventory.map((item) => (
@@ -1597,64 +1623,86 @@ const BloodBankDashboard = () => {
                   </div>
                 </div>
 
+                {/* Upcoming Camps */}
                 <div className="overview-card">
-                  <h3>Upcoming Camps</h3>
-                  <div className="mini-camps scrollable">
-                    {upcomingCampsList.map((camp) => (
-                      <div key={camp._id} className="mini-camp-item">
-                        <div className="camp-date">
-                          <span className="day">
-                            {new Date(camp.date).getDate()}
-                          </span>
-                          <span className="month">
-                            {new Date(camp.date).toLocaleString("default", {
-                              month: "short",
-                            })}
-                          </span>
+                  <div className="card-header-flex">
+                    <h3>Upcoming Camps</h3>
+                    <button
+                      className="view-all-link"
+                      onClick={() => setActiveTab("camps")}
+                    >
+                      View All
+                    </button>
+                  </div>
+                  <div className="upcoming-list">
+                    {upcomingCampsList.length > 0 ? (
+                      upcomingCampsList.map((camp) => (
+                        <div key={camp._id} className="upcoming-item">
+                          <div className="upcoming-date">
+                            <span className="day">
+                              {new Date(camp.date).getDate()}
+                            </span>
+                            <span className="month">
+                              {new Date(camp.date).toLocaleString("en-US", {
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+                          <div className="upcoming-info">
+                            <h4>{camp.name}</h4>
+                            <p>
+                              {typeof camp.location === "object" && camp.location?.type !== "Point"
+                                ? formatAddress(camp.address) || "Location specified"
+                                : typeof camp.location === "string" ? camp.location : camp.venue || "Location specified"}
+                            </p>
+                          </div>
                         </div>
-                        <div className="camp-info">
-                          <h4>{camp.name}</h4>
-                          <p>
-                            {camp.venue}, {camp.city}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {upcomingCampsList.length === 0 && (
-                      <p className="no-data">No upcoming camps</p>
+                      ))
+                    ) : (
+                      <p className="no-data">No upcoming camps scheduled</p>
                     )}
                   </div>
                 </div>
 
+                {/* Upcoming Events */}
                 <div className="overview-card">
-                  <h3>Upcoming Events</h3>
-                  <div className="mini-camps scrollable">
-                    {upcomingEventsList.map((event) => (
-                      <div
-                        key={event._id}
-                        className="mini-camp-item event-item"
-                      >
-                        <div className="camp-date">
-                          <span className="day">
-                            {new Date(event.date).getDate()}
-                          </span>
-                          <span className="month">
-                            {new Date(event.date).toLocaleString("default", {
-                              month: "short",
-                            })}
-                          </span>
+                  <div className="card-header-flex">
+                    <h3>Upcoming Events</h3>
+                    <button
+                      className="view-all-link"
+                      onClick={() => setActiveTab("events")}
+                    >
+                      View All
+                    </button>
+                  </div>
+                  <div className="upcoming-list">
+                    {upcomingEventsList.length > 0 ? (
+                      upcomingEventsList.map((event) => (
+                        <div key={event._id} className="upcoming-item">
+                          <div className="upcoming-date event-date">
+                            <span className="day">
+                              {new Date(event.date).getDate()}
+                            </span>
+                            <span className="month">
+                              {new Date(event.date).toLocaleString("en-US", {
+                                month: "short",
+                              })}
+                            </span>
+                          </div>
+                          <div className="upcoming-info">
+                            <h4>{event.title || event.name}</h4>
+                            <p>
+                              {typeof event.location === "string" ? event.location : 
+                               event.location?.address || 
+                               event.location?.name ||
+                               (typeof event.location === "object" && event.location?.type !== "Point" ? formatAddress(event.address) : null) ||
+                               event.venue || 
+                               "Address not available"}
+                            </p>
+                          </div>
                         </div>
-                        <div className="camp-info">
-                          <h4>{event.title}</h4>
-                          <p>
-                            {event.location?.name ||
-                              event.location?.address ||
-                              "Location TBD"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                    {upcomingEventsList.length === 0 && (
+                      ))
+                    ) : (
                       <p className="no-data">No upcoming events</p>
                     )}
                   </div>
@@ -1801,58 +1849,124 @@ const BloodBankDashboard = () => {
                 </button>
               </div>
 
-              <div className="camps-list">
-                {loadingCamps ? (
-                  <div className="loading-state">
-                    <div className="loading-spinner"></div>
-                    <p>Loading camps...</p>
-                  </div>
-                ) : upcomingCampsList.length === 0 &&
-                  pastCampsList.length === 0 ? (
-                  <div className="empty-state">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                      <line x1="16" y1="2" x2="16" y2="6" />
-                      <line x1="8" y1="2" x2="8" y2="6" />
-                      <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                    <h3>No Upcoming Camps</h3>
-                    <p>Create a new blood camp to get started</p>
-                  </div>
-                ) : upcomingCampsList.length === 0 ? (
-                  <p className="no-data">No upcoming camps</p>
-                ) : null}
+              <div className="tab-actions-header">
+                <div className="requests-sub-nav requests-sub-nav--status">
+                  <button
+                    className={`sub-nav-btn ${campsSubTab === "upcoming" ? "active" : ""}`}
+                    onClick={() => {
+                      updateCampParams({ time: "upcoming", page: 1, limit: 5 });
+                    }}
+                  >
+                    Upcoming Camps ({campsData?.pagination?.upcomingCount || 0})
+                  </button>
+                  <button
+                    className={`sub-nav-btn ${campsSubTab === "past" ? "active" : ""}`}
+                    onClick={() => {
+                      updateCampParams({ time: "past", page: 1, limit: 5 });
+                    }}
+                  >
+                    Past Camps ({campsData?.pagination?.pastCount || 0})
+                  </button>
+                </div>
+
+                <SearchFilter
+                  onSearch={(val) => {
+                    updateCampParams({ search: val, page: 1 });
+                  }}
+                  initialValue={campSearch}
+                  placeholder="Search camps by name, venue..."
+                />
               </div>
 
-              {!loadingCamps && upcomingCampsList.length > 0 && (
-                <div className="events-section">
-                  <h3 className="section-title">
-                    <FaCalendarAlt style={{ marginRight: "8px" }} /> Upcoming
-                    Camps
-                  </h3>
-                  <div className="events-grid camps-scroll-grid">
-                    {upcomingCampsList.map((camp) => renderCampCard(camp))}
-                  </div>
+              {loadingCamps ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <p>Loading camps...</p>
                 </div>
-              )}
+              ) : (
+                <>
+                  {campsSubTab === "upcoming" && (
+                    <div className="events-section">
+                      {upcomingCampsList.length === 0 ? (
+                        <div className="empty-state">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <rect
+                              x="3"
+                              y="4"
+                              width="18"
+                              height="18"
+                              rx="2"
+                              ry="2"
+                            />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                          <h3>No Upcoming Camps</h3>
+                          <p>Create a new blood camp to get started</p>
+                        </div>
+                      ) : (
+                        <div className="events-grid camps-scroll-grid">
+                          {upcomingCampsList.map((camp) =>
+                            renderCampCard(camp),
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-              {!loadingCamps && pastCampsList.length > 0 && (
-                <div className="events-section">
-                  <h3 className="section-title">
-                    <FaChartBar style={{ marginRight: "8px" }} /> Past Camps
-                    (Last 3)
-                  </h3>
-                  <div className="events-grid camps-scroll-grid">
-                    {pastCampsList
-                      .slice(0, 3)
-                      .map((camp) => renderCampCard(camp))}
-                  </div>
-                </div>
+                  {campsSubTab === "past" && (
+                    <div className="events-section">
+                      {pastCampsList.length === 0 ? (
+                        <div className="empty-state">
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <rect
+                              x="3"
+                              y="4"
+                              width="18"
+                              height="18"
+                              rx="2"
+                              ry="2"
+                            />
+                            <line x1="16" y1="2" x2="16" y2="6" />
+                            <line x1="8" y1="2" x2="8" y2="6" />
+                            <line x1="3" y1="10" x2="21" y2="10" />
+                          </svg>
+                          <h3>No Past Camps</h3>
+                          <p>Your previous blood camps will appear here</p>
+                        </div>
+                      ) : (
+                        <div className="events-grid camps-scroll-grid">
+                          {pastCampsList.map((camp) => renderCampCard(camp))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pagination */}
+                  {!loadingCamps && campsData?.pagination?.total > 0 && (
+                    <Pagination
+                      currentPage={campPage}
+                      totalPages={campsData?.pagination?.totalPages}
+                      totalRecords={campsData?.pagination?.total}
+                      pageSize={campPageSize}
+                      onPageChange={(page) => updateCampParams({ page })}
+                      onPageSizeChange={(limit) => {
+                        updateCampParams({ limit, page: 1 });
+                      }}
+                    />
+                  )}
+                </>
               )}
             </div>
           )}
@@ -1866,37 +1980,100 @@ const BloodBankDashboard = () => {
               <div className="requests-sub-nav requests-sub-nav--status">
                 <button
                   className={`sub-nav-btn ${requestsSubTab === "pending" ? "active" : ""}`}
-                  onClick={() => setRequestsSubTab("pending")}
+                  onClick={() =>
+                    updateRequestParams({
+                      status: "pending",
+                      page: 1,
+                      search: "",
+                      limit: 6,
+                    })
+                  }
                 >
                   Pending Requests
                 </button>
                 <button
                   className={`sub-nav-btn ${requestsSubTab === "approved" ? "active" : ""}`}
-                  onClick={() => setRequestsSubTab("approved")}
+                  onClick={() =>
+                    updateRequestParams({
+                      status: "approved",
+                      page: 1,
+                      search: "",
+                      limit: 6,
+                    })
+                  }
                 >
                   Approved Requests
                 </button>
               </div>
 
-              <div className="requests-sub-nav requests-sub-nav--source">
-                <button
-                  className={`sub-nav-btn ${requestSourceTab === "user" ? "active" : ""}`}
-                  onClick={() => setRequestSourceTab("user")}
+              <div
+                className="requests-filter-row"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "20px",
+                  marginBottom: "24px",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div
+                  className="requests-sub-nav requests-sub-nav--source"
+                  style={{ marginBottom: 0 }}
                 >
-                  From User
-                </button>
-                <button
-                  className={`sub-nav-btn ${requestSourceTab === "bank" ? "active" : ""}`}
-                  onClick={() => setRequestSourceTab("bank")}
+                  <button
+                    className={`sub-nav-btn ${requestSourceTab === "user" ? "active" : ""}`}
+                    onClick={() =>
+                      updateRequestParams({
+                        source: "user",
+                        page: 1,
+                        search: "",
+                        limit: 6,
+                      })
+                    }
+                  >
+                    From User
+                  </button>
+                  <button
+                    className={`sub-nav-btn ${requestSourceTab === "bank" ? "active" : ""}`}
+                    onClick={() =>
+                      updateRequestParams({
+                        source: "bank",
+                        page: 1,
+                        search: "",
+                        limit: 6,
+                      })
+                    }
+                  >
+                    From Bank
+                  </button>
+                  <button
+                    className={`sub-nav-btn ${requestSourceTab === "my" ? "active" : ""}`}
+                    onClick={() =>
+                      updateRequestParams({
+                        source: "my",
+                        page: 1,
+                        search: "",
+                        limit: 6,
+                      })
+                    }
+                  >
+                    My Requests
+                  </button>
+                </div>
+
+                <div
+                  className="search-filter-container"
+                  style={{ flex: "0 1 400px", minWidth: "280px" }}
                 >
-                  From Bank
-                </button>
-                <button
-                  className={`sub-nav-btn ${requestSourceTab === "my" ? "active" : ""}`}
-                  onClick={() => setRequestSourceTab("my")}
-                >
-                  My Requests
-                </button>
+                  <SearchFilter
+                    onSearch={(val) => {
+                      updateRequestParams({ search: val, page: 1 });
+                    }}
+                    initialValue={requestSearch}
+                    placeholder="Search by patient, hospital, group..."
+                  />
+                </div>
               </div>
 
               {/* Pending Requests */}
@@ -2093,10 +2270,11 @@ const BloodBankDashboard = () => {
                                     fill="none"
                                   >
                                     <path
-                                      d="M15 5L5 15M5 5L15 15"
+                                      d="M18 6L6 18M6 6l12 12"
                                       stroke="currentColor"
                                       strokeWidth="2"
                                       strokeLinecap="round"
+                                      strokeLinejoin="round"
                                     />
                                   </svg>
                                   Reject
@@ -2108,13 +2286,27 @@ const BloodBankDashboard = () => {
                       })}
                     </div>
                   )}
+
+                  {/* Pagination for Pending */}
+                  {!loadingRequests && requestsData?.pagination?.total > 0 && (
+                    <Pagination
+                      currentPage={requestPage}
+                      totalPages={requestsData?.pagination?.totalPages}
+                      totalRecords={requestsData?.pagination?.total}
+                      pageSize={requestLimit}
+                      onPageChange={(page) => updateRequestParams({ page })}
+                      onPageSizeChange={(limit) => {
+                        updateRequestParams({ limit, page: 1 });
+                      }}
+                    />
+                  )}
                 </>
               )}
 
               {/* Approved Requests */}
               {requestsSubTab === "approved" && (
                 <>
-                  {loadingApprovedRequests ? (
+                  {loadingRequests ? (
                     <div className="loading-state">
                       <div className="loading-spinner"></div>
                       <p>Loading approved requests...</p>
@@ -2252,6 +2444,20 @@ const BloodBankDashboard = () => {
                       ))}
                     </div>
                   )}
+
+                  {/* Pagination for Approved */}
+                  {!loadingRequests && requestsData?.pagination?.total > 0 && (
+                    <Pagination
+                      currentPage={requestPage}
+                      totalPages={requestsData?.pagination?.totalPages}
+                      totalRecords={requestsData?.pagination?.total}
+                      pageSize={requestLimit}
+                      onPageChange={(page) => updateRequestParams({ page })}
+                      onPageSizeChange={(limit) => {
+                        updateRequestParams({ limit, page: 1 });
+                      }}
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -2260,10 +2466,22 @@ const BloodBankDashboard = () => {
           {/* Blood Banks Tab */}
           {activeTab === "bloodbanks" && (
             <div className="bloodbanks-content">
-              <h2>Blood Banks Directory</h2>
-              <p className="section-description">
-                Browse available blood banks and check their inventory status
-              </p>
+              <div className="section-header-row">
+                <div>
+                  <h2>Blood Banks Directory</h2>
+                  <p className="section-description">
+                    Browse available blood banks and check their inventory
+                    status
+                  </p>
+                </div>
+                <div className="section-actions">
+                  <SearchFilter
+                    placeholder="Search by name, city or state..."
+                    value={bbSearch}
+                    onSearch={(search) => updateBBParams({ search, page: 1 })}
+                  />
+                </div>
+              </div>
 
               {loadingBloodBanks ? (
                 <div className="loading-state">
@@ -2290,68 +2508,198 @@ const BloodBankDashboard = () => {
                   {directoryBloodBanks.map((bloodBankItem, index) => (
                     <div
                       key={bloodBankItem._id || bloodBankItem.id || index}
-                      className="bloodbank-item"
+                      className="bloodbank-card-v2"
+                      onClick={() => handleViewBloodBankDetails(bloodBankItem)}
+                      style={{ cursor: "pointer" }}
                     >
-                      <div className="bloodbank-header">
-                        <div className="bloodbank-icon">
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                            <polyline points="9 22 9 12 15 12 15 22" />
-                          </svg>
-                        </div>
-                        <div>
-                          <h3>{bloodBankItem.name}</h3>
-                          <p className="bloodbank-address">
-                            {formatAddress(bloodBankItem.address)}
-                          </p>
-                        </div>
+                      <div className="bloodbank-card-image">
+                        <img
+                          src={
+                            bloodBankItem.profileImage ||
+                            bloodBankItem.logo ||
+                            [
+                              "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800",
+                              "https://images.unsplash.com/photo-1586773860418-d373a241cba2?auto=format&fit=crop&q=80&w=800",
+                              "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=800",
+                              "https://images.unsplash.com/photo-1538108149393-fdfd81895907?auto=format&fit=crop&q=80&w=800",
+                              "https://images.unsplash.com/photo-1512678080530-7760d81faba6?auto=format&fit=crop&q=80&w=800",
+                            ][index % 5]
+                          }
+                          alt={bloodBankItem.name}
+                        />
+                        <span className="status-badge open">● Open Now</span>
                       </div>
-                      <div className="bloodbank-quick-info">
-                        <div className="info-item">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 20 20"
-                            fill="none"
-                            stroke="currentColor"
-                          >
-                            <path
-                              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C7.82 21 2 15.18 2 8V5z"
+
+                      <div className="bloodbank-card-content">
+                        <div className="card-title-row">
+                          <h3 className="card-title">{bloodBankItem.name}</h3>
+                          <div className="card-rating">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                            </svg>
+                            4.9
+                          </div>
+                        </div>
+                        <p className="card-category">
+                          LICENSED MEDICAL FACILITY
+                        </p>
+
+                        <div className="card-details-list">
+                          <div className="card-detail-item">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
                               strokeWidth="2"
-                            />
-                          </svg>
-                          {bloodBankItem.phone}
+                            >
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                            {typeof bloodBankItem.city === "string"
+                              ? bloodBankItem.city
+                              : typeof bloodBankItem.address === "object"
+                                ? bloodBankItem.address.city
+                                : "Local Area"}
+                          </div>
+                          <div className="card-detail-item">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <circle cx="12" cy="12" r="10" />
+                              <polyline points="12 6 12 12 16 14" />
+                            </svg>
+                            24/7 Emergency Service
+                          </div>
+                          <div className="card-detail-item">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Government Verified
+                          </div>
                         </div>
-                        <div className="info-item">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 20 20"
-                            fill="none"
-                            stroke="currentColor"
+
+                        <div className="card-stock-preview">
+                          <p className="stock-label">AVAILABLE STOCKS:</p>
+                          <div className="stock-badges-row">
+                            {Array.isArray(bloodBankItem.inventory)
+                              ? bloodBankItem.inventory
+                                  .filter((item) => item.units > 0)
+                                  .slice(0, 4)
+                                  .map((item) => (
+                                    <span
+                                      key={item._id}
+                                      className="stock-preview-badge"
+                                    >
+                                      {item.bloodGroup}
+                                    </span>
+                                  ))
+                              : bloodBankItem.inventory &&
+                                Object.entries(bloodBankItem.inventory)
+                                  .filter(([_, units]) => units > 0)
+                                  .slice(0, 4)
+                                  .map(([group]) => (
+                                    <span
+                                      key={group}
+                                      className="stock-preview-badge"
+                                    >
+                                      {group}
+                                    </span>
+                                  ))}
+                            {(Array.isArray(bloodBankItem.inventory)
+                              ? bloodBankItem.inventory.filter(
+                                  (item) => item.units > 0,
+                                ).length
+                              : Object.entries(
+                                  bloodBankItem.inventory || {},
+                                ).filter(([_, units]) => units > 0).length) >
+                              4 && (
+                              <span className="stock-more-count">
+                                +
+                                {(Array.isArray(bloodBankItem.inventory)
+                                  ? bloodBankItem.inventory.filter(
+                                      (item) => item.units > 0,
+                                    ).length
+                                  : Object.entries(
+                                      bloodBankItem.inventory || {},
+                                    ).filter(([_, units]) => units > 0)
+                                      .length) - 4}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="card-footer-actions">
+                          <a
+                            href={`tel:${bloodBankItem.phone}`}
+                            className="card-call-link"
                           >
-                            <circle cx="10" cy="10" r="7" strokeWidth="2" />
-                            <path d="M10 6v4l2 2" strokeWidth="2" />
-                          </svg>
-                          {formatOperatingHours(bloodBankItem.operatingHours)}
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
+                            </svg>
+                            Call
+                          </a>
+                          <button
+                            className="card-view-btn"
+                            onClick={() =>
+                              handleViewBloodBankDetails(bloodBankItem)
+                            }
+                          >
+                            View Details
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                            >
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          </button>
                         </div>
                       </div>
-                      <button
-                        className="btn-view-details"
-                        onClick={() =>
-                          handleViewBloodBankDetails(bloodBankItem)
-                        }
-                      >
-                        View Details & Inventory
-                      </button>
                     </div>
                   ))}
                 </div>
+              )}
+
+              {!loadingBloodBanks && bloodBanksData?.pagination?.total > 0 && (
+                <Pagination
+                  currentPage={bbPage}
+                  totalPages={bloodBanksData?.pagination?.totalPages}
+                  totalRecords={bloodBanksData?.pagination?.total}
+                  pageSize={bbLimit}
+                  onPageChange={(page) => updateBBParams({ page })}
+                  onPageSizeChange={(limit) => {
+                    updateBBParams({ limit, page: 1 });
+                  }}
+                />
               )}
             </div>
           )}
@@ -2644,7 +2992,11 @@ const BloodBankDashboard = () => {
                         type="text"
                         id="regNum"
                         className="form-control"
-                        value={bloodBank?.registrationNumber || bloodBank?.licenseNumber || ""}
+                        value={
+                          bloodBank?.registrationNumber ||
+                          bloodBank?.licenseNumber ||
+                          ""
+                        }
                         placeholder="Hospital registration number"
                         readOnly
                         style={{
@@ -2976,7 +3328,9 @@ const BloodBankDashboard = () => {
                         }
                         disabled={changingPassword}
                         title={
-                          showCurrentPassword ? "Hide password" : "Show password"
+                          showCurrentPassword
+                            ? "Hide password"
+                            : "Show password"
                         }
                       >
                         {showCurrentPassword ? <FaEyeSlash /> : <FaEye />}
@@ -3220,7 +3574,16 @@ const BloodBankDashboard = () => {
                   <DatePicker
                     value={campForm.date}
                     onChange={(date) => {
-                      setCampForm({ ...campForm, date: date.toISOString().split('T')[0] });
+                      const year = date.getFullYear();
+                      const month = String(date.getMonth() + 1).padStart(
+                        2,
+                        "0",
+                      );
+                      const day = String(date.getDate()).padStart(2, "0");
+                      setCampForm({
+                        ...campForm,
+                        date: `${year}-${month}-${day}`,
+                      });
                     }}
                     minDate={new Date()}
                     placeholder="Select Date"

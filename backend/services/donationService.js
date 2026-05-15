@@ -58,9 +58,15 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
 // Get user's donation history (paginated, optimized)
 export const getUserDonations = async (donorId, query) => {
   const { page, limit, skip } = pagination.getPaginationParams({ query });
+  const { status } = query;
+
+  const filter = { donor: toObjectId(donorId) };
+  if (status) {
+    filter.status = status;
+  }
 
   const { data: donations, total } = await donationRepository.findPaginated(
-    { donor: toObjectId(donorId) },
+    filter,
     {
       sort: { createdAt: -1 },
       skip,
@@ -81,9 +87,39 @@ export const getUserDonations = async (donorId, query) => {
 // Get blood bank's donations (paginated, optimized)
 export const getBloodBankDonations = async (bloodBankId, query) => {
   const { page, limit, skip } = pagination.getPaginationParams({ query });
+  const { status, search, type } = query;
+
+  const filter = { bloodBank: toObjectId(bloodBankId) };
+
+  if (status) {
+    if (status === "pending") {
+      filter.status = { $in: ["pending", "approved"] };
+    } else if (status !== "all") {
+      filter.status = status;
+    }
+  }
+
+  if (type) {
+    filter.type = type;
+  }
+
+  // If searching, we need to look into donor name or blood group
+  if (search) {
+    const donors = await userRepository.find(
+      { name: { $regex: search, $options: "i" } },
+      { select: "_id" },
+    );
+    const donorIds = donors.map((d) => d._id);
+
+    filter.$or = [
+      { donor: { $in: donorIds } },
+      { bloodGroup: { $regex: search, $options: "i" } },
+      { certificateCode: { $regex: search, $options: "i" } },
+    ];
+  }
 
   const { data: donations, total } = await donationRepository.findPaginated(
-    { bloodBank: toObjectId(bloodBankId) },
+    filter,
     {
       sort: { createdAt: -1 },
       skip,

@@ -33,7 +33,10 @@ export const bloodCampApi = apiSlice.injectEndpoints({
 
     // Blood Bank Portal Endpoints
     getBloodBankCamps: builder.query({
-      query: () => BLOOD_CAMP_API_URLS.GET_BLOOD_BANK_CAMPS,
+      query: (params) => ({
+        url: BLOOD_CAMP_API_URLS.GET_BLOOD_BANK_CAMPS,
+        params,
+      }),
       providesTags: (result) =>
         tagListWithIds(TAGS.BLOOD_CAMP, result?.camps || result?.data),
     }),

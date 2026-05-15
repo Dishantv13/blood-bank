@@ -219,7 +219,7 @@ export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
   if (!bloodBankId || !mongoose.Types.ObjectId.isValid(bloodBankId)) {
     throw new ApiError(400, "Invalid Blood Bank ID format");
   }
-  const { status, componentType, bloodGroup, page = 1, limit = 20 } = query;
+  const { status, componentType, bloodGroup, page = 1, limit = 10 } = query;
 
   const now = new Date();
   const filter = { bloodBank: new mongoose.Types.ObjectId(bloodBankId) };
@@ -240,6 +240,10 @@ export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
     } else {
       filter.status = status;
     }
+  } else {
+    // Default refined inventory view: Exclude 'raw' (shown in separate tab)
+    // and 'processed' (discarded parent units)
+    filter.status = { $nin: ["raw", "processed"] };
   }
 
   if (componentType) filter.componentType = componentType;
@@ -326,7 +330,7 @@ export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
       total,
       page: Number(page),
       limit: Number(limit),
-      pages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit),
     },
   };
 };

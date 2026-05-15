@@ -220,23 +220,8 @@ const AdminBloodBankDetails = () => {
             </div>
           </div>
 
-          {hasLocation ? (
-            <div className="admin-bank-map-preview">
-              <iframe
-                title="Blood bank location"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${bank.location.coordinates[0] - 0.01},${bank.location.coordinates[1] - 0.01},${bank.location.coordinates[0] + 0.01},${bank.location.coordinates[1] + 0.01}&layer=mapnik&marker=${bank.location.coordinates[1]},${bank.location.coordinates[0]}`}
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                style={{ border: 0 }}
-                allowFullScreen
-              />
-            </div>
-          ) : (
-            <p className="admin-bank-empty">
-              No live location was stored at registration time.
-            </p>
-          )}
+          {/* Map preview removed as requested. Accessible via "Open Map" button above. */}
+
         </section>
 
         <section className="admin-bank-details-card">

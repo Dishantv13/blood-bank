@@ -37,6 +37,9 @@ class DonationRepository extends BaseRepository {
         },
       },
       { $addFields: { donorName: { $arrayElemAt: ["$donorData.name", 0] } } },
+      ...(options.searchQuery
+        ? [{ $match: { donorName: { $regex: options.searchQuery, $options: "i" } } }]
+        : []),
       {
         $facet: {
           data: [

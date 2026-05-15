@@ -1,18 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useGetAllUsersQuery } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
+import { usePaginationParams } from "../hooks/usePaginationParams.js";
+import SearchFilter from "../components/SearchFilter.jsx";
 
 const AdminRequests = () => {
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
+  const { page, limit, setPage, setLimit } = usePaginationParams(10);
   const [filters, setFilters] = useState({ search: "", status: "" });
 
   const { data: usersData, isLoading } = useGetAllUsersQuery({
     page,
-    limit: 10,
+    limit,
     ...filters,
   });
 
@@ -21,19 +22,10 @@ const AdminRequests = () => {
     setPage(1);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmedSearch = searchInput.trim();
-      setFilters((prev) =>
-        prev.search === trimmedSearch
-          ? prev
-          : { ...prev, search: trimmedSearch },
-      );
-      setPage(1);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const handleSearch = (value) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+    setPage(1);
+  };
 
   const columns = [
     { key: "name", label: "User Name", width: "24%" },
@@ -62,12 +54,10 @@ const AdminRequests = () => {
       </div>
 
       <div className="filters-panel">
-        <input
-          type="text"
+        <SearchFilter
           placeholder="Search user by name, email, or phone..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="filter-input"
+          onSearch={handleSearch}
+          initialValue={filters.search}
         />
         <select
           value={filters.status}
@@ -92,6 +82,7 @@ const AdminRequests = () => {
         }
         pagination={usersData?.pagination}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
     </>
   );

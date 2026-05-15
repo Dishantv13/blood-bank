@@ -6,6 +6,18 @@ import { ROUTE_PATH } from "../enum/routePath";
 import { useToast } from "../components/ToastContainer";
 import { BLOOD_GROUPS } from "../enum/constants";
 import { useAuth } from "../context/AuthContext";
+import { 
+  FiMapPin, 
+  FiPhone, 
+  FiMail, 
+  FiCheckCircle, 
+  FiShield, 
+  FiPackage, 
+  FiArrowLeft, 
+  FiActivity,
+  FiShoppingBag,
+  FiPlus
+} from "react-icons/fi";
 import "../pages.css/BloodBankDirectoryDetails.css";
 
 const getInventoryStatus = (units) => {
@@ -292,7 +304,7 @@ const BloodBankDirectoryDetails = () => {
     }
   };
 
-  if (loading) {
+  if (loading || queryLoading) {
     return (
       <div className="bank-details-page loading-page">
         <div className="details-spinner"></div>
@@ -301,13 +313,13 @@ const BloodBankDirectoryDetails = () => {
     );
   }
 
-  if (errorMessage) {
+  if (errorMessage || queryError) {
     return (
       <div className="bank-details-page">
         <div className="details-shell">
           <div className="details-error-card">
             <h2>Could not load details</h2>
-            <p>{errorMessage}</p>
+            <p>{errorMessage || "Failed to load blood bank"}</p>
             <button
               className="details-back-btn"
               onClick={() => navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD)}
@@ -323,116 +335,209 @@ const BloodBankDirectoryDetails = () => {
   return (
     <div className="bank-details-page">
       <div className="details-shell">
-        <div className="details-topbar">
+        <header className="details-header-premium">
           <button
-            className="details-back-btn"
+            className="back-circle-btn"
             onClick={() => navigate(ROUTE_PATH.BLOOD_BANK_DASHBOARD)}
           >
-            Back to Dashboard
+            <FiArrowLeft />
           </button>
-          <div className="details-heading">
-            <h1>{bank?.name || "Blood Bank Details"}</h1>
-            <p>Details and live inventory overview</p>
+          <div className="profile-hero">
+            <div className="hero-avatar">
+              <img
+                src={
+                  bank?.profileImage || bank?.logo ||
+                  `https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&q=80`
+                }
+                alt={bank?.name}
+              />
+            </div>
+            <div className="hero-info">
+              <div className="title-row">
+                <h1>{bank?.name}</h1>
+                <span className="verified-badge">
+                  <FiShield className="icon" /> Government Verified
+                </span>
+              </div>
+              <p className="subtitle">
+                Licensed Blood Donation & Storage Center
+              </p>
+              <div className="hero-pills">
+                <span className="hero-pill">
+                  <FiCheckCircle /> {bank?.operatingHours?.emergency247 ? "Open 24/7" : "Active Now"}
+                </span>
+                <span className="hero-pill">
+                  <FiPackage /> {totalUnits} Units Available
+                </span>
+                <span className="hero-pill">
+                  <FiActivity /> Active Donor Hub
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
+        </header>
 
-        <div className="details-grid">
-          <section className="details-card bank-info-card">
-            <div className="card-title-row">
-              <h2>Blood Bank Details</h2>
-              <span className="card-chip">Profile</span>
-            </div>
+        <div className="details-main-grid">
+          <div className="left-col">
+            <section className="info-card-premium">
+              <h3>Contact Information</h3>
+              <div className="contact-links">
+                <a href={`tel:${bank?.phone}`} className="contact-item">
+                  <div className="icon-wrap">
+                    <FiPhone />
+                  </div>
+                  <div className="text-wrap">
+                    <label>Phone Number</label>
+                    <p>{bank?.phone || "N/A"}</p>
+                  </div>
+                </a>
+                <a href={`mailto:${bank?.email}`} className="contact-item">
+                  <div className="icon-wrap">
+                    <FiMail />
+                  </div>
+                  <div className="text-wrap">
+                    <label>Email Address</label>
+                    <p>{bank?.email || "N/A"}</p>
+                  </div>
+                </a>
+                <div className="contact-item">
+                  <div className="icon-wrap">
+                    <FiMapPin />
+                  </div>
+                  <div className="text-wrap">
+                    <label>Facility Address</label>
+                    <p>{normalizeAddress(bank?.address)}</p>
+                  </div>
+                </div>
+              </div>
+            </section>
 
-            <div className="details-list">
-              <div className="details-row">
-                <span>Phone</span>
-                <strong>{bank?.phone || "N/A"}</strong>
+            <section className="info-card-premium">
+              <h3>Operating Hours</h3>
+              <div className="hours-list">
+                <div className="hour-row">
+                  <span>Regular Hours</span>
+                  <strong>{normalizeOperatingHours(bank?.operatingHours)}</strong>
+                </div>
+                {bank?.operatingHours?.emergency247 && (
+                  <div className="hour-row">
+                    <span>Emergency Response</span>
+                    <strong>Available 24/7</strong>
+                  </div>
+                )}
               </div>
-              <div className="details-row">
-                <span>Email</span>
-                <strong>{bank?.email || "N/A"}</strong>
-              </div>
-              <div className="details-row">
-                <span>Operating Hours</span>
-                <strong>{normalizeOperatingHours(bank?.operatingHours)}</strong>
-              </div>
-              <div className="details-row">
-                <span>Address</span>
-                <strong>{normalizeAddress(bank?.address)}</strong>
-              </div>
-              <div className="details-row">
-                <span>License Number</span>
-                <strong>{bank?.licenseNumber || "N/A"}</strong>
-              </div>
-            </div>
+            </section>
 
-            <div className="services-block">
-              <h3>Services Provided</h3>
-              {services.length > 0 ? (
-                <div className="services-list">
+            {services.length > 0 && (
+              <section className="info-card-premium">
+                <h3>Services Provided</h3>
+                <div className="services-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1rem' }}>
                   {services.map((service) => (
-                    <span key={service} className="service-pill">
+                    <span key={service} className="service-pill" style={{ 
+                      background: 'rgba(230, 57, 70, 0.1)', 
+                      color: '#e63946', 
+                      padding: '0.4rem 0.8rem', 
+                      borderRadius: '8px', 
+                      fontSize: '0.85rem',
+                      fontWeight: '600'
+                    }}>
                       {service}
                     </span>
                   ))}
                 </div>
-              ) : (
-                <p className="services-empty">
-                  No services provided by this blood bank yet.
-                </p>
-              )}
-            </div>
-          </section>
-
-          <section className="details-card inventory-card">
-            <div className="card-title-row">
-              <h2>Blood Inventory</h2>
-              <span className="card-chip">{totalUnits} total units</span>
-            </div>
-
-            {inventory.some((item) => item.units > 0) &&
-              String(bank?._id || bank?.id || "") !== currentBloodBankId && (
-                <div className="inventory-main-action">
-                  <button
-                    className="request-blood-main-btn"
-                    onClick={openBulkRequestModal}
-                  >
-                    Request Multiple Blood Groups
-                  </button>
-                </div>
-              )}
-
-            {requestMessage.text && (
-              <div className={`request-inline-message ${requestMessage.type}`}>
-                {requestMessage.text}
-              </div>
+              </section>
             )}
+          </div>
 
-            <div className="inventory-groups-grid">
-              {inventory.map((item) => (
-                <div
-                  key={item.bloodGroup}
-                  className={`inventory-group-card ${item.status}`}
-                >
-                  <p className="group-label">{item.bloodGroup}</p>
-                  <p className="group-units">{item.units}</p>
-                  <p className="group-meta">Units • {item.status}</p>
-                  {item.units > 0 &&
-                    String(bank?._id || bank?.id || "") !==
-                      currentBloodBankId && (
+          <div className="right-col">
+            <section className="inventory-card-premium">
+              <div className="inventory-header">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3>Live Blood Inventory</h3>
+                    <p>Real-time availability of blood stocks at this center.</p>
+                  </div>
+                  {inventory.some((item) => item.units > 0) &&
+                    String(bank?._id || bank?.id || "") !== currentBloodBankId && (
                       <button
-                        className="request-blood-btn"
-                        onClick={() => openRequestModal(item)}
+                        className="btn-request-main"
+                        style={{ padding: '0.6rem 1.2rem', fontSize: '0.85rem' }}
+                        onClick={openBulkRequestModal}
                       >
-                        Request Blood
+                        <FiShoppingBag /> Bulk Request
                       </button>
                     )}
                 </div>
-              ))}
-            </div>
-          </section>
+              </div>
+
+              {requestMessage.text && (
+                <div className={`request-inline-message ${requestMessage.type}`} style={{ 
+                  margin: '1rem', 
+                  padding: '1rem', 
+                  borderRadius: '12px',
+                  backgroundColor: requestMessage.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: requestMessage.type === 'success' ? '#16a34a' : '#dc2626',
+                  border: `1px solid ${requestMessage.type === 'success' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
+                }}>
+                  {requestMessage.text}
+                </div>
+              )}
+
+              <div className="inventory-grid-premium">
+                {inventory.map((item) => (
+                  <div
+                    key={item.bloodGroup}
+                    className={`stock-item-premium ${item.status}`}
+                    style={{ position: 'relative', cursor: 'default' }}
+                  >
+                    <span className="group-name">{item.bloodGroup}</span>
+                    <div className="stock-visual">
+                      <span className="units">{item.units}</span>
+                      <span className="label">Units</span>
+                    </div>
+                    <div className="status-label">{item.status}</div>
+                    
+                    {item.units > 0 && String(bank?._id || bank?.id || "") !== currentBloodBankId && (
+                      <button 
+                        className="btn-stock-request"
+                        onClick={() => openRequestModal(item)}
+                        style={{
+                          marginTop: '1rem',
+                          width: '100%',
+                          background: 'linear-gradient(135deg, #e63946 0%, #d62839 100%)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '10px',
+                          padding: '0.6rem',
+                          fontSize: '0.8rem',
+                          fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          boxShadow: '0 4px 12px rgba(230, 57, 70, 0.2)'
+                        }}
+                      >
+                        <FiPlus size={14} /> Request
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="inventory-footer">
+                <p>
+                  * Inventory is updated every 30 minutes. Please call the
+                  center before visiting for urgent requirements.
+                </p>
+              </div>
+            </section>
+          </div>
         </div>
 
+        {/* MODALS */}
         {selectedInventoryItem && (
           <div className="request-modal-overlay" onClick={closeRequestModal}>
             <div

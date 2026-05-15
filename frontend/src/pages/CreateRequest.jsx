@@ -217,7 +217,10 @@ const CreateRequest = () => {
                 <DatePicker
                   value={formData.requiredBy}
                   onChange={(date) => {
-                    setFormData({ ...formData, requiredBy: date.toISOString() });
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    setFormData({ ...formData, requiredBy: `${year}-${month}-${day}` });
                   }}
                   minDate={new Date()}
                   placeholder="Select Date"

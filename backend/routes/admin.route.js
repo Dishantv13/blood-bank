@@ -140,23 +140,6 @@ router
   .route("/export/events")
   .get(adminAuth, adminExportLimiter, adminController.exportEvents);
 
-// EXPORT ENDPOINTS (CSV FORMAT)
-router
-  .route("/export/users/csv")
-  .get(adminAuth, adminExportLimiter, adminController.exportUsersCsv);
-router
-  .route("/export/requests/csv")
-  .get(adminAuth, adminExportLimiter, adminController.exportRequestsCsv);
-router
-  .route("/export/blood-banks/csv")
-  .get(adminAuth, adminExportLimiter, adminController.exportBloodBanksCsv);
-router
-  .route("/export/camps/csv")
-  .get(adminAuth, adminExportLimiter, adminController.exportCampsCsv);
-router
-  .route("/export/events/csv")
-  .get(adminAuth, adminExportLimiter, adminController.exportEventsCsv);
-
 // ALL-IN-ONE EXPORT
 router
   .route("/export/all")

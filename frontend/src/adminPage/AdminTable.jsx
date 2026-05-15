@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePagination } from "../context/PaginationContext";
 
 const DESTRUCTIVE_STATUSES = new Set([
   "suspended",
@@ -84,8 +85,27 @@ export const AdminTable = ({
   onRowClick,
   pagination,
   onPageChange,
+  onPageSizeChange,
 }) => {
+  const { setPaginationData } = usePagination();
   const [selectedRow, setSelectedRow] = useState(null);
+
+  useEffect(() => {
+    if (pagination) {
+      setPaginationData({
+        currentPage: pagination.page || pagination.currentPage || 1,
+        totalPages: pagination.totalPages || pagination.pages || 1,
+        totalRecords: pagination.total || pagination.totalRecords || 0,
+        pageSize: pagination.limit || pagination.pageSize || 10,
+        onPageChange,
+        onPageSizeChange,
+      });
+    } else {
+      setPaginationData(null);
+    }
+
+    return () => setPaginationData(null);
+  }, [pagination, onPageChange, onPageSizeChange, setPaginationData]);
   const [pendingStatusChange, setPendingStatusChange] = useState(null);
   const hasActions = Boolean(onStatusChange || onActionClick);
 
@@ -192,28 +212,6 @@ export const AdminTable = ({
           ))}
         </tbody>
       </table>
-
-      {pagination && (
-        <div className="pagination-premium fade-in-up">
-          <button
-            className="pag-btn"
-            onClick={() => onPageChange(pagination.page - 1)}
-            disabled={pagination.page === 1}
-          >
-            Previous
-          </button>
-          <div className="page-indicator">
-            Page <strong>{pagination.page}</strong> of {pagination.pages}
-          </div>
-          <button
-            className="pag-btn"
-            onClick={() => onPageChange(pagination.page + 1)}
-            disabled={pagination.page === pagination.pages}
-          >
-            Next
-          </button>
-        </div>
-      )}
     </div>
   );
 };

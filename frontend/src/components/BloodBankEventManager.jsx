@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   useGetBloodBankEventsQuery,
   useGetEventRegistrationsQuery,
@@ -13,6 +14,8 @@ import { useToast } from "./ToastContainer";
 import { FaCalendarAlt, FaChartBar } from "react-icons/fa";
 import "../components.css/BloodBankEventManager.css";
 import SkeletonLoader from "./SkeletonLoader";
+import Pagination from "./Pagination";
+import SearchFilter from "./SearchFilter";
 
 const BloodBankEventManager = () => {
   const { success, error } = useToast();
@@ -25,12 +28,32 @@ const BloodBankEventManager = () => {
   const [filterType, setFilterType] = useState("all");
   const [showEventDetails, setShowEventDetails] = useState(false);
   const [selectedEventForDetails, setSelectedEventForDetails] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const eventsSubTab = searchParams.get("e_time") || "upcoming";
+  const eventSearch = searchParams.get("e_search") || "";
+  const eventPage = parseInt(searchParams.get("e_page")) || 1;
+  const eventPageSize = parseInt(searchParams.get("e_limit")) || 5;
+
+  const updateEventParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) newParams.set(`e_${key}`, value);
+      else newParams.delete(`e_${key}`);
+    });
+    setSearchParams(newParams, { replace: true });
+  };
 
   const {
     data: eventsData,
     isLoading: loading,
     refetch,
-  } = useGetBloodBankEventsQuery();
+  } = useGetBloodBankEventsQuery({
+    time: eventsSubTab,
+    search: eventSearch,
+    page: eventPage,
+    limit: eventPageSize,
+  });
   const { data: regsData, isFetching: registrationsLoading } =
     useGetEventRegistrationsQuery(selectedEvent?._id, {
       skip: !selectedEvent?._id,
@@ -74,7 +97,8 @@ const BloodBankEventManager = () => {
       setShowModal(false);
       setEditingEvent(null);
     } catch (err) {
-      error("Failed to save event: " + (err.data?.message || err.message));
+      const errorDetail = err.data?.errors?.[0]?.msg || err.data?.message || err.message;
+      error(`Failed to save event: ${errorDetail}`);
     }
   };
 
@@ -90,7 +114,8 @@ const BloodBankEventManager = () => {
         success("Event deleted successfully!");
         refetch(); // Reload data immediately
       } catch (err) {
-        error("Failed to delete event: " + (err.data?.message || err.message));
+        const errorDetail = err.data?.errors?.[0]?.msg || err.data?.message || err.message;
+        error(`Failed to delete event: ${errorDetail}`);
       }
     }
   };
@@ -143,15 +168,9 @@ const BloodBankEventManager = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcomingEvents = filteredEvents
-    .filter((e) => new Date(e.date) >= today)
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const upcomingEvents = eventsSubTab === "upcoming" ? filteredEvents : [];
+  const pastEvents = eventsSubTab === "past" ? filteredEvents : [];
 
-  const pastEvents = filteredEvents
-    .filter((e) => new Date(e.date) < today)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const latestPastEvents = pastEvents.slice(0, 3);
   const upcomingRegistrations = upcomingEvents.reduce(
     (sum, event) => sum + (event.registeredDonors?.length || 0),
     0,
@@ -187,11 +206,11 @@ const BloodBankEventManager = () => {
       {/* Stats */}
       <div className="event-stats">
         <div className="stat-card2">
-          <div className="stat-value1">{upcomingEvents.length}</div>
+          <div className="stat-value1">{eventsData?.pagination?.upcomingCount || 0}</div>
           <div className="stat-label1">Upcoming Events</div>
         </div>
         <div className="stat-card2">
-          <div className="stat-value1">{pastEvents.length}</div>
+          <div className="stat-value1">{eventsData?.pagination?.pastCount || 0}</div>
           <div className="stat-label1">Past Events</div>
         </div>
         <div className="stat-card2">
@@ -203,103 +222,169 @@ const BloodBankEventManager = () => {
       {/* Filter Buttons */}
       <div className="event-filters">
         <button
-          className={`filter-btn ${filterType === "all" ? "active" : ""}`}
-          onClick={() => setFilterType("all")}
+          className={`sub-nav-btn ${filterType === "all" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("all");
+            updateEventParams({ page: 1 });
+          }}
         >
           All Types
         </button>
         <button
-          className={`filter-btn ${filterType === "blood-drive" ? "active" : ""}`}
-          onClick={() => setFilterType("blood-drive")}
+          className={`sub-nav-btn ${filterType === "blood-drive" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("blood-drive");
+            updateEventParams({ page: 1 });
+          }}
           style={{ borderLeftColor: getEventTypeColor("blood-drive") }}
         >
           Blood Drive
         </button>
         <button
-          className={`filter-btn ${filterType === "awareness" ? "active" : ""}`}
-          onClick={() => setFilterType("awareness")}
+          className={`sub-nav-btn ${filterType === "awareness" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("awareness");
+            updateEventParams({ page: 1 });
+          }}
           style={{ borderLeftColor: getEventTypeColor("awareness") }}
         >
           Awareness
         </button>
         <button
-          className={`filter-btn ${filterType === "donation-camp" ? "active" : ""}`}
-          onClick={() => setFilterType("donation-camp")}
+          className={`sub-nav-btn ${filterType === "donation-camp" ? "active" : ""}`}
+          onClick={() => {
+            setFilterType("donation-camp");
+            updateEventParams({ page: 1 });
+          }}
           style={{ borderLeftColor: getEventTypeColor("donation-camp") }}
         >
           Camps
         </button>
       </div>
 
-      {/* Upcoming Events */}
-      {upcomingEvents.length > 0 && (
-        <div className="events-section">
-          <h3 className="section-title">
-            <FaCalendarAlt style={{ marginRight: "8px" }} /> Upcoming Events
-          </h3>
-          <div className="events-grid events-scroll-grid">
-            {upcomingEvents.map((event) => (
-              <EventCard
-                key={event._id}
-                event={event}
-                isBloodBank={true}
-                onDetails={() => handleViewEventDetails(event)}
-                onEdit={() => handleEdit(event)}
-                onDelete={() => handleDelete(event._id)}
-                onViewRegistrations={() => handleViewRegistrations(event)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Past Events */}
-      {pastEvents.length > 0 && (
-        <div className="events-section">
-          <h3 className="section-title">
-            <FaChartBar style={{ marginRight: "8px" }} /> Past Events (Last 3)
-          </h3>
-          <div className="events-grid events-scroll-grid">
-            {latestPastEvents.map((event) => (
-              <EventCard
-                key={event._id}
-                event={event}
-                isBloodBank={true}
-                onDetails={() => handleViewEventDetails(event)}
-                onEdit={() => handleEdit(event)}
-                onDelete={() => handleDelete(event._id)}
-                onViewRegistrations={() => handleViewRegistrations(event)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* No Events */}
-      {filteredEvents.length === 0 && !loading && (
-        <div className="empty-state">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          <p>No events created yet</p>
+      {/* Sub Navigation for Upcoming/Past & Search */}
+      <div className="tab-actions-header">
+        <div className="requests-sub-nav requests-sub-nav--status">
           <button
-            className="btn-create-event secondary"
+            className={`sub-nav-btn ${eventsSubTab === "upcoming" ? "active" : ""}`}
             onClick={() => {
-              setEditingEvent(null);
-              setShowModal(true);
+              updateEventParams({ time: "upcoming", page: 1, limit: 5 });
             }}
           >
-            Create Your First Event
+            Upcoming Events ({eventsData?.pagination?.upcomingCount || 0})
+          </button>
+          <button
+            className={`sub-nav-btn ${eventsSubTab === "past" ? "active" : ""}`}
+            onClick={() => {
+              updateEventParams({ time: "past", page: 1, limit: 5 });
+            }}
+          >
+            Past Events ({eventsData?.pagination?.pastCount || 0})
           </button>
         </div>
+
+        <SearchFilter
+          onSearch={(val) => {
+            updateEventParams({ search: val, page: 1 });
+          }}
+          initialValue={eventSearch}
+          placeholder="Search events by title, location..."
+        />
+      </div>
+
+      {loading ? (
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading events...</p>
+        </div>
+      ) : (
+        <>
+          {eventsSubTab === "upcoming" && (
+            <div className="events-section">
+              {upcomingEvents.length === 0 ? (
+                <div className="empty-state">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  <h3>No Upcoming Events</h3>
+                  <p>Create a new event to get started</p>
+                </div>
+              ) : (
+                <div className="events-grid events-scroll-grid">
+                  {upcomingEvents.map((event) => (
+                    <EventCard
+                      key={event._id}
+                      event={event}
+                      isBloodBank={true}
+                      onDetails={() => handleViewEventDetails(event)}
+                      onEdit={() => handleEdit(event)}
+                      onDelete={() => handleDelete(event._id)}
+                      onViewRegistrations={() => handleViewRegistrations(event)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {eventsSubTab === "past" && (
+            <div className="events-section">
+              {pastEvents.length === 0 ? (
+                <div className="empty-state">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  <h3>No Past Events</h3>
+                  <p>Your previous events will appear here</p>
+                </div>
+              ) : (
+                <div className="events-grid events-scroll-grid">
+                  {pastEvents.map((event) => (
+                    <EventCard
+                      key={event._id}
+                      event={event}
+                      isBloodBank={true}
+                      onDetails={() => handleViewEventDetails(event)}
+                      onEdit={() => handleEdit(event)}
+                      onDelete={() => handleDelete(event._id)}
+                      onViewRegistrations={() => handleViewRegistrations(event)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Pagination */}
+      {!loading && eventsData?.pagination?.total > 0 && (
+        <Pagination
+          currentPage={eventPage}
+          totalPages={eventsData?.pagination?.totalPages}
+          totalRecords={eventsData?.pagination?.total}
+          pageSize={eventPageSize}
+          onPageChange={(page) => updateEventParams({ page })}
+          onPageSizeChange={(limit) => {
+            updateEventParams({ limit, page: 1 });
+          }}
+        />
       )}
 
       {/* Modals */}

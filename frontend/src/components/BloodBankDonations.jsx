@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   useGetBloodBankDonationsQuery,
   useRecordDonationMutation,
@@ -11,15 +12,27 @@ import {
   useDeleteCampRegistrationMutation,
 } from "../store/bloodCampApi";
 import { useToast } from "./ToastContainer";
+import Pagination from "./Pagination";
+import SearchFilter from "./SearchFilter";
 import "../pages.css/BloodBankDashboard.css";
 
 const BloodBankDonations = () => {
   const { success, error } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Persist active sub-tab in localStorage
-  const [activeSubTab, setActiveSubTab] = useState(() => {
-    return localStorage.getItem("bb_donations_subtab") || "pending";
-  });
+  const donationSubTab = searchParams.get("d_status") || "pending";
+  const donationSearch = searchParams.get("d_search") || "";
+  const donationPage = parseInt(searchParams.get("d_page")) || 1;
+  const donationLimit = parseInt(searchParams.get("d_limit")) || 6;
+
+  const updateDonationParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) newParams.set(`d_${key}`, value);
+      else newParams.delete(`d_${key}`);
+    });
+    setSearchParams(newParams, { replace: true });
+  };
 
   const [recordData, setRecordData] = useState({ id: null, volume: 450 }); // volume in mL
   const [selectedCampId, setSelectedCampId] = useState(null);
@@ -29,9 +42,22 @@ const BloodBankDonations = () => {
     data: donationsRes,
     isLoading: loadingDonations,
     refetch,
-  } = useGetBloodBankDonationsQuery();
+  } = useGetBloodBankDonationsQuery({
+    status: (donationSubTab === "pending" || donationSubTab === "completed") ? donationSubTab : undefined,
+    search: donationSearch,
+    page: donationPage,
+    limit: donationLimit,
+    type: (donationSubTab === "pending" || donationSubTab === "completed") ? "request" : undefined,
+  });
+
   const { data: campsData, isLoading: loadingCamps } =
-    useGetBloodBankCampsQuery();
+    useGetBloodBankCampsQuery({
+      tab: (donationSubTab === "registrations" || donationSubTab === "collections") ? donationSubTab : undefined,
+      page: donationPage,
+      limit: donationLimit,
+      search: donationSearch,
+    });
+
   const [
     triggerGetRegistrations,
     { data: registrationsData, isFetching: isFetchingRegistrations },
@@ -43,32 +69,36 @@ const BloodBankDonations = () => {
   const [createDonation] = useCreateDonationMutation();
 
   const donations = donationsRes?.data || [];
-
-  const pendingDonations = donations.filter(
-    (d) =>
-      (d.status === "pending" || d.status === "approved") && d.type !== "camp",
-  );
-  // Only direct (non-camp) completed donations show in the Completed tab
-  const completedDonations = donations.filter(
-    (d) => d.status === "completed" && d.type !== "camp",
-  );
-  // All completed donations (used for stats in collections)
-  const allCompletedDonations = donations.filter(
-    (d) => d.status === "completed",
-  );
+  const pendingDonations = donations;
+  const completedDonations = donations;
+  
   const camps = useMemo(() => {
-    return campsData?.camps || (Array.isArray(campsData) ? campsData : []);
-  }, [campsData]);
+    const rawCamps = campsData?.camps || (Array.isArray(campsData) ? campsData : []);
+    const today = new Date().setHours(0, 0, 0, 0);
 
-  // Update localStorage when tab changes
-  useEffect(() => {
-    localStorage.setItem("bb_donations_subtab", activeSubTab);
-  }, [activeSubTab]);
+    return [...rawCamps].sort((a, b) => {
+      const aDate = new Date(a.date).setHours(0, 0, 0, 0);
+      const bDate = new Date(b.date).setHours(0, 0, 0, 0);
+
+      const aIsCompleted = aDate < today;
+      const bIsCompleted = bDate < today;
+
+      // Completed items go to the end (1), Scheduled items stay at front (-1)
+      if (aIsCompleted && !bIsCompleted) return 1;
+      if (!aIsCompleted && bIsCompleted) return -1;
+
+      // Within groups, sort by date (closest to today first)
+      if (!aIsCompleted && !bIsCompleted) {
+        return aDate - bDate; // Soonest upcoming first
+      }
+      return bDate - aDate; // Most recent completed first
+    });
+  }, [campsData]);
 
   useEffect(() => {
     if (
       selectedCampId &&
-      (activeSubTab === "registrations" || activeSubTab === "collections")
+      (donationSubTab === "registrations" || donationSubTab === "collections")
     ) {
       const camp = camps.find((c) => String(c._id) === String(selectedCampId));
       if (camp) {
@@ -76,7 +106,7 @@ const BloodBankDonations = () => {
         triggerGetRegistrations(selectedCampId);
       }
     }
-  }, [selectedCampId, activeSubTab, camps, triggerGetRegistrations]);
+  }, [selectedCampId, donationSubTab, camps, triggerGetRegistrations]);
 
   const handleRecordSubmit = async (customId, customVolume) => {
     const id = customId || recordData.id;
@@ -174,13 +204,13 @@ const BloodBankDonations = () => {
       return (
         <div className="empty-state">
           <h3>No Records Found</h3>
-          <p>No {activeSubTab} logs in this category.</p>
+          <p>No {donationSubTab} logs in this category.</p>
         </div>
       );
 
     return (
       <div
-        className={`requests-list ${activeSubTab === "completed" || activeSubTab === "collections" ? "completed-grid" : "pending-grid"}`}
+        className={`requests-list ${donationSubTab === "completed" ? "completed-grid" : "pending-grid"}`}
       >
         {list.map((d) => (
           <div
@@ -292,12 +322,25 @@ const BloodBankDonations = () => {
   };
 
   const renderCampList = () => {
-    if (camps.length === 0)
+    if (camps.length === 0) {
+      let message = "No Camps Found";
+      let subMessage = "Create a camp in the Blood Camps tab to get started.";
+      
+      if (donationSubTab === "registrations") {
+        message = "No Camps Today";
+        subMessage = "There are no camps scheduled for today.";
+      } else if (donationSubTab === "collections") {
+        message = "No Past/Current Camps";
+        subMessage = "No camps have been completed or started yet.";
+      }
+
       return (
         <div className="empty-state">
-          <h3>No Camps Found</h3>
+          <h3>{message}</h3>
+          <p>{subMessage}</p>
         </div>
       );
+    }
     return (
       <div className="requests-list completed-grid">
         {camps.map((camp) => (
@@ -314,9 +357,16 @@ const BloodBankDonations = () => {
               >
                 CAMP
               </span>
-              <span className="request-status-badge approved">
-                {camp.status || "Active"}
-              </span>
+              <div style={{ display: "flex", gap: "5px" }}>
+                {new Date(camp.date).toDateString() === new Date().toDateString() && (
+                  <span className="request-status-badge approved" style={{ background: "#16a34a", color: "white" }}>
+                    TODAY
+                  </span>
+                )}
+                <span className={`request-status-badge ${new Date(camp.date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0) ? "completed" : "approved"}`}>
+                  {new Date(camp.date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0) ? "COMPLETED" : (camp.status || "SCHEDULED")}
+                </span>
+              </div>
             </div>
             <div className="request-details">
               <p>
@@ -630,11 +680,11 @@ const BloodBankDonations = () => {
   };
 
   const renderCollectionsTable = () => {
-    // Use allCompletedDonations so camp-type donations are included here
-    const campCollections = allCompletedDonations.filter(
+    // Show completed donations for this camp
+    const campCollections = donations.filter(
       (d) =>
         String(d.camp?._id || d.camp) === String(selectedCampId) &&
-        d.type === "camp",
+        d.type === "camp" && d.status === "completed",
     );
     return (
       <div className="collections-table-view">
@@ -757,139 +807,101 @@ const BloodBankDonations = () => {
   };
 
   return (
-    <div className="requests-content">
+    <div className="donations-container">
       <div className="header-content" style={{ marginBottom: "24px" }}>
         <h2>Donations Management</h2>
         <p>Review and record blood donations from users and camps</p>
       </div>
 
-      <div className="requests-sub-nav requests-sub-nav--status">
-        {["pending", "completed", "registrations", "collections"].map((tab) => (
-          <button
-            key={tab}
-            className={`sub-nav-btn ${activeSubTab === tab ? "active" : ""}`}
-            onClick={() => {
-              setActiveSubTab(tab);
-              if (tab === "pending" || tab === "completed")
-                setSelectedCampId(null);
-            }}
-          >
-            {tab}
-            {tab === "pending"
-              ? ` / New (${pendingDonations.length})`
-              : tab === "completed"
-                ? ` (${completedDonations.length})`
-                : tab === "collections"
-                  ? ` (${allCompletedDonations.filter((d) => d.type === "camp").length})`
-                  : ""}
-          </button>
-        ))}
-      </div>
-
-      {activeSubTab === "completed" && (
-        <div
-          className="donation-stats-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "1.5rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <div
-            className="stat-card"
-            style={{ borderLeft: "5px solid #16a34a" }}
-          >
-            <div
-              className="stat-icon1"
-              style={{ background: "rgba(22, 163, 74, 0.1)", color: "#16a34a" }}
-            >
-              <h3>{completedDonations.length}</h3>
-            </div>
-            <div className="stat-info1">
-              <p>Completed Direct Donations</p>
-            </div>
-          </div>
-          <div
-            className="stat-card"
-            style={{ borderLeft: "5px solid #e63946" }}
-          >
-            <div
-              className="stat-icon1"
-              style={{ background: "rgba(230, 57, 70, 0.1)", color: "#e63946" }}
-            >
-              <h3>
-                {completedDonations
-                  .reduce((acc, d) => acc + (d.volumeDonated || 0), 0)
-                  .toFixed(2)}{" "}
-                L
-              </h3>
-            </div>
-            <div className="stat-info1">
-              <p>Total Blood Collected (Direct)</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeSubTab === "collections" && (
-        <div
-          className="donation-stats-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "1.5rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <div
-            className="stat-card"
-            style={{ borderLeft: "5px solid #4285f4" }}
-          >
-            <div
-              className="stat-icon1"
-              style={{
-                background: "rgba(66, 133, 244, 0.1)",
-                color: "#4285f4",
+      <div
+        className="requests-filter-row"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "20px",
+          marginBottom: "24px",
+          flexWrap: "wrap",
+        }}
+      >
+        <div className="requests-sub-nav requests-sub-nav--status" style={{ marginBottom: 0 }}>
+          {["pending", "completed", "registrations", "collections"].map((tab) => (
+            <button
+              key={tab}
+              className={`sub-nav-btn ${donationSubTab === tab ? "active" : ""}`}
+              onClick={() => {
+                updateDonationParams({
+                  status: tab,
+                  page: 1,
+                  search: "",
+                  limit: 6,
+                });
+                if (tab === "pending" || tab === "completed")
+                  setSelectedCampId(null);
               }}
             >
-              <h3>
-                {allCompletedDonations.filter((d) => d.type === "camp").length}
-              </h3>
-            </div>
-            <div className="stat-info1">
-              <p>Camp Donations Collected</p>
-            </div>
-          </div>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {!selectedCampId && (
           <div
-            className="stat-card"
-            style={{ borderLeft: "5px solid #e63946" }}
+            className="search-filter-container"
+            style={{ flex: "0 1 400px", minWidth: "280px" }}
           >
-            <div
-              className="stat-icon1"
-              style={{ background: "rgba(230, 57, 70, 0.1)", color: "#e63946" }}
-            >
-              <h3>
-                {allCompletedDonations
-                  .filter((d) => d.type === "camp")
-                  .reduce((acc, d) => acc + (d.volumeDonated || 0), 0)
-                  .toFixed(2)}{" "}
-                L
-              </h3>
-            </div>
-            <div className="stat-info1">
-              <p>Total Blood Collected (Camps)</p>
-            </div>
+            <SearchFilter
+              onSearch={(val) => {
+                updateDonationParams({ search: val, page: 1 });
+              }}
+              initialValue={donationSearch}
+              placeholder="Search by donor name, group, cert..."
+            />
           </div>
+        )}
+      </div>
+
+      {/* Stats row for completed tabs */}
+      {donationSubTab === "completed" && !selectedCampId && donations.length > 0 && (
+        <div className="donation-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+           <div className="stat-card" style={{ borderLeft: '4px solid #16a34a' }}>
+              <h3>{donationsRes?.pagination?.total || 0}</h3>
+              <p>Completed Direct Donations</p>
+           </div>
+           <div className="stat-card" style={{ borderLeft: '4px solid #e63946' }}>
+              <h3>{donations.reduce((acc, d) => acc + (d.volumeDonated || 0), 0).toFixed(2)} L</h3>
+              <p>Direct Volume Collected</p>
+           </div>
         </div>
       )}
 
-      {activeSubTab === "pending" && renderDonationList(pendingDonations)}
-      {activeSubTab === "completed" && renderDonationList(completedDonations)}
-      {activeSubTab === "registrations" &&
-        (selectedCampId ? renderRegistrations() : renderCampList())}
-      {activeSubTab === "collections" &&
-        (selectedCampId ? renderCollectionsTable() : renderCampList())}
+      {donationSubTab === "pending" && renderDonationList(pendingDonations)}
+      {donationSubTab === "completed" && renderDonationList(completedDonations)}
+      {(donationSubTab === "registrations" || donationSubTab === "collections") &&
+        (!selectedCampId ? renderCampList() : 
+          donationSubTab === "registrations" ? renderRegistrations() : renderCollectionsTable())}
+
+      {/* Pagination */}
+      {!loadingDonations && !loadingCamps && !selectedCampId && (
+        <Pagination
+          currentPage={donationPage}
+          totalPages={
+            (donationSubTab === "pending" || donationSubTab === "completed")
+              ? donationsRes?.pagination?.totalPages
+              : campsData?.pagination?.totalPages
+          }
+          totalRecords={
+            (donationSubTab === "pending" || donationSubTab === "completed")
+              ? donationsRes?.pagination?.total
+              : campsData?.pagination?.total
+          }
+          pageSize={donationLimit}
+          onPageChange={(page) => updateDonationParams({ page })}
+          onPageSizeChange={(limit) => {
+            updateDonationParams({ limit, page: 1 });
+          }}
+        />
+      )}
     </div>
   );
 };

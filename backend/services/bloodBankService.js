@@ -758,7 +758,8 @@ export const loginBloodBank = async (email, password) => {
 };
 // Get all public blood banks or nearby ones
 export const getAllBloodBanks = async (query) => {
-  const { latitude, longitude, maxDistance, bloodGroup } = query;
+  const { latitude, longitude, maxDistance, bloodGroup, search, excludeId } =
+    query;
   const { page, limit, skip } = pagination.getPaginationParams({ query });
 
   const cacheParams = {
@@ -766,6 +767,8 @@ export const getAllBloodBanks = async (query) => {
     longitude: longitude || null,
     maxDistance: maxDistance || null,
     bloodGroup: bloodGroup || null,
+    search: search || null,
+    excludeId: excludeId || null,
     page,
     limit,
   };
@@ -786,6 +789,8 @@ export const getAllBloodBanks = async (query) => {
       latitude,
       longitude,
       maxDistance,
+      search,
+      excludeId,
     });
 
   const resolveLightweightLogo = (bank) => {

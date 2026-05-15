@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useGetDonorsQuery } from "../store/userApi";
 import { useAuth } from "../context/AuthContext";
 import MapModal from "../components/MapModal";
@@ -8,59 +8,52 @@ import { ROUTE_PATH } from "../enum/routePath";
 import "../pages.css/Donors.css";
 import SkeletonLoader from "../components/SkeletonLoader";
 import EmptyState from "../components/EmptyState";
+import Pagination from "../components/Pagination";
 
 const Donors = () => {
   const { user } = useAuth();
-  const [filterBloodGroup, setFilterBloodGroup] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // URL parameters state
+  const filterBloodGroup = searchParams.get("bloodGroup") || "";
+  const availabilityTab = searchParams.get("tab") || "available";
+  const currentPage = parseInt(searchParams.get("page") || "1", 10);
+  const pageSize = parseInt(searchParams.get("limit") || "6", 10);
+
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [selectedDonor, setSelectedDonor] = useState(null);
-  const [availabilityTab, setAvailabilityTab] = useState("available");
 
-  // RTK Query fetches data and automatically refetches when filterBloodGroup changes
-  const params = filterBloodGroup ? { bloodGroup: filterBloodGroup } : {};
-  const { data: donorsResponse, isLoading: loadingDonors } =
-    useGetDonorsQuery(params);
-
-  // Resilient data access
-  const allDonors = useMemo(() => {
-    const rawData = donorsResponse?.data;
-    if (Array.isArray(rawData?.data)) return rawData.data;
-    if (Array.isArray(rawData)) return rawData;
-    return [];
-  }, [donorsResponse]);
-
-  // Calculate donor eligibility (3 months since last donation)
-  const calculateDonorEligibility = (donor) => {
-    const lastDonation =
-      donor.lastDonationDate || donor.donorInfo?.lastDonationDate;
-    if (!lastDonation) return true; // No donation history = eligible
-
-    const lastDonationDate = new Date(lastDonation);
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-    return lastDonationDate < threeMonthsAgo;
+  const updateParams = (updates) => {
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          newParams.set(key, value);
+        } else {
+          newParams.delete(key);
+        }
+      });
+      return newParams;
+    });
   };
 
-  const availableDonors = allDonors.filter((donor) => {
-    const isEligible = calculateDonorEligibility(donor);
-    const donorId = String(donor?._id || donor?.id || "");
-    const userId = String(user?._id || user?.id || "");
-    const isSelf = donorId && userId && donorId === userId;
-    return isEligible && !isSelf;
-  });
+  // RTK Query fetches data and automatically refetches when params change
+  const queryParams = {
+    bloodGroup: filterBloodGroup,
+    availability: availabilityTab,
+    page: currentPage,
+    limit: pageSize,
+  };
+  const { data: donorsResponse, isLoading: loadingDonors } =
+    useGetDonorsQuery(queryParams);
 
-  const recentlyDonatedDonors = allDonors.filter((donor) => {
-    const isEligible = calculateDonorEligibility(donor);
-    const donorId = String(donor?._id || donor?.id || "");
-    const userId = String(user?._id || user?.id || "");
-    const isSelf = donorId && userId && donorId === userId;
-    return !isEligible && !isSelf;
-  });
+  // Resilient data access
+  const donors = useMemo(() => {
+    return donorsResponse?.data || [];
+  }, [donorsResponse]);
 
-  const donors =
-    availabilityTab === "available" ? availableDonors : recentlyDonatedDonors;
+  const paginationData = donorsResponse?.pagination;
 
   const donorPhotos = useMemo(() => {
     const photos = {};
@@ -103,7 +96,7 @@ const Donors = () => {
             <select
               className="form-control"
               value={filterBloodGroup}
-              onChange={(e) => setFilterBloodGroup(e.target.value)}
+              onChange={(e) => updateParams({ bloodGroup: e.target.value, page: 1 })}
             >
               <option value="">All Blood Groups</option>
               {BLOOD_GROUPS.map((group) => (
@@ -136,7 +129,7 @@ const Donors = () => {
         <div className="availability-tabs-horizontal">
           <button
             className={`availability-tab-vertical ${availabilityTab === "available" ? "active" : ""}`}
-            onClick={() => setAvailabilityTab("available")}
+            onClick={() => updateParams({ tab: "available", page: 1, limit: "" })}
             aria-pressed={availabilityTab === "available"}
           >
             <svg
@@ -152,12 +145,14 @@ const Donors = () => {
             </svg>
             <div>
               <div className="tab-label">Available to Donate</div>
-              <div className="tab-count">{availableDonors.length} donors</div>
+              <div className="tab-count">
+                {availabilityTab === "available" ? paginationData?.total || 0 : "..."} donors
+              </div>
             </div>
           </button>
           <button
             className={`availability-tab-vertical ${availabilityTab === "recently" ? "active" : ""}`}
-            onClick={() => setAvailabilityTab("recently")}
+            onClick={() => updateParams({ tab: "recently", page: 1, limit: "" })}
             aria-pressed={availabilityTab === "recently"}
           >
             <svg
@@ -175,7 +170,7 @@ const Donors = () => {
             <div>
               <div className="tab-label">Recently Donated</div>
               <div className="tab-count">
-                {recentlyDonatedDonors.length} donors
+                {availabilityTab === "recently" ? paginationData?.total || 0 : "..."} donors
               </div>
             </div>
           </button>
@@ -375,6 +370,18 @@ const Donors = () => {
           })
         )}
       </div>
+
+      {/* Pagination */}
+      {paginationData && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={paginationData.totalPages}
+          totalRecords={paginationData.total}
+          pageSize={pageSize}
+          onPageChange={(page) => updateParams({ page })}
+          onPageSizeChange={(size) => updateParams({ limit: size, page: 1 })}
+        />
+      )}
 
       {selectedLocation && (
         <MapModal

@@ -14,13 +14,19 @@ export const donationApi = apiSlice.injectEndpoints({
       invalidatesTags: tagList(TAGS.DONATION),
     }),
     getMyDonations: builder.query({
-      query: () => DONATION_API_URLS.GET_MY_DONATIONS,
-      providesTags: (result) => tagListWithIds(TAGS.DONATION, result),
+      query: (params) => ({
+        url: DONATION_API_URLS.GET_MY_DONATIONS,
+        params,
+      }),
+      providesTags: (result) => tagListWithIds(TAGS.DONATION, result?.data),
     }),
 
     // For Blood Banks
     getBloodBankDonations: builder.query({
-      query: () => DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS,
+      query: (params) => ({
+        url: DONATION_API_URLS.GET_BLOOD_BANK_DONATIONS,
+        params,
+      }),
       providesTags: (result) => tagListWithIds(TAGS.DONATION, result),
     }),
     recordDonation: builder.mutation({

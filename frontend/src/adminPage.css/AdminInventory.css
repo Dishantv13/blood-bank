@@ -1,23 +1,8 @@
 .admin-inventory-page {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
 }
 
-.page-header {
-  margin-bottom: 2rem;
-}
-
-.admin-premium-root .admin-inventory-page .page-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 0.5rem;
-}
-
-.admin-premium-root .admin-inventory-page .page-header p {
-  color: var(--text-muted);
-  font-size: 1rem;
-}
+/* Redundant styles removed to match AdminPremium.css */
 
 .inventory-stats {
   display: grid;

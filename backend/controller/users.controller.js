@@ -57,7 +57,7 @@ export const updateDonorInfo = asyncHandler(async (req, res) => {
 
 // Get available donors by blood group
 export const getDonors = asyncHandler(async (req, res) => {
-  const result = await userService.getAvailableDonors(req.query);
+  const result = await userService.getAvailableDonors(req);
   successResponse(res, result, 200, "Donors fetched successfully");
 });
 

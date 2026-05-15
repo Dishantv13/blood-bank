@@ -166,7 +166,7 @@ export const adminActionLimiter = createRateLimiter('admin-action', {
 
 export const adminExportLimiter = createRateLimiter('admin-export', {
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: 20,
   message: {
     success: false,
     message: 'Too many export requests. Please try again after one hour.',

@@ -1,18 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROUTE_PATH } from "../enum/routePath";
 import { useGetAllBloodBanksQuery } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
+import { usePaginationParams } from "../hooks/usePaginationParams.js";
+import SearchFilter from "../components/SearchFilter.jsx";
 
 const AdminEvents = () => {
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
+  const { page, limit, setPage, setLimit } = usePaginationParams(10);
   const [filters, setFilters] = useState({ search: "", status: "" });
 
   const { data: banksData, isLoading } = useGetAllBloodBanksQuery({
     page,
-    limit: 10,
+    limit,
     ...filters,
   });
 
@@ -21,19 +22,10 @@ const AdminEvents = () => {
     setPage(1);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmedSearch = searchInput.trim();
-      setFilters((prev) =>
-        prev.search === trimmedSearch
-          ? prev
-          : { ...prev, search: trimmedSearch },
-      );
-      setPage(1);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const handleSearch = (value) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+    setPage(1);
+  };
 
   const columns = [
     { key: "name", label: "Blood Bank", width: "30%" },
@@ -62,12 +54,10 @@ const AdminEvents = () => {
       </div>
 
       <div className="filters-panel">
-        <input
-          type="text"
+        <SearchFilter
           placeholder="Search blood bank by name, email, or city..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="filter-input"
+          onSearch={handleSearch}
+          initialValue={filters.search}
         />
         <select
           value={filters.status}
@@ -90,6 +80,7 @@ const AdminEvents = () => {
         }
         pagination={banksData?.pagination}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
     </>
   );

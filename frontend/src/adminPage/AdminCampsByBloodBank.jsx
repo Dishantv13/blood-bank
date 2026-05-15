@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetCampsByBloodBankQuery } from "../store/adminApi.js";
 import AdminTable from "./AdminTable.jsx";
+import { usePaginationParams } from "../hooks/usePaginationParams.js";
+import SearchFilter from "../components/SearchFilter.jsx";
 
 const AdminCampsByBloodBank = () => {
   const navigate = useNavigate();
   const { bankId } = useParams();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
+  const { page, limit, setPage, setLimit } = usePaginationParams(10);
   const [filters, setFilters] = useState({ search: "", status: "" });
 
   const { data: campsData, isLoading } = useGetCampsByBloodBankQuery(
     {
       bankId,
       page,
-      limit: 10,
+      limit,
       ...filters,
     },
     {
@@ -32,19 +33,10 @@ const AdminCampsByBloodBank = () => {
     setPage(1);
   };
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const trimmedSearch = searchInput.trim();
-      setFilters((prev) =>
-        prev.search === trimmedSearch
-          ? prev
-          : { ...prev, search: trimmedSearch },
-      );
-      setPage(1);
-    }, 350);
-
-    return () => clearTimeout(timer);
-  }, [searchInput]);
+  const handleSearch = (value) => {
+    setFilters((prev) => ({ ...prev, search: value }));
+    setPage(1);
+  };
 
   const columns = [
     { key: "name", label: "Camp Name", width: "24%" },
@@ -77,12 +69,10 @@ const AdminCampsByBloodBank = () => {
       </div>
 
       <div className="filters-panel">
-        <input
-          type="text"
+        <SearchFilter
           placeholder="Search by camp name or location..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="filter-input"
+          onSearch={handleSearch}
+          initialValue={filters.search}
         />
         <select
           value={filters.status}
@@ -104,6 +94,7 @@ const AdminCampsByBloodBank = () => {
         isLoading={isLoading}
         pagination={campsData?.pagination}
         onPageChange={setPage}
+        onPageSizeChange={setLimit}
       />
     </>
   );
