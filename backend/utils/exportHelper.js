@@ -1,5 +1,4 @@
 import ExcelJS from "exceljs";
-import { Parser } from "json2csv";
 
 export const MAX_EXPORT_ROWS = 10_000;
 
@@ -23,7 +22,7 @@ export const buildWorkbookBuffer = async (sheetName, rows) => {
 
 export const buildMultiSheetWorkbookBuffer = async (sheetsData) => {
   const workbook = new ExcelJS.Workbook();
-  
+
   sheetsData.forEach(({ name, rows }) => {
     const sheet = workbook.addWorksheet(name);
     if (rows.length > 0) {
@@ -34,27 +33,4 @@ export const buildMultiSheetWorkbookBuffer = async (sheetsData) => {
   });
 
   return workbook.xlsx.writeBuffer();
-};
-
-export const buildCsvBuffer = (rows) => {
-  const parser = new Parser();
-  return Buffer.from(parser.parse(rows));
-};
-
-export const pipelineCursorToCsv = async (cursor, transformer) => {
-  const parser = new Parser();
-  let csv = "";
-  let first = true;
-
-  for await (const doc of cursor) {
-    const row = transformer(doc);
-    if (first) {
-      csv += parser.parse([row]);
-      first = false;
-    } else {
-      const rowCsv = parser.parse([row]).split("\n")[1]; // Skip header
-      if (rowCsv) csv += "\n" + rowCsv;
-    }
-  }
-  return Buffer.from(csv);
 };
