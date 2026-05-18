@@ -92,14 +92,3 @@ export const updateCollectedUnits = asyncHandler(async (req, res) => {
   successResponse(res, result, 200, "Collected units updated");
 });
 
-// Remove invalid registrations
-export const cleanupRegistrations = asyncHandler(async (req, res) => {
-  const result = await bloodCampService.cleanupRegistrations(req);
-  successResponse(res, result, 200, "Cleanup completed");
-});
-
-// Fix empty registration data by populating from User collection
-export const fixRegistrations = asyncHandler(async (req, res) => {
-  const result = await bloodCampService.fixRegistrations(req);
-  successResponse(res, result, 200, "Registration data fix completed");
-});

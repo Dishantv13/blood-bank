@@ -46,6 +46,7 @@ const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const BloodBanks = lazy(() => import("./pages/BloodBanks"));
 const Donors = lazy(() => import("./pages/Donors"));
+const LiveSearch = lazy(() => import("./pages/LiveSearch"));
 const Events = lazy(() => import("./pages/Events"));
 const EventDetails = lazy(() => import("./pages/EventDetails"));
 const CreateRequest = lazy(() => import("./pages/CreateRequest"));
@@ -326,6 +327,14 @@ function App() {
                           element={
                             <PrivateRoute>
                               <Donors />
+                            </PrivateRoute>
+                          }
+                        />
+                        <Route
+                          path={ROUTE_PATH.LIVE_SEARCH}
+                          element={
+                            <PrivateRoute>
+                              <LiveSearch />
                             </PrivateRoute>
                           }
                         />

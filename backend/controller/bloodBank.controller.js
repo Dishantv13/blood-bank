@@ -95,13 +95,6 @@ export const updateBloodBankProfile = asyncHandler(async (req, res) => {
   successResponse(res, result, 200, "Blood bank profile updated successfully");
 });
 
-export const createBloodBank = asyncHandler(async (req, res) => {
-  ensureValid(req);
-  const result = await bloodBankService.createBloodBank(req.body);
-  await clearCacheByPrefix("/api/v1/blood-banks");
-  successResponse(res, result, 201, "Blood bank created successfully");
-});
-
 export const updateBloodBankInventory = asyncHandler(async (req, res) => {
   ensureValid(req);
   const { bloodGroup, units } = req.body;

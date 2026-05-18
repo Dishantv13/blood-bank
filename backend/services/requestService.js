@@ -48,9 +48,9 @@ export const createBloodRequest = async (userId, data) => {
   cacheManager.del("admin:dashboard_stats");
 
   // Trigger donor matching and notification (async)
-  donorMatchingService.notifyMatchingDonors(bloodRequest).catch((err) =>
-    console.error("Donor notification failed:", err),
-  );
+  donorMatchingService
+    .notifyMatchingDonors(bloodRequest)
+    .catch((err) => console.error("Donor notification failed:", err));
 
   // NEW: Notify all blood banks about the new request
   const { notifyAllBloodBanks } = await import("./notificationService.js");
@@ -77,16 +77,24 @@ export const getAllBloodRequests = async (query) => {
   if (query.bloodGroup) filter.bloodGroup = query.bloodGroup;
   if (query.urgency) filter.urgency = query.urgency;
 
-  const { data: requests, total } = await requestRepository.findPaginated(filter, {
-    sort: { createdAt: -1 },
-    skip,
-    limit,
-  });
+  const { data: requests, total } = await requestRepository.findPaginated(
+    filter,
+    {
+      sort: { createdAt: -1 },
+      skip,
+      limit,
+    },
+  );
 
   const sanitizedRequests = requests.map((request) =>
     serializers.sanitizePublicBloodRequest(request),
   );
-  return pagination.buildPaginatedResponse(sanitizedRequests, total, page, limit);
+  return pagination.buildPaginatedResponse(
+    sanitizedRequests,
+    total,
+    page,
+    limit,
+  );
 };
 
 // Get user's blood requests
@@ -365,18 +373,20 @@ export const updateRequestStatus = async (
 
   // Notifications
   if (request.requestedBy) {
-    emailService.sendRequestStatusUpdateEmail(request.requestedBy, request, note).catch(
-      (err) => console.error("Status email failed:", err),
-    );
+    emailService
+      .sendRequestStatusUpdateEmail(request.requestedBy, request, note)
+      .catch((err) => console.error("Status email failed:", err));
 
-    notificationService.createNotification({
-      recipient: request.requestedBy._id,
-      recipientModel: "User",
-      title: "Blood Request Update",
-      message: `Your blood request for ${request.patientName} is now ${status.replace("_", " ")}.`,
-      type: "request",
-      actionUrl: `/requests/${request._id}`,
-    }).catch((err) => console.error("In-app notification failed:", err));
+    notificationService
+      .createNotification({
+        recipient: request.requestedBy._id,
+        recipientModel: "User",
+        title: "Blood Request Update",
+        message: `Your blood request for ${request.patientName} is now ${status.replace("_", " ")}.`,
+        type: "request",
+        actionUrl: `/requests/${request._id}`,
+      })
+      .catch((err) => console.error("In-app notification failed:", err));
   }
 
   return request;

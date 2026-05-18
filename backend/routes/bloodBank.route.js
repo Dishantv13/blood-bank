@@ -48,7 +48,6 @@ router
   .route("/:id")
   .get(cacheResponse(120), bloodBankController.getBloodBankById);
 
-router.route("/").post(auth, bloodBankController.createBloodBank);
 router
   .route("/:id/inventory")
   .put(auth, bloodBankController.updateBloodBankInventory);

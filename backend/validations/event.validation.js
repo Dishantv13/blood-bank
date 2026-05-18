@@ -8,8 +8,8 @@ export const createEventValidation = [
     .isString()
     .withMessage("Event title must be a string")
     .trim()
-    .isLength({ min: 10, max: 120 })
-    .withMessage("Event title must be between 10 and 120 characters"),
+    .isLength({ min: 3, max: 120 })
+    .withMessage("Event title must be between 3 and 120 characters"),
   body("description")
     .exists()
     .withMessage("Event description is required")

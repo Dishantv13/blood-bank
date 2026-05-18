@@ -42,14 +42,14 @@ import { FaCalendarAlt, FaChartBar, FaEye, FaEyeSlash } from "react-icons/fa";
 import "../pages.css/BloodBankDashboard.css";
 
 const DEFAULT_INVENTORY = [
-  { type: "A+", units: 0, status: "critical" },
-  { type: "A-", units: 0, status: "critical" },
-  { type: "B+", units: 0, status: "critical" },
-  { type: "B-", units: 0, status: "critical" },
-  { type: "AB+", units: 0, status: "critical" },
-  { type: "AB-", units: 0, status: "critical" },
-  { type: "O+", units: 0, status: "critical" },
-  { type: "O-", units: 0, status: "critical" },
+  { bloodGroup: "A+", units: 0, components: [], status: "critical" },
+  { bloodGroup: "A-", units: 0, components: [], status: "critical" },
+  { bloodGroup: "B+", units: 0, components: [], status: "critical" },
+  { bloodGroup: "B-", units: 0, components: [], status: "critical" },
+  { bloodGroup: "AB+", units: 0, components: [], status: "critical" },
+  { bloodGroup: "AB-", units: 0, components: [], status: "critical" },
+  { bloodGroup: "O+", units: 0, components: [], status: "critical" },
+  { bloodGroup: "O-", units: 0, components: [], status: "critical" },
 ];
 
 const BloodBankDashboard = () => {
@@ -62,12 +62,34 @@ const BloodBankDashboard = () => {
     logoutBloodBank,
   } = useAuth();
   const { success, error, info, warning } = useToast();
-  const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem("bloodBankDashboardTab") || "overview";
-  });
+  const activeTab =
+    searchParams.get("tab") ||
+    localStorage.getItem("bloodBankDashboardTab") ||
+    "overview";
+  const setActiveTab = (tab) => {
+    localStorage.setItem("bloodBankDashboardTab", tab);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("tab", tab);
+    setSearchParams(newParams, { replace: true });
+  };
   const [bloodBank, setBloodBank] = useState(sessionBloodBank || null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [inventory, setInventory] = useState(DEFAULT_INVENTORY);
+  const inventoryTab = searchParams.get("inv_tab") || "whole-blood";
+  const setInventoryTab = (tab) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("inv_tab", tab);
+    if (tab === "whole-blood") {
+      newParams.delete("comp_tab");
+    }
+    setSearchParams(newParams, { replace: true });
+  };
+  const componentSubTab = searchParams.get("comp_tab") || "RBC";
+  const setComponentSubTab = (tab) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("comp_tab", tab);
+    setSearchParams(newParams, { replace: true });
+  };
   const [bloodBanksList, setBloodBanksList] = useState([]);
   const [showCampModal, setShowCampModal] = useState(false);
   const [editingCamp, setEditingCamp] = useState(null);
@@ -241,8 +263,10 @@ const BloodBankDashboard = () => {
   const [uploadPhoto, { isLoading: uploadingPhoto }] =
     useUploadBloodBankPhotoMutation();
   const [updateRequestStatus] = useUpdateRequestStatusMutation();
-  const [createCampMutation] = useCreateCampMutation();
-  const [updateCampMutation] = useUpdateCampMutation();
+  const [createCampMutation, { isLoading: isCreatingCamp }] =
+    useCreateCampMutation();
+  const [updateCampMutation, { isLoading: isUpdatingCamp }] =
+    useUpdateCampMutation();
   const [deleteCampMutation] = useDeleteCampMutation();
   const [deleteCampRegistrationMutation] = useDeleteCampRegistrationMutation();
   const [triggerGetRegistrations] = useLazyGetCampRegistrationsQuery();
@@ -294,8 +318,9 @@ const BloodBankDashboard = () => {
 
     if (dataToUse && !inventoryChanged) {
       const mappedInventory = dataToUse.map((item) => ({
-        type: item.bloodGroup || item.type,
+        bloodGroup: item.bloodGroup || item.type,
         units: item.units || 0,
+        components: item.components || [],
         status: item.units > 10 ? "good" : item.units > 5 ? "low" : "critical",
         lastUpdated: item.lastUpdated,
       }));
@@ -315,10 +340,16 @@ const BloodBankDashboard = () => {
     // Compare current state with data from the server
     const differencesFound = inventory.some((item) => {
       const serverItem = dataToUse.find(
-        (s) => (s.bloodGroup || s.type) === item.type,
+        (s) => (s.bloodGroup || s.type) === item.bloodGroup,
       );
       if (!serverItem) return false;
-      return (serverItem.units || 0) !== item.units;
+
+      const unitsMatch = (serverItem.units || 0) === item.units;
+      const componentsMatch =
+        JSON.stringify(serverItem.components || []) ===
+        JSON.stringify(item.components || []);
+
+      return !unitsMatch || !componentsMatch;
     });
 
     setInventoryChanged(differencesFound);
@@ -346,6 +377,57 @@ const BloodBankDashboard = () => {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [inventoryChanged]);
+
+  // Sync tab parameters on initial load or transition to ensure refresh works perfectly
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const invTab = searchParams.get("inv_tab");
+    const compTab = searchParams.get("comp_tab");
+
+    const updates = {};
+    let hasUpdates = false;
+    let keysToDelete = [];
+
+    if (!tab) {
+      updates.tab = localStorage.getItem("bloodBankDashboardTab") || "overview";
+      hasUpdates = true;
+    }
+
+    if (tab === "inventory" || activeTab === "inventory") {
+      if (!invTab) {
+        updates.inv_tab = "whole-blood";
+        hasUpdates = true;
+      }
+
+      if (
+        (invTab === "components" || inventoryTab === "components") &&
+        !compTab
+      ) {
+        updates.comp_tab = "RBC";
+        hasUpdates = true;
+      } else if (
+        (invTab === "whole-blood" || inventoryTab === "whole-blood") &&
+        compTab
+      ) {
+        keysToDelete.push("comp_tab");
+        hasUpdates = true;
+      }
+    } else {
+      if (invTab === "whole-blood" && compTab) {
+        keysToDelete.push("comp_tab");
+        hasUpdates = true;
+      }
+    }
+
+    if (hasUpdates) {
+      const newParams = new URLSearchParams(searchParams);
+      Object.entries(updates).forEach(([key, value]) => {
+        newParams.set(key, value);
+      });
+      keysToDelete.forEach((key) => newParams.delete(key));
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, activeTab, inventoryTab, setSearchParams]);
 
   // Map profile info
   useEffect(() => {
@@ -990,39 +1072,75 @@ const BloodBankDashboard = () => {
     setNotifications((prev) => [newNotif, ...prev]);
   };
 
-  const updateInventory = (type, change) => {
+  const updateInventory = (bloodGroup, componentType, change) => {
     setInventory((prev) => {
-      const updated = prev.map((item) => {
-        if (item.type === type) {
-          const newUnits = Math.max(0, item.units + change);
-          let status = "good";
-          if (newUnits <= 5) status = "critical";
-          else if (newUnits <= 10) status = "low";
-          return { ...item, units: newUnits, status };
+      return prev.map((item) => {
+        if (item.bloodGroup === bloodGroup) {
+          if (componentType === "Whole Blood") {
+            const newUnits = Math.max(0, item.units + change);
+            let status = "good";
+            if (newUnits <= 5) status = "critical";
+            else if (newUnits <= 10) status = "low";
+            return { ...item, units: newUnits, status };
+          } else {
+            const updatedComponents = [...(item.components || [])];
+            const compIndex = updatedComponents.findIndex(
+              (c) => c.componentType === componentType,
+            );
+
+            if (compIndex > -1) {
+              updatedComponents[compIndex] = {
+                ...updatedComponents[compIndex],
+                units: Math.max(0, updatedComponents[compIndex].units + change),
+              };
+            } else {
+              updatedComponents.push({
+                componentType,
+                units: Math.max(0, change),
+              });
+            }
+            return { ...item, components: updatedComponents };
+          }
         }
         return item;
       });
-
-      return updated;
     });
   };
 
-  const handleUnitsInputChange = (type, value) => {
-    // Convert to number and prevent leading zeros
+  const handleUnitsInputChange = (bloodGroup, componentType, value) => {
     const newUnits = value === "" ? 0 : parseInt(value, 10);
     if (isNaN(newUnits) || newUnits < 0 || newUnits > 999) return;
 
     setInventory((prev) => {
-      const updated = prev.map((item) => {
-        if (item.type === type) {
-          let status = "good";
-          if (newUnits <= 5) status = "critical";
-          else if (newUnits <= 10) status = "low";
-          return { ...item, units: newUnits, status };
+      return prev.map((item) => {
+        if (item.bloodGroup === bloodGroup) {
+          if (componentType === "Whole Blood") {
+            let status = "good";
+            if (newUnits <= 5) status = "critical";
+            else if (newUnits <= 10) status = "low";
+            return { ...item, units: newUnits, status };
+          } else {
+            const updatedComponents = [...(item.components || [])];
+            const compIndex = updatedComponents.findIndex(
+              (c) => c.componentType === componentType,
+            );
+
+            if (compIndex > -1) {
+              updatedComponents[compIndex] = {
+                ...updatedComponents[compIndex],
+                units: newUnits,
+              };
+            } else {
+              updatedComponents.push({
+                componentType,
+                units: newUnits,
+              });
+            }
+            return { ...item, components: updatedComponents };
+          }
         }
         return item;
       });
-      return updated;
     });
   };
 
@@ -1062,7 +1180,13 @@ const BloodBankDashboard = () => {
     .filter((event) => isUpcomingDate(event.date))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 
-  const totalUnits = inventory.reduce((sum, item) => sum + item.units, 0);
+  const totalUnits = inventory.reduce((sum, item) => {
+    const componentSum = (item.components || []).reduce(
+      (cSum, comp) => cSum + comp.units,
+      0,
+    );
+    return sum + (item.units || 0) + componentSum;
+  }, 0);
   const criticalTypes = inventory.filter(
     (item) => item.status === "critical",
   ).length;
@@ -1460,13 +1584,6 @@ const BloodBankDashboard = () => {
                 </div>
               )}
             </div>
-            {/* <Link to={ROUTE_PATH.LOGIN} className="header-btn">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-              Home
-            </Link> */}
           </div>
         </header>
 
@@ -1651,9 +1768,13 @@ const BloodBankDashboard = () => {
                           <div className="upcoming-info">
                             <h4>{camp.name}</h4>
                             <p>
-                              {typeof camp.location === "object" && camp.location?.type !== "Point"
-                                ? formatAddress(camp.address) || "Location specified"
-                                : typeof camp.location === "string" ? camp.location : camp.venue || "Location specified"}
+                              {typeof camp.location === "object" &&
+                              camp.location?.type !== "Point"
+                                ? formatAddress(camp.address) ||
+                                  "Location specified"
+                                : typeof camp.location === "string"
+                                  ? camp.location
+                                  : camp.venue || "Location specified"}
                             </p>
                           </div>
                         </div>
@@ -1692,12 +1813,16 @@ const BloodBankDashboard = () => {
                           <div className="upcoming-info">
                             <h4>{event.title || event.name}</h4>
                             <p>
-                              {typeof event.location === "string" ? event.location : 
-                               event.location?.address || 
-                               event.location?.name ||
-                               (typeof event.location === "object" && event.location?.type !== "Point" ? formatAddress(event.address) : null) ||
-                               event.venue || 
-                               "Address not available"}
+                              {typeof event.location === "string"
+                                ? event.location
+                                : event.location?.address ||
+                                  event.location?.name ||
+                                  (typeof event.location === "object" &&
+                                  event.location?.type !== "Point"
+                                    ? formatAddress(event.address)
+                                    : null) ||
+                                  event.venue ||
+                                  "Address not available"}
                             </p>
                           </div>
                         </div>
@@ -1761,68 +1886,131 @@ const BloodBankDashboard = () => {
                   </div>
                 )}
               </div>
-              <div className="inventory-grid">
-                {inventory.map((item) => (
-                  <div key={item.type} className="inventory-card">
-                    <div className="inv-header">
-                      <span className="blood-type-large">{item.type}</span>
-                      <span className={`status-badge ${item.status}`}>
-                        {item.status}
-                      </span>
-                    </div>
-                    <div className="inv-controls">
-                      <button
-                        className="inv-btn inv-btn-decrease"
-                        onClick={() => updateInventory(item.type, -1)}
-                        disabled={item.units <= 0}
-                        title="Decrease by 1"
-                      >
-                        <svg
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
+              <div className="inventory-header-tabs">
+                <div className="main-tabs">
+                  <button
+                    className={`tab-btn ${inventoryTab === "whole-blood" ? "active" : ""}`}
+                    onClick={() => setInventoryTab("whole-blood")}
+                  >
+                    Whole Blood
+                  </button>
+                  <button
+                    className={`tab-btn ${inventoryTab === "components" ? "active" : ""}`}
+                    onClick={() => setInventoryTab("components")}
+                  >
+                    Specialized Components
+                  </button>
+                </div>
+
+                {inventoryTab === "components" && (
+                  <div className="sub-tabs">
+                    {["RBC", "Plasma", "Platelets", "Cryoprecipitate"].map(
+                      (type) => (
+                        <button
+                          key={type}
+                          className={`sub-tab-btn ${componentSubTab === type ? "active" : ""}`}
+                          onClick={() => setComponentSubTab(type)}
                         >
-                          <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                      </button>
-                      <div className="inv-value">
-                        <input
-                          type="number"
-                          className="inv-input"
-                          value={item.units === 0 ? "" : item.units}
-                          placeholder="0"
-                          onChange={(e) =>
-                            handleUnitsInputChange(item.type, e.target.value)
-                          }
-                          min="0"
-                          max="999"
-                        />
-                        <span className="units-label">units</span>
-                      </div>
-                      <button
-                        className="inv-btn inv-btn-increase"
-                        onClick={() => updateInventory(item.type, 1)}
-                        disabled={item.units >= 100}
-                        title="Increase by 1"
-                      >
-                        <svg
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="3"
-                        >
-                          <line x1="12" y1="5" x2="12" y2="19" />
-                          <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                      </button>
-                    </div>
+                          {type}
+                        </button>
+                      ),
+                    )}
                   </div>
-                ))}
+                )}
+              </div>
+
+              <div className="inventory-grid">
+                {inventory.map((item) => {
+                  let currentUnits = 0;
+                  const currentType =
+                    inventoryTab === "whole-blood"
+                      ? "Whole Blood"
+                      : componentSubTab;
+
+                  if (inventoryTab === "whole-blood") {
+                    currentUnits = item.units || 0;
+                  } else {
+                    const comp = (item.components || []).find(
+                      (c) => c.componentType === componentSubTab,
+                    );
+                    currentUnits = comp ? comp.units : 0;
+                  }
+
+                  const itemStatus =
+                    currentUnits > 10
+                      ? "good"
+                      : currentUnits > 5
+                        ? "low"
+                        : "critical";
+
+                  return (
+                    <div key={item.bloodGroup} className="inventory-card">
+                      <div className="inv-header">
+                        <span className="blood-type-large">
+                          {item.bloodGroup}
+                        </span>
+                        <span className={`status-badge ${itemStatus}`}>
+                          {itemStatus}
+                        </span>
+                      </div>
+                      <div className="inv-controls">
+                        <button
+                          className="inv-btn inv-btn-decrease"
+                          onClick={() =>
+                            updateInventory(item.bloodGroup, currentType, -1)
+                          }
+                          disabled={currentUnits <= 0}
+                        >
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                          >
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                        </button>
+                        <div className="inv-value">
+                          <input
+                            type="number"
+                            className="inv-input"
+                            value={currentUnits === 0 ? "" : currentUnits}
+                            placeholder="0"
+                            onChange={(e) =>
+                              handleUnitsInputChange(
+                                item.bloodGroup,
+                                currentType,
+                                e.target.value,
+                              )
+                            }
+                          />
+                          <span className="units-label">Units</span>
+                        </div>
+                        <button
+                          className="inv-btn inv-btn-increase"
+                          onClick={() =>
+                            updateInventory(item.bloodGroup, currentType, 1)
+                          }
+                          disabled={currentUnits >= 999}
+                        >
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                          >
+                            <line x1="12" y1="5" x2="12" y2="19" />
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -3730,8 +3918,16 @@ const BloodBankDashboard = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-submit">
-                  {editingCamp ? "Update Camp" : "Create Camp"}
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  disabled={isCreatingCamp || isUpdatingCamp}
+                >
+                  {isCreatingCamp || isUpdatingCamp
+                    ? "Saving..."
+                    : editingCamp
+                      ? "Update Camp"
+                      : "Create Camp"}
                 </button>
               </div>
             </form>

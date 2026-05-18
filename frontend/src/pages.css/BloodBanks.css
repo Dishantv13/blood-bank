@@ -330,3 +330,90 @@
 [data-theme='dark'] .professional-bank-card:hover {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
 }
+
+/* Integrated Proximity Search Styles */
+.filter-card.flex-filters {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.action-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: flex-start;
+}
+
+.btn-locate-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 2px solid var(--border-color);
+  padding: 0 1.25rem;
+  border-radius: 12px;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  height: 48px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.btn-locate-toggle:hover {
+  background: rgba(230, 57, 70, 0.05);
+  border-color: #e63946;
+  color: #e63946;
+}
+
+.btn-locate-toggle.active {
+  background: #e63946;
+  border-color: #e63946;
+  color: white;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+}
+
+.btn-locate-toggle.active:hover {
+  background: #d62828;
+  border-color: #d62828;
+}
+
+.btn-clear-gps {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  transition: color 0.2s ease;
+}
+
+.btn-clear-gps:hover {
+  color: #dc2626;
+}
+
+.locate-icon {
+  font-size: 1.15rem;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.bullet-text-bold {
+  font-weight: 700;
+  color: var(--text-main);
+}
+

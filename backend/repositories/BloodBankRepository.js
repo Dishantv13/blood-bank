@@ -63,7 +63,7 @@ class BloodBankRepository extends BaseRepository {
     // 3. Optimization: If no bloodGroup filter, paginate BEFORE lookup
     if (!bloodGroup) {
       pipeline.push({ $sort: { createdAt: -1 } });
-      
+
       // Use $facet to get total count and paginated data separately
       pipeline.push({
         $facet: {
@@ -87,15 +87,27 @@ class BloodBankRepository extends BaseRepository {
             },
             {
               $project: {
-                name: 1, email: 1, phone: 1, address: 1, rating: 1,
-                logo: 1, imageUrl: 1, profileImage: 1, location: 1,
-                inventory: 1, distance: 1, isActive: 1, isVerified: 1,
-                approvalStatus: 1, services: 1, createdAt: 1
-              }
-            }
+                name: 1,
+                email: 1,
+                phone: 1,
+                address: 1,
+                rating: 1,
+                logo: 1,
+                imageUrl: 1,
+                profileImage: 1,
+                location: 1,
+                inventory: 1,
+                distance: 1,
+                isActive: 1,
+                isVerified: 1,
+                approvalStatus: 1,
+                services: 1,
+                createdAt: 1,
+              },
+            },
           ],
-          totalCount: [{ $count: "count" }]
-        }
+          totalCount: [{ $count: "count" }],
+        },
       });
     } else {
       // 3b. If bloodGroup filter is present, we must lookup and filter before pagination
@@ -135,10 +147,22 @@ class BloodBankRepository extends BaseRepository {
             { $limit: limit },
             {
               $project: {
-                name: 1, email: 1, phone: 1, address: 1, rating: 1,
-                logo: 1, imageUrl: 1, profileImage: 1, location: 1,
-                inventory: 1, distance: 1, isActive: 1, isVerified: 1,
-                approvalStatus: 1, services: 1, createdAt: 1
+                name: 1,
+                email: 1,
+                phone: 1,
+                address: 1,
+                rating: 1,
+                logo: 1,
+                imageUrl: 1,
+                profileImage: 1,
+                location: 1,
+                inventory: 1,
+                distance: 1,
+                isActive: 1,
+                isVerified: 1,
+                approvalStatus: 1,
+                services: 1,
+                createdAt: 1,
               },
             },
           ],
@@ -261,6 +285,7 @@ class BloodBankRepository extends BaseRepository {
         $project: {
           _id: 1,
           name: 1,
+          phone: 1,
           address: 1,
           distance: 1,
           isVerified: 1,

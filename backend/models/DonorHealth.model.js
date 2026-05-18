@@ -197,14 +197,14 @@ DonorHealthSchema.pre("save", async function () {
   // Check weight
   if (this.weight < 50) ineligibleConditions.push("Weight below 50kg");
 
-  // Check last donation date (minimum 56 days between donations)
+  // Check last donation date (minimum 90 days between donations)
   if (this.donationHistory.lastDonationDate) {
     const daysSinceLastDonation = Math.floor(
       (Date.now() - this.donationHistory.lastDonationDate) /
         (1000 * 60 * 60 * 24),
     );
-    if (daysSinceLastDonation < 56) {
-      ineligibleConditions.push("Less than 56 days since last donation");
+    if (daysSinceLastDonation < 90) {
+      ineligibleConditions.push("Less than 90 days since last donation");
     }
   }
 

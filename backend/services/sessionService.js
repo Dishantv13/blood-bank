@@ -328,7 +328,6 @@ export const issuePrincipalSession = async ({
   req,
   res,
   role,
-  principalId,
   tokenVersion,
   buildClaims,
   metadata = {},

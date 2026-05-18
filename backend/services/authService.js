@@ -540,12 +540,12 @@ export const loginUser = async (email, password) => {
   );
 
   if (!user) {
-    throw new ApiError(401, "Invalid email or password");
+    throw new ApiError(401, "User not registered");
   }
 
   // Check if account is temporarily locked
   if (user.lockUntil && user.lockUntil > Date.now()) {
-    throw new ApiError(401, "Invalid email or password");
+    throw new ApiError(401, "Account temporarily locked due to multiple failed login attempts.");
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -577,7 +577,6 @@ export const googleLoginWithClaims = async ({
   name,
   googleId,
   photoURL,
-  emailVerified,
 }) => {
   const normalizedEmail = String(email || "")
     .trim()

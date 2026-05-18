@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import BloodUnit from "../models/BloodUnit.model.js";
 import { ApiError } from "../utils/apiError.js";
+import { getPaginationMetadata } from "../utils/pagination.js";
 import * as inventoryService from "./inventoryService.js";
 
 const COMPONENT_EXPIRY_DAYS = {
@@ -134,13 +135,9 @@ export const updateScreeningResults = async (unitId, results, adminId) => {
     const unit = await BloodUnit.findOne({ unitId }).session(session);
     if (!unit) throw new ApiError(404, "Blood unit not found");
 
-    if (unit.screeningStatus !== "pending") {
-      throw new ApiError(
-        400,
-        "Unit screening results have already been recorded",
-      );
-    }
+    const previousScreeningStatus = unit.screeningStatus;
 
+    // We allow updating screening results even if they were already recorded
     unit.screeningResults = {
       ...unit.screeningResults,
       ...results,
@@ -156,7 +153,48 @@ export const updateScreeningResults = async (unitId, results, adminId) => {
       (test) => unit.screeningResults[test] === "positive",
     );
 
+    let newScreeningStatus = "pending";
     if (anyPositive) {
+      newScreeningStatus = "failed";
+    } else if (allNegative) {
+      newScreeningStatus = "passed";
+    }
+
+    // Determine inventory and status updates based on transition
+    if (previousScreeningStatus === "passed" && newScreeningStatus === "failed") {
+      // Transition: passed -> failed
+      unit.screeningStatus = "failed";
+      unit.status = "discarded";
+      unit.discardDetails = {
+        reason: "Failed medical screening (updated)",
+        discardedAt: new Date(),
+        discardedBy: adminId,
+      };
+
+      // Subtract 1 unit from inventory
+      await inventoryService.subtractInventoryUnits(
+        unit.bloodBank,
+        unit.bloodGroup,
+        1,
+        unit.componentType,
+        session,
+      );
+    } else if (previousScreeningStatus !== "passed" && newScreeningStatus === "passed") {
+      // Transition: pending/failed -> passed
+      unit.screeningStatus = "passed";
+      unit.status = "available";
+      unit.discardDetails = undefined; // clear discardDetails
+
+      // Add 1 unit to inventory
+      await inventoryService.addInventoryUnits(
+        unit.bloodBank,
+        unit.bloodGroup,
+        1,
+        unit.componentType,
+        session,
+      );
+    } else if (previousScreeningStatus === "pending" && newScreeningStatus === "failed") {
+      // Transition: pending -> failed
       unit.screeningStatus = "failed";
       unit.status = "discarded";
       unit.discardDetails = {
@@ -164,17 +202,15 @@ export const updateScreeningResults = async (unitId, results, adminId) => {
         discardedAt: new Date(),
         discardedBy: adminId,
       };
-    } else if (allNegative) {
-      unit.screeningStatus = "passed";
-      unit.status = "available";
-
-      // Atomic inventory increment
-      await inventoryService.addInventoryUnits(
-        unit.bloodBank,
-        unit.bloodGroup,
-        1,
-        session,
-      );
+    } else if (previousScreeningStatus === "failed" && newScreeningStatus === "failed") {
+      // Remain failed, update details
+      unit.screeningStatus = "failed";
+      unit.status = "discarded";
+      unit.discardDetails = {
+        reason: "Failed medical screening (updated)",
+        discardedAt: new Date(),
+        discardedBy: adminId,
+      };
     }
 
     await unit.save({ session });
@@ -285,7 +321,7 @@ export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
               },
             },
           },
-          { $sort: { isExpired: 1, expiryDate: 1 } },
+          { $sort: { isExpired: 1, updatedAt: -1 } },
           { $skip: skip },
           { $limit: Number(limit) },
           {
@@ -326,12 +362,7 @@ export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
 
   return {
     units,
-    pagination: {
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      totalPages: Math.ceil(total / limit),
-    },
+    pagination: getPaginationMetadata(Number(page), Number(limit), total),
   };
 };
 

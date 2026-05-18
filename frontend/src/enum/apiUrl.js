@@ -19,7 +19,6 @@ export const BLOODBANK_API_URLS = {
   // Public
   GET_ALL_BLOOD_BANKS: "/blood-banks",
   GET_BLOOD_BANK_BY_ID: (id) => `/blood-banks/${id}`,
-  CREATE_BLOOD_BANK: "/blood-banks",
 
   // Auth
   LOGIN_BLOOD_BANK: "/blood-banks/login",
@@ -228,4 +227,8 @@ export const BLOOD_UNIT_API_URLS = {
 export const CHAT_API_URLS = {
   GET_CHAT_HISTORY: (requestId) => `/chat/${requestId}`,
   MARK_CHAT_AS_READ: (requestId) => `/chat/${requestId}/read`,
+};
+
+export const SEARCH_API_URLS = {
+  SEARCH_AVAILABILITY: "/search/availability",
 };

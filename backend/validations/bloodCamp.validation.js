@@ -15,8 +15,8 @@ export const createCampValidation = [
     .isString()
     .withMessage("Camp name must be a string")
     .trim()
-    .isLength({ min: 10, max: 120 })
-    .withMessage("Camp name must be between 10 and 120 characters"),
+    .isLength({ min: 3, max: 120 })
+    .withMessage("Camp name must be between 3 and 120 characters"),
   body("date")
     .exists()
     .withMessage("Camp date is required")
@@ -73,8 +73,8 @@ export const updateCampValidation = [
     .isString()
     .withMessage("Camp name must be a string")
     .trim()
-    .isLength({ min: 10, max: 120 })
-    .withMessage("Camp name must be between 10 and 120 characters"),
+    .isLength({ min: 3, max: 120 })
+    .withMessage("Camp name must be between 3 and 120 characters"),
   body("date")
     .optional()
     .isISO8601()

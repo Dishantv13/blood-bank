@@ -13,6 +13,7 @@ import {
   FiClock,
   FiCheckCircle,
   FiChevronRight,
+  FiCompass,
 } from "react-icons/fi";
 import { FaStar } from "react-icons/fa";
 import "../pages.css/BloodBanks.css";
@@ -21,16 +22,35 @@ const BloodBanks = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedLocation, setSelectedLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
 
   const page = parseInt(searchParams.get("page")) || 1;
   const limit = parseInt(searchParams.get("limit")) || 10;
   const filterBloodGroup = searchParams.get("bloodGroup") || "";
+  const latitude = searchParams.get("latitude") || "";
+  const longitude = searchParams.get("longitude") || "";
+  const radius = searchParams.get("radius") || ""; // Radius in km
 
   const params = {
     page,
     limit,
     ...(filterBloodGroup ? { bloodGroup: filterBloodGroup } : {}),
+    ...(latitude ? { latitude } : {}),
+    ...(longitude ? { longitude } : {}),
+    ...(radius ? { maxDistance: Number(radius) * 1000 } : {}),
   };
+
+  // Log active filters as they are applied to the directory search
+  useEffect(() => {
+    const selectedGroup = filterBloodGroup || "All Blood Groups";
+    const selectedDistance = radius ? `Within ${radius} km` : "Any Distance";
+    const gpsStatus = latitude && longitude ? "Active" : "Inactive";
+    console.log(
+      `%c[🔍 Blood Banks Directory Filter Applied]%c\n• Selected Blood Group: ${selectedGroup}\n• Active Radius: ${selectedDistance}\n• GPS Tracking: ${gpsStatus}\n• Active Page: ${page}\n• Records Per Page: ${limit}`,
+      "color: #ef4444; font-weight: bold; font-size: 1.1em;",
+      "color: inherit; font-weight: normal;"
+    );
+  }, [filterBloodGroup, radius, latitude, longitude, page, limit]);
 
   const { data: bloodBanksRes, isFetching: loadingBloodBanks } =
     useGetAllBloodBanksQuery(params);
@@ -49,6 +69,81 @@ const BloodBanks = () => {
         prev.delete("bloodGroup");
       }
       prev.set("page", "1"); // Reset to page 1 on filter change
+      return prev;
+    });
+  };
+
+  const handleRadiusChange = (value) => {
+    if (value && (!latitude || !longitude)) {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser");
+        return;
+      }
+      setLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocating(false);
+          setSearchParams((prev) => {
+            prev.set("latitude", String(position.coords.latitude));
+            prev.set("longitude", String(position.coords.longitude));
+            prev.set("radius", value);
+            prev.set("page", "1");
+            return prev;
+          });
+        },
+        (err) => {
+          setLocating(false);
+          alert("Location access is required to filter by distance. Please enable browser GPS permissions.");
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+      return;
+    }
+
+    setSearchParams((prev) => {
+      if (value) {
+        prev.set("radius", value);
+      } else {
+        prev.delete("radius");
+      }
+      prev.set("page", "1");
+      return prev;
+    });
+  };
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocating(false);
+        setSearchParams((prev) => {
+          prev.set("latitude", String(position.coords.latitude));
+          prev.set("longitude", String(position.coords.longitude));
+          if (!prev.get("radius")) {
+            prev.set("radius", "25"); // Default to 25 km
+          }
+          prev.set("page", "1");
+          return prev;
+        });
+      },
+      (err) => {
+        setLocating(false);
+        alert("Failed to capture location. Please check browser permissions.");
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const handleClearLocation = () => {
+    setSearchParams((prev) => {
+      prev.delete("latitude");
+      prev.delete("longitude");
+      prev.delete("radius");
+      prev.set("page", "1");
       return prev;
     });
   };
@@ -84,7 +179,7 @@ const BloodBanks = () => {
             </p>
           </div>
 
-          <div className="filter-card">
+          <div className="filter-card flex-filters">
             <div className="filter-item">
               <label htmlFor="blood-group-filter">Filter Availability</label>
               <select
@@ -101,6 +196,47 @@ const BloodBanks = () => {
                 ))}
               </select>
             </div>
+
+            <div className="filter-item">
+              <label htmlFor="radius-filter">Search Radius</label>
+              <select
+                id="radius-filter"
+                className="custom-select"
+                value={radius}
+                onChange={(e) => handleRadiusChange(e.target.value)}
+              >
+                <option value="">Any Distance</option>
+                <option value="5">Within 5 Km</option>
+                <option value="10">Within 10 Km</option>
+                <option value="25">Within 25 Km</option>
+                <option value="50">Within 50 Km</option>
+              </select>
+            </div>
+
+            <div className="filter-item action-item">
+              <button
+                type="button"
+                className={`btn-locate-toggle ${latitude && longitude ? "active" : ""}`}
+                onClick={handleLocateMe}
+                disabled={locating}
+              >
+                <FiCompass className={`locate-icon ${locating ? "spinning" : ""}`} />
+                {locating
+                  ? "Locating..."
+                  : latitude && longitude
+                  ? "📍 Near Me (Active)"
+                  : "Locate Near Me"}
+              </button>
+              {latitude && longitude && (
+                <button
+                  type="button"
+                  className="btn-clear-gps"
+                  onClick={handleClearLocation}
+                >
+                  Clear GPS
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
@@ -110,7 +246,7 @@ const BloodBanks = () => {
           ) : bloodBanks.length === 0 ? (
             <EmptyState
               title="No centers found"
-              message="No blood banks match your current filters. Try selecting a different blood group."
+              message="No blood banks match your current filters. Try selecting a different blood group or resetting location filters."
             />
           ) : (
             <>
@@ -156,7 +292,13 @@ const BloodBanks = () => {
                       <div className="info-bullets">
                         <div className="bullet">
                           <FiMapPin className="bullet-icon" />
-                          <span>{bank.address?.city || "Local Area"}</span>
+                          <span className="bullet-text-bold">
+                            {bank.distance !== undefined
+                              ? bank.distance < 1000
+                                ? `📍 ${bank.distance.toFixed(0)} m away (${bank.address?.city || "Local"})`
+                                : `📍 ${(bank.distance / 1000).toFixed(1)} km away (${bank.address?.city || "Local"})`
+                              : bank.address?.city || "Local Area"}
+                          </span>
                         </div>
                         <div className="bullet">
                           <FiClock className="bullet-icon" />
@@ -164,7 +306,7 @@ const BloodBanks = () => {
                         </div>
                         <div className="bullet">
                           <FiCheckCircle className="bullet-icon" />
-                          <span>Goverment Verified</span>
+                          <span>Government Verified</span>
                         </div>
                       </div>
 

@@ -25,6 +25,24 @@ const InventorySchema = new mongoose.Schema(
           default: 0,
           min: 0,
         },
+        components: [
+          {
+            componentType: {
+              type: String,
+              enum: ["RBC", "Plasma", "Platelets", "Cryoprecipitate"],
+              required: true,
+            },
+            units: {
+              type: Number,
+              default: 0,
+              min: 0,
+            },
+            lastUpdated: {
+              type: Date,
+              default: Date.now,
+            },
+          },
+        ],
         lastUpdated: {
           type: Date,
           default: Date.now,

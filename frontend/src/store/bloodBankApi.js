@@ -32,15 +32,6 @@ export const bloodBankApi = apiSlice.injectEndpoints({
       query: (id) => BLOODBANK_API_URLS.GET_BLOOD_BANK_BY_ID(id),
       providesTags: (result, error, id) => tagById(TAGS.BLOOD_BANK, id),
     }),
-    createBloodBank: builder.mutation({
-      query: (data) => ({
-        url: BLOODBANK_API_URLS.CREATE_BLOOD_BANK,
-        method: "POST",
-        body: data,
-      }),
-      invalidatesTags: tagList(TAGS.BLOOD_BANK),
-    }),
-
     // Blood Bank Portal specific endpoints
     loginBloodBank: builder.mutation({
       query: (credentials) => ({
@@ -190,7 +181,6 @@ export const bloodBankApi = apiSlice.injectEndpoints({
 export const {
   useGetAllBloodBanksQuery,
   useGetBloodBankByIdQuery,
-  useCreateBloodBankMutation,
   useLoginBloodBankMutation,
   useLogoutBloodBankMutation,
   useRefreshBloodBankSessionMutation,

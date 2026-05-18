@@ -40,7 +40,7 @@ describe("Inventory Service Unit Tests", () => {
 
   test("Should fail to subtract more units than available (Atomic Check)", async () => {
     await expect(subtractInventoryUnits(bloodBankId, "B+", 10)).rejects.toThrow(
-      "Insufficient B+ units",
+      "Insufficient B+ Whole Blood units",
     );
 
     // Ensure value didn't change

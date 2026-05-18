@@ -45,7 +45,7 @@ describe("Donor Eligibility Unit Tests", () => {
     );
   });
 
-  test("Should be ineligible if less than 56 days since last donation", async () => {
+  test("Should be ineligible if less than 90 days since last donation", async () => {
     const data = getBaseFormData();
     const recentDate = new Date();
     recentDate.setDate(recentDate.getDate() - 30); // 30 days ago
@@ -60,7 +60,7 @@ describe("Donor Eligibility Unit Tests", () => {
 
     expect(form.eligibility.isEligible).toBe(false);
     expect(form.eligibility.reasonsForIneligibility).toContain(
-      "Less than 56 days since last donation",
+      "Less than 90 days since last donation",
     );
   });
 

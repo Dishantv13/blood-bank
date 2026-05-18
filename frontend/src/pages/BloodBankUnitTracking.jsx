@@ -233,36 +233,53 @@ const BloodBankUnitTracking = () => {
                     Monitor individual blood bags, medical screening, and
                     storage logs.
                   </p>
-                  <div className="sub-tabs">
-                    <button
-                      className={`sub-tab ${activeSubTab === "inventory" ? "active" : ""}`}
-                      onClick={() => {
-                        updateParams({ tab: "inventory", status: "", page: 1, limit: "" });
-                      }}
-                    >
-                      <span className="tab-icon">📦</span>
-                      Refined Inventory
-                      {activeSubTab === "inventory" && (
-                        <span className="tab-count">
-                          {" "}
-                          {pagination.total || 0}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      className={`sub-tab ${activeSubTab === "raw" ? "active" : ""}`}
-                      onClick={() => {
-                        updateParams({ tab: "raw", status: "raw", page: 1, limit: "" });
-                      }}
-                    >
-                      <span className="tab-icon">🩸</span>
-                      Raw Collections
-                      {activeSubTab === "raw" && (
-                        <span className="tab-count">
-                          {pagination.total || 0}
-                        </span>
-                      )}
-                    </button>
+                  <div className="tab-group-container">
+                    <div className="sub-tabs">
+                      <button
+                        className={`sub-tab ${activeSubTab === "inventory" ? "active" : ""}`}
+                        onClick={() => {
+                          updateParams({ tab: "inventory", status: "quarantine", page: 1, limit: "" });
+                        }}
+                      >
+                        <span className="tab-icon">📦</span>
+                        Refined Inventory
+                      </button>
+                      <button
+                        className={`sub-tab ${activeSubTab === "raw" ? "active" : ""}`}
+                        onClick={() => {
+                          updateParams({ tab: "raw", status: "raw", page: 1, limit: "" });
+                        }}
+                      >
+                        <span className="tab-icon">🩸</span>
+                        Raw Collections
+                      </button>
+                    </div>
+
+                    {activeSubTab === "inventory" && (
+                      <div className="nested-tabs">
+                        <button
+                          className={`nested-tab ${statusFilter === "quarantine" ? "active" : ""}`}
+                          onClick={() => updateParams({ status: "quarantine", page: 1 })}
+                        >
+                          Quarantine
+                          <span className="status-dot warning"></span>
+                        </button>
+                        <button
+                          className={`nested-tab ${statusFilter === "available" ? "active" : ""}`}
+                          onClick={() => updateParams({ status: "available", page: 1 })}
+                        >
+                          Available
+                          <span className="status-dot success"></span>
+                        </button>
+                        <button
+                          className={`nested-tab ${statusFilter === "discarded" ? "active" : ""}`}
+                          onClick={() => updateParams({ status: "discarded", page: 1 })}
+                        >
+                          Discarded
+                          <span className="status-dot danger"></span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -283,20 +300,7 @@ const BloodBankUnitTracking = () => {
                     )}
                   </select>
 
-                  {activeSubTab === "inventory" && (
-                    <select
-                      onChange={(e) =>
-                        updateParams({ status: e.target.value, page: 1 })
-                      }
-                      value={statusFilter}
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="quarantine">Quarantine</option>
-                      <option value="available">Available</option>
-                      <option value="expired">Expired</option>
-                      <option value="used">Used</option>
-                    </select>
-                  )}
+                  {/* Status select removed in favor of sub-tabs */}
 
                   <select
                     onChange={(e) =>
@@ -397,19 +401,11 @@ const BloodBankUnitTracking = () => {
                                   unit.collectionDate,
                                 ).toLocaleDateString()
                               ) : (
-                                <div
-                                  className={
-                                    unit.status === "expired"
-                                      ? "text-danger"
-                                      : ""
-                                  }
-                                >
-                                  {new Date(
-                                    unit.expiryDate,
-                                  ).toLocaleDateString()}
-                                  <small className="d-block">
+                                <div className="expiry-info">
+                                  {new Date(unit.expiryDate).toLocaleDateString()}
+                                  <div className={`expiry-days ${unit.status === "expired" ? "text-danger" : ""}`}>
                                     {getTimeRemaining(unit.expiryDate)}
-                                  </small>
+                                  </div>
                                 </div>
                               )}
                             </td>
@@ -445,12 +441,20 @@ const BloodBankUnitTracking = () => {
                                       onClick={() => {
                                         setSelectedUnit(unit);
                                         setScreeningResults(
-                                          unit.screeningResults,
+                                          unit.screeningResults || {
+                                            hiv: "pending",
+                                            hbv: "pending",
+                                            hcv: "pending",
+                                            syphilis: "pending",
+                                            malaria: "pending",
+                                          },
                                         );
                                         setShowScreeningModal(true);
                                       }}
                                     >
-                                      Screening
+                                      {unit.screeningStatus === "pending"
+                                        ? "Screening"
+                                        : "Update Results"}
                                     </button>
                                     <button
                                       className="btn-sm btn-outline"
@@ -489,6 +493,38 @@ const BloodBankUnitTracking = () => {
                     <div className="modal-content">
                       <h2>Medical Screening Results</h2>
                       <p>Unit ID: {selectedUnit.unitId}</p>
+                      <div className="quick-actions-row">
+                        <button
+                          type="button"
+                          className="btn-quick-action btn-quick-neg"
+                          onClick={() =>
+                            setScreeningResults({
+                              hiv: "negative",
+                              hbv: "negative",
+                              hcv: "negative",
+                              syphilis: "negative",
+                              malaria: "negative",
+                            })
+                          }
+                        >
+                          🟢 All Negative
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-quick-action btn-quick-pos"
+                          onClick={() =>
+                            setScreeningResults({
+                              hiv: "positive",
+                              hbv: "positive",
+                              hcv: "positive",
+                              syphilis: "positive",
+                              malaria: "positive",
+                            })
+                          }
+                        >
+                          🔴 All Positive
+                        </button>
+                      </div>
                       <div className="screening-form">
                         {["hiv", "hbv", "hcv", "syphilis", "malaria"].map(
                           (test) => (

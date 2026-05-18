@@ -144,6 +144,7 @@ class UserRepository extends BaseRepository {
       {
         $project: {
           _id: 1,
+          name: 1,
           bloodGroup: 1,
           isAvailable: 1,
           phone: 1,

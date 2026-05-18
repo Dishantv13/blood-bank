@@ -8,13 +8,7 @@ const router = Router();
 
 router.route("/").get(cacheResponse(120), bloodCampsControllers.getAllCamps);
 
-router
-  .route("/cleanup-registrations")
-  .post(adminAuth, bloodCampsControllers.cleanupRegistrations);
 
-router
-  .route("/fix-registrations")
-  .post(adminAuth, bloodCampsControllers.fixRegistrations);
 
 router
   .route("/:id/export-registrations")

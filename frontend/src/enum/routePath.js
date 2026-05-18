@@ -16,6 +16,7 @@ export const ROUTE_PATH = {
   BLOOD_BANKS: "/blood-banks",
   BLOOD_BANK_PUBLIC_DETAILS: "/blood-banks/:bankId",
   DONORS: "/donors",
+  LIVE_SEARCH: "/live-search",
   EVENTS: "/events",
   EVENT_DETAILS: "/events/:eventId",
   CREATE_REQUEST: "/create-request",

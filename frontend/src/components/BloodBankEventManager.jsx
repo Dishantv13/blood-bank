@@ -58,8 +58,8 @@ const BloodBankEventManager = () => {
     useGetEventRegistrationsQuery(selectedEvent?._id, {
       skip: !selectedEvent?._id,
     });
-  const [createEvent] = useCreateEventMutation();
-  const [updateEvent] = useUpdateEventMutation();
+  const [createEvent, { isLoading: isCreatingEvent }] = useCreateEventMutation();
+  const [updateEvent, { isLoading: isUpdatingEvent }] = useUpdateEventMutation();
   const [deleteEvent] = useDeleteEventMutation();
   const [exportRegistrations] = useExportEventRegistrationsMutation();
 
@@ -396,7 +396,7 @@ const BloodBankEventManager = () => {
         }}
         onSubmit={handleCreateUpdate}
         initialData={editingEvent}
-        loading={false}
+        loading={isCreatingEvent || isUpdatingEvent}
       />
 
       {/* Event Details Modal */}

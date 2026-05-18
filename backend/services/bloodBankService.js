@@ -910,44 +910,6 @@ export const updateBloodBankProfile = async (bloodBankId, payload) => {
 export const changePassword = (bloodBankId, currentPassword, newPassword) =>
   bloodBankManager.changePassword(bloodBankId, currentPassword, newPassword);
 
-// Create a new blood bank (Admin only)
-export const createBloodBank = async (data) => {
-  const { name, email, phone, address, location, inventory, operatingHours } =
-    data;
-
-  if (!name || !email) {
-    throw new ApiError(400, "Name and email are required");
-  }
-
-  validationService.validateEmail(email);
-  validationService.validatePhone(phone);
-
-  const existingBloodBank = await bloodBankRepository.findOne(
-    { email },
-    { lean: true },
-  );
-  if (existingBloodBank) {
-    throw new ApiError(400, "Blood bank with this email already exists");
-  }
-
-  const bloodBank = await bloodBankRepository.create({
-    name,
-    email,
-    phone,
-    address,
-    location,
-    inventory: inventory || [],
-    operatingHours,
-    isActive: true,
-    isVerified: true,
-    approvalStatus: "approved",
-    reviewedAt: new Date(),
-    reviewedBy: "admin",
-  });
-  invalidatePublicBloodBanksCache();
-  return serializers.sanitizeBloodBank(bloodBank);
-};
-
 // Update blood bank inventory by blood group
 export const updateBloodBankInventory = async (
   bloodBankId,

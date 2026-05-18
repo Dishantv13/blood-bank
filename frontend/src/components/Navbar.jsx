@@ -10,7 +10,7 @@ import { FaHistory, FaUserEdit } from "react-icons/fa";
 const dropdownItemClass = "dropdown-item";
 
 const Navbar = () => {
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, loading } = useAuth();
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -29,6 +29,11 @@ const Navbar = () => {
   };
 
   const getNavLinkClass = ({ isActive }) => (isActive ? "active" : "");
+
+  // Hide the entire Navbar while the initial session bootstrap (auto-login check) is pending
+  if (loading) {
+    return null;
+  }
 
   return (
     <nav className="navbar">
@@ -52,7 +57,7 @@ const Navbar = () => {
           RaktSarthi
         </Link>
 
-        {isAuthenticated && (
+        {!loading && isAuthenticated && (
           <>
             {/* Hamburger Menu Button */}
             <button
@@ -110,6 +115,7 @@ const Navbar = () => {
                   Blood Banks
                 </NavLink>
               </li>
+
               <li>
                 <NavLink to={ROUTE_PATH.EVENTS} className={getNavLinkClass}>
                   Events
@@ -128,6 +134,14 @@ const Navbar = () => {
                       className={getNavLinkClass}
                     >
                       Request Blood
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to={ROUTE_PATH.LIVE_SEARCH}
+                      className={getNavLinkClass}
+                    >
+                      Live Locator
                     </NavLink>
                   </li>
                 </>
@@ -150,32 +164,25 @@ const Navbar = () => {
                       Donation History
                     </NavLink>
                   </li>
+                  <li>
+                    <NavLink
+                      to={ROUTE_PATH.LIVE_SEARCH}
+                      className={getNavLinkClass}
+                    >
+                      Live Locator
+                    </NavLink>
+                  </li>
                 </>
               )}
             </ul>
           </>
         )}
 
-        {!isAuthenticated && (
-          <ul className={`navbar-menu ${mobileMenuOpen ? "mobile-open" : ""}`}>
-            <li>
-              <NavLink to={ROUTE_PATH.BLOOD_BANKS} className={getNavLinkClass}>
-                Blood Banks
-              </NavLink>
-            </li>
-            <li>
-              <NavLink to={ROUTE_PATH.EVENTS} className={getNavLinkClass}>
-                Camps
-              </NavLink>
-            </li>
-          </ul>
-        )}
-
         <div className="navbar-actions">
           {/* Theme Toggle is always visible */}
           <ThemeToggle />
 
-          {isAuthenticated && (
+          {!loading && isAuthenticated && (
             <>
               {/* Notification Bell */}
               <div className="notification-container">
@@ -317,7 +324,7 @@ const Navbar = () => {
             </>
           )}
 
-          {!isAuthenticated && (
+          {!loading && !isAuthenticated && (
             <div
               className="guest-actions"
               style={{ display: "flex", gap: "10px" }}

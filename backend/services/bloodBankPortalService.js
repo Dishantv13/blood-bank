@@ -11,10 +11,7 @@ import { toObjectId } from "../utils/dbGuards.js";
 import * as bloodBankManager from "./bloodBankManagerService.js";
 import * as auditService from "./auditService.js";
 import * as pagination from "../utils/pagination.js";
-import {
-  uploadOnCloudinary,
-  deleteFromCloudinary,
-} from "../utils/cloudinary.js";
+import * as cloudinary from "../utils/cloudinary.js";
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return "";
@@ -736,10 +733,10 @@ export const uploadPhoto = async (bloodBankId, localFilePath) => {
   if (!bloodBank) throw new ApiError(404, "Blood bank not found");
 
   if (bloodBank.profileImagePublicId) {
-    await deleteFromCloudinary(bloodBank.profileImagePublicId);
+    await cloudinary.deleteFromCloudinary(bloodBank.profileImagePublicId);
   }
 
-  const cloudinaryResponse = await uploadOnCloudinary(
+  const cloudinaryResponse = await cloudinary.uploadOnCloudinary(
     localFilePath,
     "blood-bank/profiles",
   );
@@ -811,10 +808,15 @@ export const getInventory = async (bloodBankId) => {
     };
   }
 
-  // Sanitize items: remove internal MongoDB _id
+  // Sanitize items: remove internal MongoDB _id and include components
   const sanitizedItems = (inventory.items || []).map((item) => ({
     bloodGroup: item.bloodGroup,
     units: item.units,
+    components: (item.components || []).map(c => ({
+      componentType: c.componentType,
+      units: c.units,
+      lastUpdated: c.lastUpdated
+    })),
     lastUpdated: item.lastUpdated,
   }));
 

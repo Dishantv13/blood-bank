@@ -16,95 +16,89 @@ export const getInventory = async (bloodBankId) => {
   return inventory;
 };
 
-// Update blood group units (atomic operation - single query)
+// Update blood group units (atomic operation)
 export const updateInventoryUnits = async (
   bloodBankId,
   bloodGroup,
+  componentType = "Whole Blood",
   units,
   operation = "set",
   session = null,
 ) => {
   validationService.validateBloodGroup(bloodGroup);
-  validationService.validateInventoryUpdate({ bloodGroup, units });
 
-  const updateOps = {
-    $set: {
-      "items.$.lastUpdated": new Date(),
-    },
-  };
-
-  const queryFilter = {
-    bloodBank: bloodBankId,
-    items: {
-      $elemMatch: { bloodGroup },
-    },
-  };
-
-  if (operation === "set") {
-    updateOps.$set["items.$.units"] = units;
-  } else if (operation === "add") {
-    updateOps.$inc = { "items.$.units": units };
-  } else if (operation === "subtract") {
-    updateOps.$inc = { "items.$.units": -units };
-    // CONCURRENCY FIX: Use $elemMatch to ensure the SAME element has enough units
-    queryFilter.items.$elemMatch.units = { $gte: units };
-  } else {
-    throw new ApiError(400, `Unsupported inventory operation: ${operation}`);
-  }
-
-  const updatedInventory = await inventoryRepository.model
-    .findOneAndUpdate(queryFilter, updateOps, {
-      returnDocument: "after",
-      runValidators: true,
-      session,
-    })
-    .select("items")
-    .lean();
-
-  if (!updatedInventory) {
-    // If it's a subtraction, failure might mean insufficient units
-    if (operation === "subtract") {
-      const currentStock = await getAvailableUnits(bloodBankId, bloodGroup);
-      if (currentStock < units) {
-        throw new ApiError(
-          400,
-          `Insufficient ${bloodGroup} units. Available: ${currentStock}, Requested: ${units}`,
-        );
-      }
-    }
-    throw new ApiError(404, "Inventory or blood group not found");
-  }
-
-  const updatedItem = updatedInventory.items.find(
-    (item) => item.bloodGroup === bloodGroup,
+  const inventory = await inventoryRepository.model.findOne(
+    { bloodBank: bloodBankId },
+    null,
+    { session }
   );
-  if (!updatedItem) {
-    throw new ApiError(404, `${bloodGroup} inventory not found`);
+
+  if (!inventory) {
+    throw new ApiError(404, "Inventory record not found");
   }
 
+  // Find or create the blood group item
+  let item = inventory.items.find((i) => i.bloodGroup === bloodGroup);
+  if (!item) {
+    item = { bloodGroup, units: 0, components: [], lastUpdated: new Date() };
+    inventory.items.push(item);
+    // Re-find to get the reference in the array
+    item = inventory.items[inventory.items.length - 1];
+  }
+
+  if (componentType === "Whole Blood") {
+    // Update main units
+    if (operation === "set") item.units = units;
+    else if (operation === "add") item.units += units;
+    else if (operation === "subtract") {
+      if (item.units < units) throw new ApiError(400, `Insufficient ${bloodGroup} Whole Blood units`);
+      item.units -= units;
+    }
+  } else {
+    // Update nested component
+    let comp = (item.components || []).find((c) => c.componentType === componentType);
+    if (!comp) {
+      comp = { componentType, units: 0, lastUpdated: new Date() };
+      if (!item.components) item.components = [];
+      item.components.push(comp);
+      comp = item.components[item.components.length - 1];
+    }
+
+    if (operation === "set") comp.units = units;
+    else if (operation === "add") comp.units += units;
+    else if (operation === "subtract") {
+      if (comp.units < units) throw new ApiError(400, `Insufficient ${bloodGroup} ${componentType} units`);
+      comp.units -= units;
+    }
+    comp.lastUpdated = new Date();
+  }
+
+  item.lastUpdated = new Date();
+  await inventory.save({ session });
+  
   invalidateBloodBankCaches(bloodBankId);
-  return updatedItem;
+  return item;
 };
 
-// Add inventory units
 export const addInventoryUnits = async (
   bloodBankId,
   bloodGroup,
   units,
+  componentType = "Whole Blood",
   session = null,
 ) => {
   if (!units || units <= 0) {
     throw new ApiError(400, "Units must be greater than 0");
   }
 
-  return updateInventoryUnits(bloodBankId, bloodGroup, units, "add", session);
+  return updateInventoryUnits(bloodBankId, bloodGroup, componentType, units, "add", session);
 };
 
-// Subtract inventory units
 export const subtractInventoryUnits = async (
   bloodBankId,
   bloodGroup,
   units,
+  componentType = "Whole Blood",
   session = null,
 ) => {
   if (!units || units <= 0) {
@@ -114,6 +108,7 @@ export const subtractInventoryUnits = async (
   return updateInventoryUnits(
     bloodBankId,
     bloodGroup,
+    componentType,
     units,
     "subtract",
     session,
@@ -127,7 +122,10 @@ export const checkInventoryAvailability = async (
   requiredUnits,
 ) => {
   validationService.validateBloodGroup(bloodGroup);
-  validationService.validateInventoryUpdate({ bloodGroup, units: requiredUnits });
+  validationService.validateInventoryUpdate({
+    bloodGroup,
+    units: requiredUnits,
+  });
 
   const inventory = await inventoryRepository.findOne(
     { bloodBank: bloodBankId },

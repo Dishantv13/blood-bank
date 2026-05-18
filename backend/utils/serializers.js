@@ -328,12 +328,17 @@ export const sanitizeSearchDonorResult = (donor) => {
 
   return {
     donorId: donor._id,
+    id: donor._id,
+    name: donor.name || "Active Donor",
     bloodGroup: donor.bloodGroup || "",
     availability: donor.isAvailable === true ? "available" : "unavailable",
     city: donor.address?.city || "",
+    state: donor.address?.state || "",
     area: donor.address?.city || donor.address?.state || "",
     approximateDistanceKm: roundedKm,
+    distanceKm: donor.distanceKm,
     maskedPhone: maskPhone(donor.phone),
+    phone: donor.phone || "",
     hasProfilePhoto: Boolean(donor.photoURL),
   };
 };
@@ -347,10 +352,15 @@ export const sanitizeSearchBloodBankResult = (bloodBank) => {
 
   return {
     bloodBankId: bloodBank._id,
+    id: bloodBank._id,
     name: bloodBank.name,
     city: bloodBank.address?.city || "",
+    state: bloodBank.address?.state || "",
     area: bloodBank.address?.city || bloodBank.address?.state || "",
     approximateDistanceKm: roundedKm,
+    distanceKm: bloodBank.distanceKm,
+    address: formatAddress(bloodBank.address) || "",
+    phone: bloodBank.phone || "",
     availableUnits: Number(bloodBank.availableUnits || 0),
     operatingHours: bloodBank.operatingHours || undefined,
     isVerified: Boolean(bloodBank.isVerified),

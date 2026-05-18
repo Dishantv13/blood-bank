@@ -31,6 +31,11 @@ const shouldCompress = (req, res) => {
 };
 
 const sanitizeRequestPayload = (req, _res, next) => {
+  // Performance: Skip sanitization for GET requests as they don't have payloads
+  if (req.method === "GET" || req.method === "HEAD") {
+    return next();
+  }
+
   const sanitizeOptions = {};
 
   if (req.body) {
