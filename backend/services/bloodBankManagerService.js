@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import bloodBankRepository from "../repositories/BloodBankRepository.js";
 import inventoryRepository from "../repositories/InventoryRepository.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { revokeAllPrincipalSessions } from "./sessionService.js";
 import * as serializers from "../utils/serializers.js";
 import * as validationService from "./validationService.js";
@@ -10,7 +11,7 @@ export const getProfile = async (bloodBankId) => {
   const bloodBank = await bloodBankRepository.findById(bloodBankId, {
     select: serializers.BLOOD_BANK_SAFE_FIELDS,
   });
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+  if (!bloodBank) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
   return serializers.sanitizeBloodBank(bloodBank);
 };
 
@@ -18,7 +19,7 @@ export const updateProfile = async (bloodBankId, payload) => {
   const bloodBank = await bloodBankRepository.findById(bloodBankId, {
     lean: false,
   });
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+  if (!bloodBank) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
 
   const allowedUpdates = [
     "name",
@@ -73,11 +74,11 @@ export const changePassword = async (
   newPassword,
 ) => {
   if (!currentPassword || !newPassword)
-    throw new ApiError(400, "Please provide current and new password");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please provide current and new password");
 
   if (currentPassword === newPassword)
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "New password must be different from current password",
     );
 
@@ -88,10 +89,10 @@ export const changePassword = async (
     lean: false,
   });
 
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+  if (!bloodBank) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
 
   const isMatch = await bloodBank.comparePassword(currentPassword);
-  if (!isMatch) throw new ApiError(401, "Invalid current password");
+  if (!isMatch) throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Invalid current password");
 
   bloodBank.password = newPassword;
   bloodBank.tokenVersion = (bloodBank.tokenVersion || 0) + 1;

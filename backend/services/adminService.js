@@ -9,6 +9,7 @@ import donationRepository from "../repositories/DonationRepository.js";
 import inventoryRepository from "../repositories/InventoryRepository.js";
 import cacheManager from "../utils/cacheManager.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { ensureValidObjectId, toObjectId } from "../utils/dbGuards.js";
 import * as bloodBankService from "./bloodBankService.js";
 import * as pagination from "../utils/pagination.js";
@@ -403,7 +404,7 @@ export const getUserById = async (userId) => {
   });
 
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   return serializers.sanitizeUser(user);
@@ -414,7 +415,7 @@ export const updateUserStatus = async (userId, status) => {
   const validStatuses = ["active", "inactive", "suspended"];
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
@@ -428,7 +429,7 @@ export const updateUserStatus = async (userId, status) => {
   );
 
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   invalidateDashboardStats();
@@ -506,7 +507,7 @@ export const getBloodBankById = async (bankId) => {
   ]);
 
   if (!bank) {
-    throw new ApiError(404, "Blood bank not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
   }
 
   const sanitizedBank = serializers.sanitizeBloodBank(bank);
@@ -526,7 +527,7 @@ export const updateBloodBankStatus = async (
   const validStatuses = ["pending", "approved", "rejected"];
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
@@ -534,7 +535,7 @@ export const updateBloodBankStatus = async (
   const bank = await bloodBankRepository.findById(bankId, { lean: false });
 
   if (!bank) {
-    throw new ApiError(404, "Blood bank not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
   }
 
   const reviewer =
@@ -547,7 +548,7 @@ export const updateBloodBankStatus = async (
     const rejectionReason = String(reviewContext.rejectionReason || "").trim();
     if (!rejectionReason) {
       throw new ApiError(
-        400,
+        HTTPS_CODE.BAD_REQUEST,
         "Rejection reason is required when rejecting a blood bank",
       );
     }
@@ -700,7 +701,7 @@ export const getCampById = async (campId) => {
   const camp = await bloodCampRepository.findById(campId, { lean: true });
 
   if (!camp) {
-    throw new ApiError(404, "Blood camp not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
   }
 
   invalidateDashboardStats();
@@ -711,7 +712,7 @@ export const updateCampStatus = async (campId, status) => {
   const validStatuses = ["active", "completed", "cancelled"];
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
@@ -723,7 +724,7 @@ export const updateCampStatus = async (campId, status) => {
   );
 
   if (!camp) {
-    throw new ApiError(404, "Blood camp not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
   }
 
   invalidateDashboardStats();
@@ -846,7 +847,7 @@ export const getEventById = async (eventId) => {
   const event = await eventRepository.findById(eventId);
 
   if (!event) {
-    throw new ApiError(404, "Event not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Event not found");
   }
 
   invalidateDashboardStats();
@@ -857,7 +858,7 @@ export const updateEventStatus = async (eventId, status) => {
   const validStatuses = ["scheduled", "ongoing", "completed", "cancelled"];
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
@@ -869,7 +870,7 @@ export const updateEventStatus = async (eventId, status) => {
   );
 
   if (!event) {
-    throw new ApiError(404, "Event not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Event not found");
   }
 
   invalidateDashboardStats();
@@ -926,7 +927,7 @@ export const getRequestById = async (requestId) => {
   const request = await requestRepository.findById(requestId);
 
   if (!request) {
-    throw new ApiError(404, "Blood request not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
   }
 
   return request;
@@ -942,7 +943,7 @@ export const updateRequestStatus = async (requestId, status) => {
   ];
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
@@ -954,7 +955,7 @@ export const updateRequestStatus = async (requestId, status) => {
   );
 
   if (!request) {
-    throw new ApiError(404, "Blood request not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
   }
 
   invalidateDashboardStats();
@@ -1000,7 +1001,7 @@ export const getDonationById = async (donationId) => {
   });
 
   if (!donation) {
-    throw new ApiError(404, "Donation record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Donation record not found");
   }
 
   return donation;
@@ -1010,7 +1011,7 @@ export const updateDonationStatus = async (donationId, status) => {
   const validStatuses = ["pending", "approved", "rejected", "completed"];
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
@@ -1022,7 +1023,7 @@ export const updateDonationStatus = async (donationId, status) => {
   );
 
   if (!donation) {
-    throw new ApiError(404, "Donation record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Donation record not found");
   }
 
   invalidateDashboardStats();
@@ -1084,7 +1085,7 @@ export const getInventoryById = async (inventoryId) => {
   });
 
   if (!inventoryDoc) {
-    throw new ApiError(404, "Inventory record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Inventory record not found");
   }
 
   const inventory = (inventoryDoc.items || []).map((item) => ({

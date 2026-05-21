@@ -16,13 +16,13 @@ export const processDonationReminders = async () => {
   const eligibleUsers = await userRepository.find(
     {
       isDonor: true,
-      "donorInfo.lastDonationDate": {
+      lastDonationDate: {
         $lte: ninetyDaysAgo,
         $gt: ninetyOneDaysAgo,
       },
       "emailPreferences.reminders": true,
     },
-    { select: "name email donorInfo" },
+    { select: "name email donorInfo lastDonationDate" },
   );
 
   console.log(`Found ${eligibleUsers.length} users eligible for reminders.`);

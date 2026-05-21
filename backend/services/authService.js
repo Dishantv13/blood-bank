@@ -2,10 +2,12 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import User from "../models/User.model.js";
 import RegistrationOtp from "../models/BloodBankRegistrationOtp.model.js";
+import cacheManager from "../utils/cacheManager.js";
 import { enforceCsrfForRole } from "../middleware/csrf.js";
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from "../config/authConfig.js";
 import { OAuth2Client } from "google-auth-library";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as emailService from "../utils/emailService.js";
 import * as otpHelpers from "../utils/otpHelpers.js";
 import * as validationService from "./validationService.js";
@@ -34,23 +36,11 @@ const GOOGLE_OAUTH_AUTH_ENDPOINT =
   "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_OAUTH_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 
-const toBase64Url = (buffer) =>
-  Buffer.from(buffer)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-
-const fromBase64Url = (base64url) => {
-  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
-  return Buffer.from(base64, "base64").toString();
-};
-
 const createPkcePair = () => {
-  const verifier = toBase64Url(crypto.randomBytes(32));
-  const challenge = toBase64Url(
+  const verifier = Buffer.from(crypto.randomBytes(32)).toString("base64url");
+  const challenge = Buffer.from(
     crypto.createHash("sha256").update(verifier).digest(),
-  );
+  ).toString("base64url");
   return { verifier, challenge };
 };
 
@@ -71,7 +61,7 @@ const getGoogleOAuthConfig = () => {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
   if (!clientId || !clientSecret) {
-    throw new ApiError(500, "Google OAuth is not configured on the server");
+    throw new ApiError(HTTPS_CODE.INTERNAL_SERVER_ERROR, "Google OAuth is not configured on the server");
   }
 
   return { clientId, clientSecret };
@@ -131,37 +121,24 @@ const buildFrontendRedirect = (mode, status, reason = "") => {
 };
 
 const createUserSession = async (req, res, user) => {
+  const userId = user.id || user._id;
   const tokenVersion =
     typeof user?.tokenVersion === "number"
       ? Number(user.tokenVersion)
       : Number(
-          (await User.findById(user.id).select("+tokenVersion").lean())
-            ?.tokenVersion || 0,
-        );
-  const sessionId = crypto.randomUUID();
-  const {
-    refreshToken,
-    refreshTokenExpiresAt,
-    csrfToken,
-    accessTokenExpiresAt,
-  } = authCookies.setAuthCookies(
-    res,
-    "user",
-    buildUserClaims({ ...user, tokenVersion }, sessionId),
-  );
+        (await User.findById(userId).select("+tokenVersion").lean())
+          ?.tokenVersion || 0,
+      );
 
-  await sessionService.createAuthSession({
-    sessionId,
-    role: "user",
-    userId: user.id,
-    refreshTokenHash: authCookies.hashToken(refreshToken),
-    refreshTokenExpiresAt,
-    csrfTokenHash: authCookies.hashToken(csrfToken),
-    tokenVersion,
+  return sessionService.issuePrincipalSession({
     req,
+    res,
+    role: "user",
+    tokenVersion,
+    buildClaims: (sessionId, version) =>
+      buildUserClaims({ ...user, id: userId, tokenVersion: version }, sessionId),
+    metadata: { userId },
   });
-
-  return { csrfToken, accessTokenExpiresAt };
 };
 
 const incrementUserTokenVersion = async (userId, reason = "security_event") => {
@@ -177,7 +154,7 @@ const incrementUserTokenVersion = async (userId, reason = "security_event") => {
     .lean();
 
   if (!updatedUser) {
-    throw new ApiError(401, "User session is invalid");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "User session is invalid");
   }
 
   await sessionService.revokeAllPrincipalSessions({
@@ -187,7 +164,6 @@ const incrementUserTokenVersion = async (userId, reason = "security_event") => {
   });
 
   // Invalidate the user state cache to prevent version mismatch from stale data
-  const { cacheManager } = await import("../utils/cacheManager.js");
   await cacheManager.del(`auth:user:state:${userId}`);
 
   return updatedUser;
@@ -240,8 +216,8 @@ export const getGoogleOAuthStartUrl = async (req, res) => {
     mode,
     nonce: crypto.randomBytes(16).toString("hex"),
   });
-  const stateRaw = toBase64Url(statePayload);
-  const nonceRaw = toBase64Url(crypto.randomBytes(32));
+  const stateRaw = Buffer.from(statePayload).toString("base64url");
+  const nonceRaw = Buffer.from(crypto.randomBytes(32)).toString("base64url");
   const { verifier, challenge } = createPkcePair();
 
   res.cookie(
@@ -277,7 +253,7 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
   let mode = "login";
 
   try {
-    const decodedState = JSON.parse(fromBase64Url(state));
+    const decodedState = JSON.parse(Buffer.from(state, "base64url").toString());
     mode = resolveGoogleMode(decodedState.mode);
   } catch (e) {
     // If state is not our JSON format, it might be an old flow or invalid
@@ -348,7 +324,7 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
     const idToken = tokenData?.id_token;
     if (!idToken) {
       throw new ApiError(
-        401,
+        HTTPS_CODE.UNAUTHORIZED,
         "Google OAuth token response did not include id_token",
       );
     }
@@ -365,7 +341,7 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
       !nonce ||
       !timingSafeEqual(authCookies.hashToken(nonce), expectedNonceHash)
     ) {
-      throw new ApiError(401, "Google OAuth nonce validation failed");
+      throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Google OAuth nonce validation failed");
     }
 
     const result = await googleLoginWithClaims({
@@ -387,121 +363,26 @@ export const completeGoogleOAuthAndCreateSession = async (req, res) => {
 };
 
 export const refreshUserSession = async (req, res) => {
-  if (!enforceCsrfForRole(req, "user")) {
-    throw new ApiError(403, "Invalid or missing CSRF token");
-  }
-
-  const refreshToken = authCookies.getRefreshTokenFromRequest(req, "user");
-  if (!refreshToken) {
-    throw new ApiError(401, "Refresh token missing");
-  }
-
-  const decoded = authCookies.verifyRefreshToken("user", refreshToken);
-  const [sessionUser, sessionRecord] = await Promise.all([
-    User.findById(decoded.userId).select("_id email role +tokenVersion").lean(),
-    sessionService.getAuthSessionForRefresh({
-      role: "user",
-      sessionId: decoded.sid,
-    }),
-  ]);
-
-  const incomingRefreshHash = authCookies.hashToken(refreshToken);
-  const isCurrentMatch =
-    sessionRecord?.refreshTokenHash === incomingRefreshHash;
-  const isGraceMatch =
-    sessionRecord?.rotatedAt &&
-    Date.now() - new Date(sessionRecord.rotatedAt).getTime() < 10000 &&
-    sessionRecord?.previousRefreshTokenHash === incomingRefreshHash;
-
-  const isTokenValid = isCurrentMatch || isGraceMatch;
-
-  const requiresSessionRevoke =
-    !sessionUser ||
-    !sessionRecord ||
-    sessionRecord.revokedAt ||
-    new Date(sessionRecord.expiresAt).getTime() <= Date.now() ||
-    Number(decoded.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
-    Number(sessionRecord?.tokenVersion) !==
-      Number(sessionUser.tokenVersion || 0) ||
-    !isTokenValid;
-
-  if (requiresSessionRevoke) {
-    if (sessionRecord?.sessionId) {
-      await sessionService.revokeAuthSession({
-        role: "user",
-        sessionId: sessionRecord.sessionId,
-        reason: "refresh_token_mismatch",
-      });
-    }
-
-    // Only perform a global revoke if we suspect a serious breach (e.g., tokenVersion mismatch)
-    const suspectSeriousBreach =
-      sessionUser &&
-      (Number(decoded.tokenVersion) !== Number(sessionUser.tokenVersion || 0) ||
-        Number(sessionRecord?.tokenVersion) !==
-          Number(sessionUser.tokenVersion || 0));
-
-    if (suspectSeriousBreach && sessionUser?._id) {
-      await incrementUserTokenVersion(
-        sessionUser._id,
-        "security_breach_detected",
-      );
-    }
-
-    sessionService.logRefreshReuseDetected({
-      role: "user",
-      sessionId: decoded.sid,
-      principal: decoded.userId,
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-    });
-
-    authCookies.clearAuthCookies(res, "user");
-    throw new ApiError(401, "Refresh token is invalid or has been reused");
-  }
-
-  const sessionId = decoded.sid || crypto.randomUUID();
-  const isTransitioningFromLegacy = !decoded.sid || !sessionRecord;
-
-  const {
-    refreshToken: nextRefreshToken,
-    refreshTokenExpiresAt,
-    csrfToken,
-    accessTokenExpiresAt,
-  } = authCookies.setAuthCookies(res, "user", {
-    userId: decoded.userId,
-    email: decoded.email,
-    role: decoded.role,
-    type: "user",
-    sid: sessionId,
-    tokenVersion: Number(sessionUser.tokenVersion || 0),
-  });
-
-  if (isTransitioningFromLegacy) {
-    await sessionService.createAuthSession({
-      sessionId: sessionId,
-      role: "user",
-      userId: sessionUser._id,
-      refreshTokenHash: authCookies.hashToken(nextRefreshToken),
-      refreshTokenExpiresAt,
-      csrfTokenHash: authCookies.hashToken(csrfToken),
-      tokenVersion: Number(sessionUser.tokenVersion || 0),
+  const { principal, csrfToken, accessTokenExpiresAt } =
+    await sessionService.refreshPrincipalSession({
       req,
-    });
-  } else {
-    await sessionService.rotateAuthSession({
+      res,
       role: "user",
-      sessionId: sessionId,
-      refreshTokenHash: authCookies.hashToken(nextRefreshToken),
-      refreshTokenExpiresAt,
-      csrfTokenHash: authCookies.hashToken(csrfToken),
-      tokenVersion: Number(sessionUser.tokenVersion || 0),
-      req,
-      isGraceUpdate: isGraceMatch,
+      getPrincipal: async (decoded) => {
+        const user = await User.findById(decoded.userId).select("_id email role +tokenVersion").lean();
+        if (user) {
+          user.id = String(user._id);
+        }
+        return user;
+      },
+      buildClaims: (user, sessionId, version) =>
+        buildUserClaims({ ...user, id: user.id || user._id, tokenVersion: version }, sessionId),
+      onBreach: async (userId) => {
+        await incrementUserTokenVersion(userId, "security_breach_detected");
+      },
     });
-  }
 
-  const result = await getSessionUser(decoded.userId);
+  const result = await getSessionUser(principal._id || principal.id);
   return { user: result.user, csrfToken, accessTokenExpiresAt };
 };
 
@@ -521,7 +402,7 @@ export const logoutUserSession = async (req, res) => {
             reason: "logout",
           });
         }
-      } catch (_error) {}
+      } catch (_error) { }
     }
   } finally {
     authCookies.clearAuthCookies(res, "user");
@@ -540,12 +421,12 @@ export const loginUser = async (email, password) => {
   );
 
   if (!user) {
-    throw new ApiError(401, "User not registered");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "User not registered please register first");
   }
 
   // Check if account is temporarily locked
   if (user.lockUntil && user.lockUntil > Date.now()) {
-    throw new ApiError(401, "Account temporarily locked due to multiple failed login attempts.");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Account temporarily locked due to multiple failed login attempts.");
   }
 
   const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -554,9 +435,10 @@ export const loginUser = async (email, password) => {
     user.loginAttempts = attempts;
     if (attempts >= MAX_LOGIN_ATTEMPTS) {
       user.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
+      throw new ApiError(HTTPS_CODE.UNAUTHORIZED, `Account temporarily locked for ${LOCK_DURATION_MS / (60 * 1000)} minutes.`);
     }
     await user.save();
-    throw new ApiError(401, "Invalid email or password");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Invalid Credentials");
   }
 
   // Successful login – clear lockout state
@@ -587,7 +469,7 @@ export const googleLoginWithClaims = async ({
   const normalizedPhotoUrl = String(photoURL || "").trim();
 
   if (!normalizedEmail || !normalizedGoogleId) {
-    throw new ApiError(400, "Missing required Google user data");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Missing required Google user data");
   }
 
   let user = await User.findOne({ email: normalizedEmail }).select(
@@ -631,7 +513,7 @@ export const getSessionUser = async (userId) => {
     .lean();
 
   if (!user) {
-    throw new ApiError(401, "User session is invalid");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "User session is invalid");
   }
 
   return { user: toPublicUser(user) };
@@ -656,7 +538,7 @@ export const requestPasswordReset = async (email) => {
   const user = await User.findOne({ email });
 
   if (!user) {
-    throw new ApiError(404, "No account found with this email address");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "No account found with this email address");
   }
 
   const resetToken = crypto.randomBytes(32).toString("hex");
@@ -677,7 +559,7 @@ export const requestPasswordReset = async (email) => {
   } catch (error) {
     console.error("Email sending failed:", error);
     throw new ApiError(
-      500,
+      HTTPS_CODE.INTERNAL_SERVER_ERROR,
       "Failed to send reset email. Please try again later.",
     );
   }
@@ -690,7 +572,7 @@ export const resetPassword = async (token, newPassword) => {
   validationService.validatePassword(newPassword);
 
   if (!token) {
-    throw new ApiError(400, "Reset token is required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Reset token is required");
   }
 
   const resetTokenHash = crypto
@@ -704,7 +586,7 @@ export const resetPassword = async (token, newPassword) => {
   });
 
   if (!user) {
-    throw new ApiError(400, "Invalid or expired reset token");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired reset token");
   }
 
   user.password = newPassword;
@@ -726,7 +608,7 @@ export const initiateUserRegistration = async (req, registrationData) => {
   const { name, email, password, bloodGroup, phone } = registrationData;
 
   if (!name || !email || !password) {
-    throw new ApiError(400, "Please provide name, email, and password");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please provide name, email, and password");
   }
 
   validationService.validateEmail(email);
@@ -735,7 +617,7 @@ export const initiateUserRegistration = async (req, registrationData) => {
 
   const existingUser = await User.findOne({ email }).lean();
   if (existingUser) {
-    throw new ApiError(400, "User with this email already exists");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "User with this email already exists");
   }
 
   const otp = otpHelpers.generateOtp();
@@ -789,7 +671,7 @@ export const initiateUserRegistration = async (req, registrationData) => {
     console.error("User OTP send failed:", error);
     await RegistrationOtp.deleteOne({ verificationId });
     throw new ApiError(
-      500,
+      HTTPS_CODE.INTERNAL_SERVER_ERROR,
       "Unable to send OTP email. Please try again later.",
     );
   }
@@ -808,7 +690,7 @@ export const verifyUserRegistrationOtp = async (
   otp,
 ) => {
   if (!verificationId || !otp) {
-    throw new ApiError(400, "verificationId and otp are required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "VerificationId and otp are required");
   }
 
   const now = new Date();
@@ -818,12 +700,12 @@ export const verifyUserRegistrationOtp = async (
   }).select("+otpHash");
 
   if (!pendingRegistration) {
-    throw new ApiError(400, "Invalid or expired verification session");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired verification session");
   }
 
   if (pendingRegistration.status === "locked") {
     throw new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       "Maximum OTP attempts reached. Please restart registration.",
     );
   }
@@ -836,7 +718,7 @@ export const verifyUserRegistrationOtp = async (
     pendingRegistration.status = "expired";
     await pendingRegistration.save();
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "OTP is invalid or expired. Please restart registration.",
     );
   }
@@ -848,7 +730,7 @@ export const verifyUserRegistrationOtp = async (
     pendingRegistration.status = "locked";
     await pendingRegistration.save();
     throw new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       "Maximum OTP attempts reached. Please restart registration.",
     );
   }
@@ -869,7 +751,7 @@ export const verifyUserRegistrationOtp = async (
 
     const meta = otpHelpers.buildOtpMeta(pendingRegistration.toObject());
     throw new ApiError(
-      pendingRegistration.status === "locked" ? 429 : 400,
+      pendingRegistration.status === "locked" ? HTTPS_CODE.TOO_MANY_REQUESTS : HTTPS_CODE.BAD_REQUEST,
       pendingRegistration.status === "locked"
         ? "Maximum OTP attempts reached. Please restart registration."
         : `Invalid OTP. ${meta.attemptsRemaining} attempts remaining.`,
@@ -928,7 +810,7 @@ export const verifyUserRegistrationOtp = async (
 
 export const resendUserRegistrationOtp = async (req, verificationId) => {
   if (!verificationId) {
-    throw new ApiError(400, "verificationId is required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "VerificationId is required");
   }
 
   const now = new Date();
@@ -938,12 +820,12 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
   }).select("+otpHash");
 
   if (!pendingRegistration) {
-    throw new ApiError(400, "Invalid or expired verification session");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired verification session");
   }
 
   if (pendingRegistration.status === "locked") {
     throw new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       "Maximum attempts reached. Please restart registration.",
     );
   }
@@ -952,19 +834,19 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
     pendingRegistration.resendCount >= otpHelpers.OTP_CONFIG.MAX_RESEND_ATTEMPTS
   ) {
     throw new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       "Maximum resend attempts reached. Please restart registration.",
     );
   }
 
   const cooldownExpiry = new Date(
     pendingRegistration.lastOtpSentAt.getTime() +
-      otpHelpers.OTP_CONFIG.RESEND_COOLDOWN_SECONDS * 1000,
+    otpHelpers.OTP_CONFIG.RESEND_COOLDOWN_SECONDS * 1000,
   );
   if (now < cooldownExpiry) {
     const remaining = Math.ceil((cooldownExpiry - now) / 1000);
     throw new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       `Please wait ${remaining} seconds before requesting a new OTP.`,
     );
   }
@@ -974,7 +856,7 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
 
   pendingRegistration.otpHash = otpHash;
   pendingRegistration.otpExpiresAt = new Date(
-    now.getTime() + USER_OTP_EXPIRY_MINUTES * 60 * 1000,
+    now.getTime() + otpHelpers.OTP_CONFIG.EXPIRY_MINUTES * 60 * 1000,
   );
   pendingRegistration.lastOtpSentAt = now;
   pendingRegistration.resendCount += 1;
@@ -982,23 +864,23 @@ export const resendUserRegistrationOtp = async (req, verificationId) => {
   await pendingRegistration.save();
 
   try {
-    await sendUserRegistrationOtpEmail(pendingRegistration.email, otp, {
-      expiresInMinutes: USER_OTP_EXPIRY_MINUTES,
+    await emailService.sendUserRegistrationOtpEmail(pendingRegistration.email, otp, {
+      expiresInMinutes: otpHelpers.OTP_CONFIG.EXPIRY_MINUTES,
     });
   } catch (error) {
     throw new ApiError(
-      500,
+      HTTPS_CODE.INTERNAL_SERVER_ERROR,
       "Unable to send OTP email. Please try again later.",
     );
   }
 
-  return buildOtpMeta(pendingRegistration.toObject());
+  return otpHelpers.buildOtpMeta(pendingRegistration.toObject());
 };
 
 // Verify reset token
 export const verifyResetToken = async (token) => {
   if (!token) {
-    throw new ApiError(400, "Reset token is required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Reset token is required");
   }
 
   const resetTokenHash = crypto
@@ -1014,7 +896,7 @@ export const verifyResetToken = async (token) => {
     .lean();
 
   if (!user) {
-    throw new ApiError(400, "Invalid or expired reset token");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired reset token");
   }
 
   return { valid: true };
@@ -1022,26 +904,26 @@ export const verifyResetToken = async (token) => {
 
 // Change password for authenticated user
 export const changePassword = async (userId, currentPassword, newPassword) => {
-  validatePassword(newPassword);
+  validationService.validatePassword(newPassword);
 
   if (!currentPassword) {
-    throw new ApiError(400, "Current password is required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Current password is required");
   }
 
   const user = await User.findById(userId).select("+password");
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
   if (!isPasswordValid) {
-    throw new ApiError(400, "Current password is incorrect");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Current password is incorrect");
   }
 
   const isSamePassword = await bcrypt.compare(newPassword, user.password);
   if (isSamePassword) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "New password must be different from current password",
     );
   }
@@ -1050,7 +932,7 @@ export const changePassword = async (userId, currentPassword, newPassword) => {
   user.tokenVersion = Number(user.tokenVersion || 0) + 1;
   user.passwordChangedAt = new Date();
   await user.save();
-  await revokeAllPrincipalSessions({
+  await sessionService.revokeAllPrincipalSessions({
     role: "user",
     userId: user._id,
     reason: "password_change",

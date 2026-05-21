@@ -3,6 +3,7 @@ import donationRepository from "../repositories/DonationRepository.js";
 import userRepository from "../repositories/UserRepository.js";
 import cacheManager from "../utils/cacheManager.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { createBloodUnit } from "./bloodUnitService.js";
 import { toObjectId } from "../utils/dbGuards.js";
 import * as emailService from "../utils/emailService.js";
@@ -19,11 +20,11 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
 
   // Get user with optimized query
   const user = await userRepository.findById(donorId, {
-    select: "_id name bloodGroup isDonor donorInfo",
+    select: "_id name bloodGroup isDonor donorInfo lastDonationDate",
   });
 
   if (!user || !user.isDonor) {
-    throw new ApiError(403, "Only registered donors can request to donate");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Only registered donors can request to donate");
   }
 
   // Check 3-month donation rule
@@ -33,7 +34,7 @@ export const createDonationRequest = async (donorId, bloodBankId, data) => {
 
     if (lastDate > threeMonthsAgo) {
       throw new ApiError(
-        400,
+        HTTPS_CODE.BAD_REQUEST,
         "You must wait 3 months after your last donation to donate again",
       );
     }
@@ -144,7 +145,7 @@ export const recordDonation = async (
   volumeDonated,
 ) => {
   if (!volumeDonated || volumeDonated <= 0) {
-    throw new ApiError(400, "Volume donated must be greater than 0");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Volume donated must be greater than 0");
   }
 
   const session = await mongoose.startSession();
@@ -158,15 +159,15 @@ export const recordDonation = async (
     });
 
     if (!donation) {
-      throw new ApiError(404, "Donation record not found");
+      throw new ApiError(HTTPS_CODE.NOT_FOUND, "Donation record not found");
     }
 
     if (donation.bloodBank.toString() !== bloodBankId.toString()) {
-      throw new ApiError(403, "Not authorized to record this donation");
+      throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to record this donation");
     }
 
     if (donation.status === "completed") {
-      throw new ApiError(400, "This donation has already been recorded");
+      throw new ApiError(HTTPS_CODE.BAD_REQUEST, "This donation has already been recorded");
     }
 
     const updatedDonation = await donationRepository.updateOne(
@@ -195,7 +196,7 @@ export const recordDonation = async (
     await userRepository.updateOne(
       { _id: donation.donor },
       {
-        $set: { "donorInfo.lastDonationDate": new Date() },
+        $set: { lastDonationDate: new Date() },
         $inc: {
           "donorInfo.totalDonations": 1,
           "donorInfo.totalDonatedVolume": volumeDonated,
@@ -251,7 +252,7 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
 
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
@@ -261,11 +262,11 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
   });
 
   if (!donation) {
-    throw new ApiError(404, "Donation record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Donation record not found");
   }
 
   if (donation.bloodBank.toString() !== bloodBankId.toString()) {
-    throw new ApiError(403, "Not authorized to update this donation");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to update this donation");
   }
 
   // Atomic update
@@ -318,11 +319,11 @@ export const updateDonationStatus = async (donationId, bloodBankId, status) => {
 // Check donor eligibility
 export const checkDonorEligibility = async (donorId) => {
   const user = await userRepository.findById(donorId, {
-    select: "donorInfo isDonor",
+    select: "donorInfo isDonor lastDonationDate",
   });
 
   if (!user || !user.isDonor) {
-    throw new ApiError(403, "User is not a registered donor");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "User is not a registered donor");
   }
 
   if (!user.donorInfo?.lastDonationDate) {
@@ -380,7 +381,7 @@ export const getDonationCertificate = async (donationId, user) => {
   });
 
   if (!donation) {
-    throw new ApiError(404, "Donation record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Donation record not found");
   }
 
   const userId = user.userId || user._id || user.id;
@@ -390,12 +391,12 @@ export const getDonationCertificate = async (donationId, user) => {
     donation.donor._id.toString() !== userId.toString() &&
     user.role !== "admin"
   ) {
-    throw new ApiError(403, "Unauthorized to download this certificate");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Unauthorized to download this certificate");
   }
 
   if (donation.status !== "completed") {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "Donation is not completed yet. Certificate not available.",
     );
   }

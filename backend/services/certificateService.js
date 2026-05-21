@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import crypto from "crypto";
 import path from "path";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import donationRepository from "../repositories/DonationRepository.js";
 
 export const generateVerificationCode = () => {
@@ -14,7 +15,7 @@ export const generateVerificationCode = () => {
 export const generateDonationCertificate = async (donation) => {
   if (!donation || donation.status !== "completed") {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "Certificate can only be generated for completed donations",
     );
   }
@@ -366,7 +367,7 @@ export const generateDonationCertificate = async (donation) => {
 };
 
 export const verifyCertificate = async (code) => {
-  if (!code) throw new ApiError(400, "Verification code is required");
+  if (!code) throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Verification code is required");
 
   const donation = await donationRepository.findOne(
     { certificateCode: code, status: "completed" },
@@ -380,7 +381,7 @@ export const verifyCertificate = async (code) => {
   );
 
   if (!donation) {
-    throw new ApiError(404, "Invalid certificate or donation record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Invalid certificate or donation record not found");
   }
 
   return {

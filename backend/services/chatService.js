@@ -1,6 +1,7 @@
 import ChatMessage from "../models/ChatMessage.model.js";
 import BloodRequest from "../models/BloodRequest.model.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 
 export const saveMessage = async (data) => {
   const {
@@ -14,7 +15,7 @@ export const saveMessage = async (data) => {
 
   // Basic validation
   if (!requestId || !senderId || !recipientId || !message) {
-    throw new ApiError(400, "Missing required message fields");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Missing required message fields");
   }
 
   const newMessage = await ChatMessage.create({
@@ -37,7 +38,7 @@ export const getChatHistory = async (
 ) => {
   // Authorization: Check if user is part of this request (requester or bloodbank)
   const request = await BloodRequest.findById(requestId);
-  if (!request) throw new ApiError(404, "Blood request not found");
+  if (!request) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
 
   const isRequester =
     request.requestedBy && request.requestedBy.toString() === userId.toString();
@@ -48,7 +49,7 @@ export const getChatHistory = async (
     request.targetBloodBank.toString() === userId.toString();
 
   if (!isRequester && !isAssignedBank && !isTargetBank) {
-    throw new ApiError(403, "You are not authorized to view this chat");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "You are not authorized to view this chat");
   }
 
   const skip = (page - 1) * limit;
