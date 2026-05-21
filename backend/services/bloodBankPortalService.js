@@ -5,6 +5,7 @@ import bloodCampRepository from "../repositories/BloodCampRepository.js";
 import eventRepository from "../repositories/EventRepository.js";
 import inventoryRepository from "../repositories/InventoryRepository.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { BLOOD_GROUPS } from "../validations/validation.constants.js";
 import { invalidateBloodBankCaches } from "../utils/cacheInvalidation.js";
 import { toObjectId } from "../utils/dbGuards.js";
@@ -12,6 +13,7 @@ import * as bloodBankManager from "./bloodBankManagerService.js";
 import * as auditService from "./auditService.js";
 import * as pagination from "../utils/pagination.js";
 import * as cloudinary from "../utils/cloudinary.js";
+import { addInventoryUnits, subtractInventoryUnits } from "./inventoryService.js";
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return "";
@@ -247,7 +249,7 @@ export const getRequestDetails = async (id, requesterBankId) => {
     ],
   });
 
-  if (!request) throw new ApiError(404, "Request not found");
+  if (!request) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Request not found");
 
   // SECURITY FIX: IDOR Prevention
   // 1. Pending requests are public for all blood banks to see/act upon.
@@ -266,7 +268,7 @@ export const getRequestDetails = async (id, requesterBankId) => {
 
   if (!isTargetBank && !isRequestingBank && !isAssignedBank) {
     throw new ApiError(
-      403,
+      HTTPS_CODE.FORBIDDEN,
       "You are not authorized to view the details of this non-pending request.",
     );
   }
@@ -278,13 +280,13 @@ export const createBankToBankRequest = async (requestingBankId, data) => {
   const { targetBloodBankId, bloodGroup, units, urgency, description } = data;
   if (!targetBloodBankId || !bloodGroup || !units) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "Target blood bank, blood group, and units are required",
     );
   }
   if (String(requestingBankId) === String(targetBloodBankId)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "You cannot request blood from your own blood bank",
     );
   }
@@ -295,7 +297,7 @@ export const createBankToBankRequest = async (requestingBankId, data) => {
   ]);
 
   if (!requestingBank || !targetBloodBank)
-    throw new ApiError(404, "Blood bank not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
 
   const request = await requestRepository.create({
     requestType: "bloodbank",
@@ -335,14 +337,14 @@ export const approveRequest = async (
       lean: false,
       session,
     });
-    if (!request) throw new ApiError(404, "Request not found");
+    if (!request) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Request not found");
     if (request.status !== "pending")
-      throw new ApiError(400, "Request is no longer pending");
+      throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Request is no longer pending");
 
     if (request.requestType === "bloodbank") {
       if (String(request.targetBloodBank) !== String(responderBankId)) {
         throw new ApiError(
-          403,
+          HTTPS_CODE.FORBIDDEN,
           "You can only approve requests sent to your blood bank",
         );
       }
@@ -413,15 +415,15 @@ export const approveRequest = async (
 
 export const rejectRequest = async (requestId, bloodBankId, responseNote) => {
   const request = await requestRepository.findById(requestId, { lean: false });
-  if (!request) throw new ApiError(404, "Request not found");
+  if (!request) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Request not found");
   if (request.status !== "pending")
-    throw new ApiError(400, "Request is no longer pending");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Request is no longer pending");
   if (
     request.requestType === "bloodbank" &&
     String(request.targetBloodBank) !== String(bloodBankId)
   ) {
     throw new ApiError(
-      403,
+      HTTPS_CODE.FORBIDDEN,
       "You can only reject requests sent to your blood bank",
     );
   }
@@ -526,7 +528,7 @@ export const getAllEvents = async (bloodBankId, query = {}) => {
 
 export const createEvent = async (bloodBankId, eventData) => {
   const bloodBank = await bloodBankRepository.findById(bloodBankId);
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+  if (!bloodBank) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
 
   const event = await eventRepository.create({
     ...eventData,
@@ -543,7 +545,7 @@ export const updateEvent = async (eventId, bloodBankId, payload) => {
     { _id: eventId, organizedBy: bloodBankId },
     { lean: false },
   );
-  if (!event) throw new ApiError(404, "Event not found or unauthorized");
+  if (!event) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Event not found or unauthorized");
 
   const allowedUpdates = [
     "title",
@@ -573,7 +575,7 @@ export const deleteEvent = async (eventId, bloodBankId) => {
     _id: eventId,
     organizedBy: bloodBankId,
   });
-  if (!event) throw new ApiError(404, "Event not found or unauthorized");
+  if (!event) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Event not found or unauthorized");
   return { success: true };
 };
 
@@ -589,7 +591,7 @@ export const getEventRegistrations = async (eventId, bloodBankId) => {
     },
   );
 
-  if (!event) throw new ApiError(404, "Event not found or unauthorized");
+  if (!event) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Event not found or unauthorized");
 
   return {
     event: { title: event.title, date: event.date, location: event.location },
@@ -684,7 +686,7 @@ export const getCampRegistrations = async (campId, bloodBankId) => {
     _id: campId,
     organizer: bloodBankId,
   });
-  if (!camp) throw new ApiError(404, "Blood camp not found or unauthorized");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found or unauthorized");
 
   return {
     camp: {
@@ -707,7 +709,7 @@ export const removeDonorRegistration = async (
     { _id: campId, organizer: bloodBankId },
     { lean: false },
   );
-  if (!camp) throw new ApiError(404, "Blood camp not found or unauthorized");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found or unauthorized");
 
   const initialLength = camp.registeredDonors.length;
   camp.registeredDonors = camp.registeredDonors.filter((donor) => {
@@ -717,7 +719,7 @@ export const removeDonorRegistration = async (
   });
 
   if (camp.registeredDonors.length === initialLength) {
-    throw new ApiError(404, "Donor registration not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Donor registration not found");
   }
 
   await camp.save();
@@ -725,12 +727,12 @@ export const removeDonorRegistration = async (
 };
 
 export const uploadPhoto = async (bloodBankId, localFilePath) => {
-  if (!localFilePath) throw new ApiError(400, "No file path provided");
+  if (!localFilePath) throw new ApiError(HTTPS_CODE.BAD_REQUEST, "No file path provided");
 
   const bloodBank = await bloodBankRepository.findById(bloodBankId, {
     lean: false,
   });
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+  if (!bloodBank) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
 
   if (bloodBank.profileImagePublicId) {
     await cloudinary.deleteFromCloudinary(bloodBank.profileImagePublicId);
@@ -742,7 +744,7 @@ export const uploadPhoto = async (bloodBankId, localFilePath) => {
   );
 
   if (!cloudinaryResponse) {
-    throw new ApiError(500, "Failed to upload photo to Cloudinary");
+    throw new ApiError(HTTPS_CODE.INTERNAL_SERVER_ERROR, "Failed to upload photo to Cloudinary");
   }
 
   bloodBank.profileImage = cloudinaryResponse.secure_url;
@@ -760,7 +762,7 @@ export const getDashboard = async (bloodBankId) => {
   const bloodBank = await bloodBankRepository.findById(bloodBankId, {
     select: "name inventory",
   });
-  if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+  if (!bloodBank) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
 
   const [requestStats, eventStats] = await Promise.all([
     requestRepository.getDashboardStats(bloodBankId),
@@ -831,7 +833,7 @@ export const getInventory = async (bloodBankId) => {
 
 export const updateInventory = async (bloodBankId, inventory) => {
   if (!Array.isArray(inventory))
-    throw new ApiError(400, "Inventory must be an array");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Inventory must be an array");
 
   const validatedInventory = inventory.map((item) => ({
     bloodGroup: item.bloodGroup || item.type,
@@ -851,7 +853,7 @@ export const updateInventory = async (bloodBankId, inventory) => {
       const bloodBank = await bloodBankRepository.findById(bloodBankId, {
         session,
       });
-      if (!bloodBank) throw new ApiError(404, "Blood bank not found");
+      if (!bloodBank) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
 
       doc = await inventoryRepository.create(
         [
@@ -896,7 +898,7 @@ export const updateInventory = async (bloodBankId, inventory) => {
 
 export const updateBloodGroupUnits = async (bloodBankId, bloodGroup, units) => {
   if (units === undefined || units < 0)
-    throw new ApiError(400, "Please provide valid units (>=0)");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please provide valid units (>=0)");
 
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -906,7 +908,7 @@ export const updateBloodGroupUnits = async (bloodBankId, bloodGroup, units) => {
       { bloodBank: bloodBankId },
       { lean: false, session },
     );
-    if (!inventory) throw new ApiError(404, "Inventory record not found");
+    if (!inventory) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Inventory record not found");
 
     const itemIndex = inventory.items.findIndex(
       (item) => item.bloodGroup === bloodGroup,

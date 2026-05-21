@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import BloodUnit from "../models/BloodUnit.model.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { getPaginationMetadata } from "../utils/pagination.js";
 import * as inventoryService from "./inventoryService.js";
 
@@ -56,7 +57,7 @@ export const refineBloodUnit = async (unitId, refineMethod, adminId) => {
       session,
     );
     if (!rawUnit)
-      throw new ApiError(404, "Raw blood unit not found or already processed");
+      throw new ApiError(HTTPS_CODE.NOT_FOUND, "Raw blood unit not found or already processed");
 
     const createdUnits = [];
     let totalYieldVolume = 0;
@@ -133,7 +134,7 @@ export const updateScreeningResults = async (unitId, results, adminId) => {
 
   try {
     const unit = await BloodUnit.findOne({ unitId }).session(session);
-    if (!unit) throw new ApiError(404, "Blood unit not found");
+    if (!unit) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood unit not found");
 
     const previousScreeningStatus = unit.screeningStatus;
 
@@ -226,7 +227,7 @@ export const updateScreeningResults = async (unitId, results, adminId) => {
 
 export const recordColdChain = async (unitId, data, adminId) => {
   const unit = await BloodUnit.findOne({ unitId });
-  if (!unit) throw new ApiError(404, "Blood unit not found");
+  if (!unit) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood unit not found");
 
   unit.coldChain.push({
     temperature: data.temperature,
@@ -253,7 +254,7 @@ export const getExpiringUnits = async (bloodBankId, days = 7) => {
 
 export const getBloodBankInventoryDetails = async (bloodBankId, query = {}) => {
   if (!bloodBankId || !mongoose.Types.ObjectId.isValid(bloodBankId)) {
-    throw new ApiError(400, "Invalid Blood Bank ID format");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid Blood Bank ID format");
   }
   const { status, componentType, bloodGroup, page = 1, limit = 10 } = query;
 
@@ -377,7 +378,7 @@ export const splitComponent = async (unitId, components, adminId) => {
     }).session(session);
     if (!sourceUnit)
       throw new ApiError(
-        404,
+        HTTPS_CODE.NOT_FOUND,
         "Source unit not found or unavailable for splitting",
       );
 
@@ -387,7 +388,7 @@ export const splitComponent = async (unitId, components, adminId) => {
     );
     if (totalSplitVolume > sourceUnit.volume) {
       throw new ApiError(
-        400,
+        HTTPS_CODE.BAD_REQUEST,
         `Total split volume (${totalSplitVolume}ml) exceeds source unit volume (${sourceUnit.volume}ml)`,
       );
     }

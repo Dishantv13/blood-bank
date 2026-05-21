@@ -7,6 +7,7 @@ import bloodBankRegistrationOtpRepository from "../repositories/BloodBankRegistr
 import { enforceCsrfForRole } from "../middleware/csrf.js";
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from "../config/authConfig.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { ensureValidObjectId } from "../utils/dbGuards.js";
 import { BLOOD_GROUPS } from "../validations/validation.constants.js";
 import * as emailService from "../utils/emailService.js";
@@ -85,7 +86,7 @@ const validateRegistrationData = (data) => {
 
   if (!name || !email || !password || !phone || !licenseNumber) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "Please provide all required fields: name, email, password, phone, and license number",
     );
   }
@@ -160,7 +161,7 @@ const incrementBloodBankTokenVersion = async (
   );
 
   if (!updatedBank) {
-    throw new ApiError(401, "Blood bank session is invalid");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Blood bank session is invalid");
   }
 
   await sessionService.revokeAllPrincipalSessions({
@@ -205,7 +206,7 @@ const assertBloodBankNotExists = async (email, licenseNumber) => {
 
   if (existingBloodBank) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "Blood bank with this email or license number already exists",
     );
   }
@@ -361,7 +362,7 @@ export const initiateBloodBankRegistrationWithOtp = async (req) => {
     );
     if (remainingSeconds > 0) {
       const error = new ApiError(
-        429,
+        HTTPS_CODE.TOO_MANY_REQUESTS,
         `Please wait ${remainingSeconds} seconds before requesting another OTP`,
       );
       error.data = buildOtpMeta(existingPending);
@@ -408,7 +409,7 @@ export const initiateBloodBankRegistrationWithOtp = async (req) => {
   } catch (_error) {
     await bloodBankRegistrationOtpRepository.deleteOne({ verificationId });
     throw new ApiError(
-      500,
+      HTTPS_CODE.INTERNAL_SERVER_ERROR,
       "Unable to send OTP email. Please try again later.",
     );
   }
@@ -427,7 +428,7 @@ export const initiateBloodBankRegistrationWithOtp = async (req) => {
 
 export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
   if (!verificationId || !otp) {
-    throw new ApiError(400, "verificationId and otp are required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "verificationId and otp are required");
   }
 
   const now = new Date();
@@ -441,12 +442,12 @@ export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
     );
 
   if (!pendingRegistration) {
-    throw new ApiError(400, "Invalid or expired verification session");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired verification session");
   }
 
   if (pendingRegistration.status === "locked") {
     const error = new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       "Maximum OTP attempts reached. Please restart registration.",
     );
     error.data = buildOtpMeta(pendingRegistration);
@@ -461,7 +462,7 @@ export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
     pendingRegistration.status = "expired";
     await pendingRegistration.save();
     const error = new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "OTP is invalid or expired. Please restart registration.",
     );
     error.data = buildOtpMeta(pendingRegistration);
@@ -474,7 +475,7 @@ export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
     pendingRegistration.status = "locked";
     await pendingRegistration.save();
     const error = new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       "Maximum OTP attempts reached. Please restart registration.",
     );
     error.data = buildOtpMeta(pendingRegistration);
@@ -497,7 +498,7 @@ export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
 
     const meta = buildOtpMeta(pendingRegistration);
     const error = new ApiError(
-      pendingRegistration.status === "locked" ? 429 : 400,
+      pendingRegistration.status === "locked" ? HTTPS_CODE.TOO_MANY_REQUESTS : HTTPS_CODE.BAD_REQUEST,
       pendingRegistration.status === "locked"
         ? "Maximum OTP attempts reached. Please restart registration."
         : `Invalid OTP. ${meta.attemptsRemaining} attempts remaining.`,
@@ -541,7 +542,7 @@ export const verifyBloodBankRegistrationOtp = async (verificationId, otp) => {
 
 export const resendBloodBankRegistrationOtp = async (verificationId) => {
   if (!verificationId) {
-    throw new ApiError(400, "verificationId is required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "verificationId is required");
   }
 
   const now = new Date();
@@ -555,14 +556,14 @@ export const resendBloodBankRegistrationOtp = async (verificationId) => {
     );
 
   if (!pendingRegistration || pendingRegistration.expiresAt <= now) {
-    throw new ApiError(400, "Invalid or expired verification session");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired verification session");
   }
 
   if (pendingRegistration.resendCount >= BLOODBANK_OTP_MAX_RESEND_ATTEMPTS) {
     pendingRegistration.status = "locked";
     await pendingRegistration.save();
     const error = new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       "Maximum OTP resend attempts reached. Please restart registration.",
     );
     error.data = buildOtpMeta(pendingRegistration);
@@ -577,7 +578,7 @@ export const resendBloodBankRegistrationOtp = async (verificationId) => {
   );
   if (remainingSeconds > 0) {
     const error = new ApiError(
-      429,
+      HTTPS_CODE.TOO_MANY_REQUESTS,
       `Please wait ${remainingSeconds} seconds before resending OTP`,
     );
     error.data = buildOtpMeta(pendingRegistration);
@@ -604,7 +605,7 @@ export const resendBloodBankRegistrationOtp = async (verificationId) => {
     );
   } catch (_error) {
     throw new ApiError(
-      500,
+      HTTPS_CODE.INTERNAL_SERVER_ERROR,
       "Unable to send OTP email. Please try again later.",
     );
   }
@@ -689,7 +690,7 @@ export const logoutBloodBankSession = async (req, res) => {
 // Login blood bank
 export const loginBloodBank = async (email, password) => {
   if (!email || !password) {
-    throw new ApiError(400, "Email and password are required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Email and password are required");
   }
 
   // Find blood bank (include lockout fields alongside password)
@@ -701,12 +702,12 @@ export const loginBloodBank = async (email, password) => {
     },
   );
   if (!bloodBank) {
-    throw new ApiError(401, "Invalid credentials");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Invalid credentials");
   }
 
   if (bloodBank.approvalStatus === "pending") {
     throw new ApiError(
-      403,
+      HTTPS_CODE.FORBIDDEN,
       "Your registration request is still pending admin approval. Please wait for the approval email before logging in.",
     );
   }
@@ -716,21 +717,21 @@ export const loginBloodBank = async (email, password) => {
       ? ` Reason: ${bloodBank.rejectionReason}`
       : "";
     throw new ApiError(
-      403,
+      HTTPS_CODE.FORBIDDEN,
       `Your registration request was rejected by the admin.${rejectionReason}`,
     );
   }
 
   if (!bloodBank.isActive || !bloodBank.isVerified) {
     throw new ApiError(
-      403,
+      HTTPS_CODE.FORBIDDEN,
       "Your blood bank account is not active. Please contact the admin.",
     );
   }
 
   // Check if account is temporarily locked
   if (bloodBank.lockUntil && bloodBank.lockUntil > Date.now()) {
-    throw new ApiError(401, "Invalid credentials");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Invalid credentials");
   }
 
   // Check password
@@ -742,7 +743,7 @@ export const loginBloodBank = async (email, password) => {
       bloodBank.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
     }
     await bloodBank.save();
-    throw new ApiError(401, "Invalid credentials");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Invalid credentials");
   }
 
   // Successful login – clear lockout state
@@ -863,7 +864,7 @@ export const getBloodBankById = async (bloodBankId) => {
     bloodBank.approvalStatus !== "approved" ||
     !bloodBank.isActive
   ) {
-    throw new ApiError(404, "Blood bank not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank not found");
   }
 
   return serializers.sanitizeBloodBank({
@@ -882,7 +883,7 @@ export const getSessionBloodBank = async (bloodBankId) => {
     lean: true,
   });
   if (!bloodBank) {
-    throw new ApiError(401, "Blood bank session is invalid");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Blood bank session is invalid");
   }
 
   return {
@@ -932,7 +933,7 @@ export const updateBloodBankInventory = async (
   );
 
   if (!inventory) {
-    throw new ApiError(404, "Blood bank inventory not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood bank inventory not found");
   }
 
   await bloodBankRepository.updateOne(
@@ -956,7 +957,7 @@ export const requestPasswordReset = async (email) => {
     { lean: false },
   );
   if (!bloodBank) {
-    throw new ApiError(404, "No blood bank found with this email address");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "No blood bank found with this email address");
   }
 
   // Generate reset token
@@ -980,7 +981,7 @@ export const requestPasswordReset = async (email) => {
   } catch (emailError) {
     console.error("Email sending failed:", emailError);
     throw new ApiError(
-      500,
+      HTTPS_CODE.INTERNAL_SERVER_ERROR,
       "Failed to send reset email. Please try again later.",
     );
   }
@@ -991,7 +992,7 @@ export const requestPasswordReset = async (email) => {
 // Reset password with token
 export const resetPassword = async (token, password) => {
   if (!token || !password) {
-    throw new ApiError(400, "Token and password are required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Token and password are required");
   }
 
   validationService.validatePassword(password);
@@ -1012,7 +1013,7 @@ export const resetPassword = async (token, password) => {
   );
 
   if (!bloodBank) {
-    throw new ApiError(400, "Invalid or expired reset token");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired reset token");
   }
 
   // Update password and clear reset token
@@ -1034,7 +1035,7 @@ export const resetPassword = async (token, password) => {
 // Verify reset token
 export const verifyResetToken = async (token) => {
   if (!token) {
-    throw new ApiError(400, "Reset token is required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Reset token is required");
   }
 
   // Hash the provided token
@@ -1053,7 +1054,7 @@ export const verifyResetToken = async (token) => {
   );
 
   if (!bloodBank) {
-    throw new ApiError(400, "Invalid or expired reset token");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid or expired reset token");
   }
 
   return { valid: true };

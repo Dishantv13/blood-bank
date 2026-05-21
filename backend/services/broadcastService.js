@@ -2,11 +2,12 @@ import requestRepository from "../repositories/RequestRepository.js";
 import userRepository from "../repositories/UserRepository.js";
 import notificationRepository from "../repositories/NotificationRepository.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as smsService from "../utils/smsService.js";
 
 export const broadcastEmergencyRequest = async (requestId, radiusKm = 15) => {
   const request = await requestRepository.findById(requestId);
-  if (!request) throw new ApiError(404, "Blood request not found");
+  if (!request) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
 
   if (
     request.urgency !== "critical" &&

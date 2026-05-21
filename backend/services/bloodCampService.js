@@ -5,6 +5,7 @@ import userRepository from "../repositories/UserRepository.js";
 import donationRepository from "../repositories/DonationRepository.js";
 import cacheManager from "../utils/cacheManager.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as pagination from "../utils/pagination.js";
 import * as notificationService from "./notificationService.js";
 
@@ -61,7 +62,7 @@ export const getCampById = async (campId) => {
     populate: { path: "organizer", select: "name email phone address" },
   });
 
-  if (!camp) throw new ApiError(404, "Blood camp not found");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
   return camp;
 };
 
@@ -92,10 +93,10 @@ export const createCamp = async (bloodBank, data) => {
 
 export const updateCamp = async (campId, bloodBankId, data) => {
   const camp = await bloodCampRepository.findById(campId, { lean: false });
-  if (!camp) throw new ApiError(404, "Blood camp not found");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
 
   if (camp.organizer.toString() !== bloodBankId.toString()) {
-    throw new ApiError(403, "Not authorized to update this camp");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to update this camp");
   }
 
   const updateFields = [
@@ -124,10 +125,10 @@ export const updateCamp = async (campId, bloodBankId, data) => {
 
 export const deleteCamp = async (campId, bloodBankId) => {
   const camp = await bloodCampRepository.findById(campId);
-  if (!camp) throw new ApiError(404, "Blood camp not found");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
 
   if (camp.organizer.toString() !== bloodBankId.toString()) {
-    throw new ApiError(403, "Not authorized to delete this camp");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to delete this camp");
   }
 
   await bloodCampRepository.deleteOne({ _id: campId });
@@ -137,19 +138,19 @@ export const deleteCamp = async (campId, bloodBankId) => {
 
 export const registerCamp = async (campId, userId) => {
   const camp = await bloodCampRepository.findById(campId, { lean: false });
-  if (!camp) throw new ApiError(404, "Blood camp not found");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
 
   const user = await userRepository.findById(userId, {
-    select: "name email phone bloodGroup donorInfo",
+    select: "name email phone bloodGroup donorInfo lastDonationDate",
   });
-  if (!user) throw new ApiError(404, "User not found");
+  if (!user) throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
 
   const alreadyRegistered = camp.registeredDonors.some(
     (donor) =>
       donor && donor.donor && donor.donor.toString() === userId.toString(),
   );
   if (alreadyRegistered)
-    throw new ApiError(400, "You have already registered for this camp");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "You have already register for this camp");
 
   if (user.donorInfo?.lastDonationDate) {
     const lastDate = new Date(user.donorInfo.lastDonationDate);
@@ -157,7 +158,7 @@ export const registerCamp = async (campId, userId) => {
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     if (lastDate > threeMonthsAgo) {
       throw new ApiError(
-        400,
+        HTTPS_CODE.BAD_REQUEST,
         "You must wait 3 months after your last donation to donate again.",
       );
     }
@@ -232,9 +233,9 @@ export const updateCollectedUnits = async (
   collectedUnits,
 ) => {
   const camp = await bloodCampRepository.findById(campId, { lean: false });
-  if (!camp) throw new ApiError(404, "Blood camp not found");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
   if (camp.organizer.toString() !== bloodBankId.toString())
-    throw new ApiError(403, "Not authorized");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized");
 
   camp.collectedUnits = collectedUnits;
   await camp.save();
@@ -251,11 +252,11 @@ export const exportRegistrations = async (campId, bloodBankId) => {
     },
   });
 
-  if (!camp) throw new ApiError(404, "Blood camp not found");
+  if (!camp) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood camp not found");
   if (camp.organizer.toString() !== bloodBankId.toString())
-    throw new ApiError(403, "Not authorized to export this camp's data");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to export this camp's data");
   if (!camp.registeredUsers || camp.registeredUsers.length === 0)
-    throw new ApiError(400, "No registered users to export");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "No registered users to export");
 
   const workbook = new ExcelJS.Workbook();
   const infoSheet = workbook.addWorksheet("Camp Info");
