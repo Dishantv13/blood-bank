@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 import { ApiError } from "./apiError.js";
+import { HTTPS_CODE } from "./httpsCode.js";
 
 export const ensureValidObjectId = (value, fieldName = "id") => {
   if (!mongoose.Types.ObjectId.isValid(value)) {
-    throw new ApiError(400, `Invalid ${fieldName}`);
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, `Invalid ${fieldName}`);
   }
 };
 

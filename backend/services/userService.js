@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import Tesseract from "tesseract.js";
 import fs from "fs";
 import userRepository from "../repositories/UserRepository.js";
 import donorHealthRepository from "../repositories/DonorHealthRepository.js";
@@ -8,6 +7,7 @@ import donationRepository from "../repositories/DonationRepository.js";
 import eventRepository from "../repositories/EventRepository.js";
 import { checkAndSendSingleReminder } from "./reminderService.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { toObjectId } from "../utils/dbGuards.js";
 import { getRedisClient } from "../config/redis.js";
 import { queueAadhaarVerification } from "../queues/aadhaarVerificationQueue.js";
@@ -64,7 +64,7 @@ export const getUserProfile = async (userId) => {
   });
 
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   // Provide a sensible default for activeMode without writing to the DB
@@ -77,11 +77,11 @@ export const getUserProfile = async (userId) => {
 
 // Update user profile photo
 export const updateProfilePhoto = async (userId, localFilePath) => {
-  if (!localFilePath) throw new ApiError(400, "No file path provided");
+  if (!localFilePath) throw new ApiError(HTTPS_CODE.BAD_REQUEST, "No file path provided");
 
   const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   // Delete old photo from Cloudinary if it exists
@@ -96,7 +96,7 @@ export const updateProfilePhoto = async (userId, localFilePath) => {
   );
 
   if (!cloudinaryResponse) {
-    throw new ApiError(500, "Failed to upload photo to Cloudinary");
+    throw new ApiError(HTTPS_CODE.INTERNAL_SERVER_ERROR, "Failed to upload photo to Cloudinary");
   }
 
   // Update user profile with Cloudinary URL and Public ID
@@ -142,7 +142,7 @@ export const updateUserProfile = async (userId, updateData) => {
   );
 
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   invalidateDashboardStatsCache(userId);
@@ -156,7 +156,7 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
 
   const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   // Calculate eligibility on backend
@@ -289,16 +289,15 @@ export const updateDonorInfo = async (userId, incomingDonorInfo) => {
 
     // Update summary stats in User model
     user.healthForm = healthForm._id;
+    user.lastDonationDate = healthForm.donationHistory.lastDonationDate;
     user.donorInfo = {
       totalDonations: user.donorInfo?.totalDonations || 0,
       totalDonatedVolume: user.donorInfo?.totalDonatedVolume || 0,
-      lastDonationDate: healthForm.donationHistory.lastDonationDate,
       isEligible: eligibility.eligible,
       eligibilityReasons: eligibility.reasons,
       lastUpdated: new Date(),
       dateOfBirth: mappingData.dateOfBirth,
       gender: mappingData.gender,
-      bloodGroup: user.bloodGroup,
     };
 
     user.isDonor = true;
@@ -343,14 +342,14 @@ export const getAvailableDonors = async (req) => {
   if (availability === "available") {
     filterQuery.isAvailable = true;
     filterQuery.$or = [
-      { "donorInfo.lastDonationDate": { $lt: threeMonthsAgo } },
-      { "donorInfo.lastDonationDate": { $exists: false } },
-      { "donorInfo.lastDonationDate": null },
+      { lastDonationDate: { $lt: threeMonthsAgo } },
+      { lastDonationDate: { $exists: false } },
+      { lastDonationDate: null },
     ];
   } else if (availability === "recently") {
     filterQuery.$or = [
       { isAvailable: false },
-      { "donorInfo.lastDonationDate": { $gte: threeMonthsAgo } },
+      { lastDonationDate: { $gte: threeMonthsAgo } },
     ];
   }
 
@@ -371,7 +370,7 @@ export const getAvailableDonors = async (req) => {
       filterQuery,
       {
         select: serializers.USER_DONOR_FIELDS,
-        sort: { "donorInfo.lastDonationDate": -1 },
+        sort: { lastDonationDate: -1 },
         skip,
         limit,
       },
@@ -387,12 +386,12 @@ export const getAvailableDonors = async (req) => {
 // Toggle between donor and patient mode
 export const toggleMode = async (userId, mode) => {
   if (!["donor", "patient"].includes(mode)) {
-    throw new ApiError(400, "Invalid mode. Must be donor or patient");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Invalid mode. Must be donor or patient");
   }
 
   const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   if (!user.activeMode) {
@@ -401,7 +400,7 @@ export const toggleMode = async (userId, mode) => {
 
   // If switching to donor mode, ensure they have isDonor set
   if (mode === "donor" && !user.isDonor) {
-    throw new ApiError(400, "Please complete donor registration first");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please complete donor registration first");
   }
 
   user.activeMode = mode;
@@ -486,7 +485,7 @@ export const getDashboardStats = async (userId) => {
     },
   };
 
-  // Sync back to user model if there's a disconnect (Perform in background to keep API fast)
+  // Sync back to user model if there's a disconnect (Perform deferred in background to keep API fast)
   if (
     user.donorInfo &&
     (user.donorInfo.totalDonations !== realTotalDonations ||
@@ -495,25 +494,27 @@ export const getDashboardStats = async (userId) => {
         user.donorInfo.lastDonationDate?.toString() !==
           realLastDonationDate.toString()))
   ) {
-    userRepository
-      .findById(userId, { lean: false })
-      .then(async (userDoc) => {
-        if (!userDoc) return;
-        userDoc.donorInfo.totalDonations = realTotalDonations;
-        userDoc.donorInfo.totalDonatedVolume = realTotalVolume;
-        if (realLastDonationDate) {
-          userDoc.donorInfo.lastDonationDate = realLastDonationDate;
-          userDoc.lastDonationDate = realLastDonationDate;
-        }
-        await userDoc.save();
-        console.log(`[Dashboard] Personal stats synced for user ${userId}`);
-      })
-      .catch((err) =>
-        console.error(
-          `[Dashboard] Sync error for user ${userId}:`,
-          err.message,
-        ),
-      );
+    setImmediate(() => {
+      userRepository
+        .findById(userId, { lean: false })
+        .then(async (userDoc) => {
+          if (!userDoc) return;
+          userDoc.donorInfo.totalDonations = realTotalDonations;
+          userDoc.donorInfo.totalDonatedVolume = realTotalVolume;
+          if (realLastDonationDate) {
+            userDoc.donorInfo.lastDonationDate = realLastDonationDate;
+            userDoc.lastDonationDate = realLastDonationDate;
+          }
+          await userDoc.save();
+          console.log(`[Dashboard] Personal stats synced for user ${userId}`);
+        })
+        .catch((err) =>
+          console.error(
+            `[Dashboard] Sync error for user ${userId}:`,
+            err.message,
+          ),
+        );
+    });
   }
 
   await setDashboardStatsCache(userId, result);
@@ -527,24 +528,22 @@ const extractAadhaarVerificationData = async (
   try {
     console.log("[AI] Starting document analysis:", filePath);
     const isPDF = filePath.toLowerCase().endsWith(".pdf");
+    if (!isPDF) {
+      throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Only PDF files are supported for Aadhaar verification.");
+    }
     let fullText = "";
 
-    if (isPDF) {
-      const data = new Uint8Array(fs.readFileSync(filePath));
-      const loadingTask = pdfjs.getDocument({ data });
-      const pdfDocument = await loadingTask.promise;
+    const data = new Uint8Array(fs.readFileSync(filePath));
+    const loadingTask = pdfjs.getDocument({ data });
+    const pdfDocument = await loadingTask.promise;
 
-      let gatheredText = "";
-      for (let i = 1; i <= pdfDocument.numPages; i++) {
-        const page = await pdfDocument.getPage(i);
-        const textContent = await page.getTextContent();
-        gatheredText += textContent.items.map((item) => item.str).join(" ");
-      }
-      fullText = gatheredText;
-    } else {
-      const result = await Tesseract.recognize(filePath, "eng");
-      fullText = result.data.text;
+    let gatheredText = "";
+    for (let i = 1; i <= pdfDocument.numPages; i++) {
+      const page = await pdfDocument.getPage(i);
+      const textContent = await page.getTextContent();
+      gatheredText += textContent.items.map((item) => item.str).join(" ");
     }
+    fullText = gatheredText;
 
     const dateRegex =
       /(?:DOB|Birth|Year of Birth).*?(\d{2})[\/\-\s](\d{2})[\/\-\s](\d{4})/i;
@@ -559,17 +558,17 @@ const extractAadhaarVerificationData = async (
       return {
         success: true,
         dob: formattedDate,
-        message: `Identity verified via ${isPDF ? "Mozilla PDF" : "Image"} engine`,
+        message: "Identity verified via Mozilla PDF engine",
       };
     } else {
       throw new ApiError(
-        400,
+        HTTPS_CODE.BAD_REQUEST,
         "Could not read a clear Date of Birth from this document.",
       );
     }
   } catch (err) {
     throw new ApiError(
-      err.statusCode || 500,
+      err.statusCode || HTTPS_CODE.INTERNAL_SERVER_ERROR,
       err.message || "Identity Verification Failed",
     );
   } finally {
@@ -587,9 +586,6 @@ const extractAadhaarVerificationData = async (
   }
 };
 
-export const verifyAadhaarDocument = async (filePath) =>
-  extractAadhaarVerificationData(filePath, { cleanupFile: true });
-
 export const initiateAadhaarVerification = async (
   userId,
   filePath,
@@ -597,7 +593,7 @@ export const initiateAadhaarVerification = async (
 ) => {
   const user = await userRepository.findById(userId, { lean: false });
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   user.aadharCard = {
@@ -634,7 +630,7 @@ export const initiateAadhaarVerification = async (
     await user.save();
 
     throw new ApiError(
-      503,
+      HTTPS_CODE.SERVICE_UNAVAILABLE,
       "Unable to queue identity verification right now. Please try again later.",
     );
   }
@@ -663,7 +659,7 @@ export const getAadhaarVerificationStatus = async (userId) => {
   });
 
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
   }
 
   return {
@@ -696,7 +692,7 @@ export const processAadhaarVerificationJob = async ({ userId, filePath }) => {
       verificationStatus: "verified",
       verificationCompletedAt: new Date(),
       verificationFailureReason: "",
-      verifiedDateOfBirth: result?.dob ? new Date(result.dob) : null,
+      verifiedDateOfBirth: result?.dob ? result.dob : null,
     };
 
     await user.save();

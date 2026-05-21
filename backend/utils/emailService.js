@@ -237,7 +237,7 @@ export const verifyEmailSetup = async () => {
   if (process.env.NODE_ENV === "test") return true;
   try {
     await transporter.verify();
-    console.log("Email service is ready");
+    console.log("📧 Email service is ready");
     return true;
   } catch (error) {
     console.error("Email verification failed:", error.message);

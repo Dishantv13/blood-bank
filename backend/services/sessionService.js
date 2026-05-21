@@ -3,6 +3,7 @@ import AuthSession from "../models/AuthSession.model.js";
 import redisClient from "../utils/redisClient.js";
 import { hashToken } from "../utils/authCookies.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { enforceCsrfForRole } from "../middleware/csrf.js";
 import * as authCookies from "../utils/authCookies.js";
 
@@ -319,7 +320,7 @@ export const validateRefreshSessionOrThrow = async ({
     await onInvalid();
   }
 
-  throw new ApiError(401, "Refresh token is invalid or has been reused");
+  throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Refresh token is invalid or has been reused");
 };
 
 
@@ -366,12 +367,12 @@ export const refreshPrincipalSession = async ({
 }) => {
   // 1. Common Security Checks (duplicates removed from individual services)
   if (!enforceCsrfForRole(req, role)) {
-    throw new ApiError(403, "Invalid or missing CSRF token");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Invalid or missing CSRF token");
   }
 
   const refreshToken = authCookies.getRefreshTokenFromRequest(req, role);
   if (!refreshToken) {
-    throw new ApiError(401, "Refresh token missing");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Refresh token missing");
   }
 
   const decoded = authCookies.verifyRefreshToken(role, refreshToken);
