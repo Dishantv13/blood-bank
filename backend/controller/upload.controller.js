@@ -2,23 +2,24 @@ import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from "../utils/response.js";
 import * as fileUploadService from "../services/fileUploadService.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { cleanupTempFile, validateFileContent } from "../middleware/multer.js";
 
 export const uploadFile = asyncHandler(async (req, res) => {
   const localFilePath = req.file?.path;
 
   if (!localFilePath) {
-    throw new ApiError(400, "Please select a file to upload");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please select a file to upload");
   }
 
   try {
     const validation = await validateFileContent(req.file);
     if (!validation.valid) {
-      throw new ApiError(400, `File validation failed: ${validation.error}`);
+      throw new ApiError(HTTPS_CODE.BAD_REQUEST, `File validation failed: ${validation.error}`);
     }
 
     const result = await fileUploadService.handleSingleUpload(localFilePath);
-    successResponse(res, result, 201, "File uploaded successfully");
+    successResponse(res, result, HTTPS_CODE.CREATED, "File uploaded successfully");
   } finally {
     await cleanupTempFile(localFilePath);
   }
@@ -26,7 +27,7 @@ export const uploadFile = asyncHandler(async (req, res) => {
 
 export const uploadMultipleFiles = asyncHandler(async (req, res) => {
   if (!req.files || req.files.length === 0) {
-    throw new ApiError(400, "Please select files to upload");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please select files to upload");
   }
 
   try {
@@ -34,7 +35,7 @@ export const uploadMultipleFiles = asyncHandler(async (req, res) => {
       const validation = await validateFileContent(file);
       if (!validation.valid) {
         throw new ApiError(
-          400,
+          HTTPS_CODE.BAD_REQUEST,
           `File validation failed for ${file.originalname}: ${validation.error}`,
         );
       }
@@ -44,7 +45,7 @@ export const uploadMultipleFiles = asyncHandler(async (req, res) => {
     successResponse(
       res,
       result,
-      201,
+      HTTPS_CODE.CREATED,
       `${result.count} files uploaded successfully`,
     );
   } finally {

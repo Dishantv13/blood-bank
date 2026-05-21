@@ -3,6 +3,7 @@ import { successResponse } from "../utils/response.js";
 import * as bloodBankPortalService from "../services/bloodBankPortalService.js";
 import * as bloodBankExportService from "../services/bloodBankExportService.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { clearCacheByPrefix } from "../middleware/cache.js";
 import { ensureValid } from "../middleware/validateRequest.js";
 import { cleanupTempFile, validateFileContent } from "../middleware/multer.js";
@@ -14,7 +15,7 @@ export const getAllRequests = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.query,
   );
-  successResponse(res, result, 200, "Requests fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Requests fetched successfully");
 });
 
 export const getApprovedRequests = asyncHandler(async (req, res) => {
@@ -22,7 +23,7 @@ export const getApprovedRequests = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.query,
   );
-  successResponse(res, result, 200, "Approved requests fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Approved requests fetched successfully");
 });
 
 export const getRequestDetails = asyncHandler(async (req, res) => {
@@ -30,7 +31,7 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
     req.params.id,
     getBloodBankId(req),
   );
-  successResponse(res, result, 200, "Request details fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Request details fetched successfully");
 });
 
 export const createBankToBankRequest = asyncHandler(async (req, res) => {
@@ -42,7 +43,7 @@ export const createBankToBankRequest = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    201,
+    HTTPS_CODE.CREATED,
     "Blood request sent to the selected blood bank",
   );
 });
@@ -54,7 +55,7 @@ export const approveRequest = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.body.responseNote,
   );
-  successResponse(res, result, 200, "Blood request approved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Blood request approved successfully");
 });
 
 export const rejectRequest = asyncHandler(async (req, res) => {
@@ -64,14 +65,14 @@ export const rejectRequest = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.body.responseNote,
   );
-  successResponse(res, result, 200, "Blood request rejected");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Blood request rejected");
 });
 
 export const getRequestStats = asyncHandler(async (req, res) => {
   const result = await bloodBankPortalService.getRequestStats(
     getBloodBankId(req),
   );
-  successResponse(res, result, 200, "Request stats fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Request stats fetched successfully");
 });
 
 export const getAllEvents = asyncHandler(async (req, res) => {
@@ -79,7 +80,7 @@ export const getAllEvents = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.query,
   );
-  successResponse(res, result, 200, "Events fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Events fetched successfully");
 });
 
 export const createEvent = asyncHandler(async (req, res) => {
@@ -92,7 +93,7 @@ export const createEvent = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    201,
+    HTTPS_CODE.CREATED,
     "Event created successfully and is now visible to users",
   );
 });
@@ -105,13 +106,13 @@ export const updateEvent = asyncHandler(async (req, res) => {
     req.body,
   );
   await clearCacheByPrefix("/api/v1/events");
-  successResponse(res, result, 200, "Event updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Event updated successfully");
 });
 
 export const deleteEvent = asyncHandler(async (req, res) => {
   await bloodBankPortalService.deleteEvent(req.params.id, getBloodBankId(req));
   await clearCacheByPrefix("/api/v1/events");
-  successResponse(res, null, 200, "Event deleted successfully");
+  successResponse(res, null, HTTPS_CODE.OK_SUCCESS, "Event deleted successfully");
 });
 
 export const getEventRegistrations = asyncHandler(async (req, res) => {
@@ -120,7 +121,7 @@ export const getEventRegistrations = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.query,
   );
-  successResponse(res, result, 200, "Event registrations fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Event registrations fetched successfully");
 });
 
 
@@ -129,7 +130,7 @@ export const getAllCamps = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.query,
   );
-  successResponse(res, result, 200, "Camps fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Camps fetched successfully");
 });
 
 export const getCampRegistrations = asyncHandler(async (req, res) => {
@@ -137,7 +138,7 @@ export const getCampRegistrations = asyncHandler(async (req, res) => {
     req.params.id,
     getBloodBankId(req),
   );
-  successResponse(res, result, 200, "Camp registrations fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Camp registrations fetched successfully");
 });
 
 export const removeDonorRegistration = asyncHandler(async (req, res) => {
@@ -147,13 +148,13 @@ export const removeDonorRegistration = asyncHandler(async (req, res) => {
     req.params.donorId,
   );
   await clearCacheByPrefix("/api/v1/blood-camps");
-  successResponse(res, result, 200, "Donor registration removed successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Donor registration removed successfully");
 });
 
 
 export const uploadPhoto = asyncHandler(async (req, res) => {
   if (!req.file) {
-    throw new ApiError(400, "Please select a photo to upload");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please select a photo to upload");
   }
 
   const validation = await validateFileContent(req.file);
@@ -163,7 +164,7 @@ export const uploadPhoto = asyncHandler(async (req, res) => {
   ) {
     await cleanupTempFile(req.file.path);
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       validation.error || "Uploaded file must be a valid image",
     );
   }
@@ -171,17 +172,17 @@ export const uploadPhoto = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.file.path,
   );
-  successResponse(res, result, 200, "Photo uploaded successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Photo uploaded successfully");
 });
 
 export const getDashboard = asyncHandler(async (req, res) => {
   const result = await bloodBankPortalService.getDashboard(getBloodBankId(req));
-  successResponse(res, result, 200, "Dashboard data fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Dashboard data fetched successfully");
 });
 
 export const getProfile = asyncHandler(async (req, res) => {
   const result = await bloodBankPortalService.getProfile(getBloodBankId(req));
-  successResponse(res, result, 200, "Profile fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Profile fetched successfully");
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
@@ -195,7 +196,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   await clearCacheByPrefix("/api/v1/bloodbank/profile");
   await clearCacheByPrefix("/api/v1/blood-banks");
 
-  successResponse(res, result, 200, "Profile updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Profile updated successfully");
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
@@ -205,12 +206,12 @@ export const changePassword = asyncHandler(async (req, res) => {
     req.body.currentPassword,
     req.body.newPassword,
   );
-  successResponse(res, result, 200, "Password changed successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Password changed successfully");
 });
 
 export const getInventory = asyncHandler(async (req, res) => {
   const result = await bloodBankPortalService.getInventory(getBloodBankId(req));
-  successResponse(res, result, 200, "Inventory fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Inventory fetched successfully");
 });
 
 export const updateInventory = asyncHandler(async (req, res) => {
@@ -224,7 +225,7 @@ export const updateInventory = asyncHandler(async (req, res) => {
   await clearCacheByPrefix("/api/v1/bloodbank/inventory");
   await clearCacheByPrefix("/api/v1/blood-banks");
 
-  successResponse(res, result, 200, "Inventory updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Inventory updated successfully");
 });
 
 export const updateBloodGroupUnits = asyncHandler(async (req, res) => {
@@ -242,7 +243,7 @@ export const updateBloodGroupUnits = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    200,
+    HTTPS_CODE.OK_SUCCESS,
     `${req.params.bloodGroup} inventory updated`,
   );
 });

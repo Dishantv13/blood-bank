@@ -1,5 +1,6 @@
 import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from "../utils/response.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as bloodUnitService from "../services/bloodUnitService.js";
 
 const getBloodBankId = (req) => req.bloodBank.bloodBankId || req.bloodBank.id;
@@ -16,7 +17,7 @@ export const getIndividualInventory = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    200,
+    HTTPS_CODE.OK_SUCCESS,
     "Individual blood units fetched successfully",
   );
 });
@@ -30,7 +31,7 @@ export const getExpiringUnits = asyncHandler(async (req, res) => {
     getBloodBankId(req),
     req.query.days,
   );
-  successResponse(res, result, 200, "Expiring units fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Expiring units fetched successfully");
 });
 
 export const updateScreeningStatus = asyncHandler(async (req, res) => {
@@ -39,7 +40,7 @@ export const updateScreeningStatus = asyncHandler(async (req, res) => {
     req.body.results,
     getBloodBankId(req),
   );
-  successResponse(res, result, 200, "Screening results updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Screening results updated successfully");
 });
 
 export const addColdChainLog = asyncHandler(async (req, res) => {
@@ -48,7 +49,7 @@ export const addColdChainLog = asyncHandler(async (req, res) => {
     req.body,
     getBloodBankId(req),
   );
-  successResponse(res, result, 201, "Cold chain log added successfully");
+  successResponse(res, result, HTTPS_CODE.CREATED, "Cold chain log added successfully");
 });
 
 export const refineBloodUnit = asyncHandler(async (req, res) => {
@@ -57,7 +58,7 @@ export const refineBloodUnit = asyncHandler(async (req, res) => {
     req.body.method,
     getBloodBankId(req),
   );
-  successResponse(res, result, 201, "Blood unit refined successfully");
+  successResponse(res, result, HTTPS_CODE.CREATED, "Blood unit refined successfully");
 });
 
 export const splitBloodUnit = asyncHandler(async (req, res) => {
@@ -69,7 +70,7 @@ export const splitBloodUnit = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    201,
+    HTTPS_CODE.CREATED,
     "Blood unit split into components successfully",
   );
 });
