@@ -9,6 +9,7 @@ import { requestLogger } from "./middleware/requestLogger.js";
 import { globalApiLimiter } from "./middleware/rateLimiter.js";
 import { cacheControl } from "./middleware/cacheControl.js";
 import { partialResponse } from "./middleware/partialResponse.js";
+import { HTTPS_CODE } from "./utils/httpsCode.js";
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swagger.js";
 
@@ -92,7 +93,7 @@ const corsOptions = {
     }
   },
   credentials: true,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: HTTPS_CODE.OK_SUCCESS,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"],
   exposedHeaders: ["Content-Range", "X-Content-Range"],
@@ -114,7 +115,7 @@ if (process.env.NODE_ENV === "production") {
 
     if (!isHttps) {
       // Redirect to HTTPS
-      return res.redirect(301, `https://${req.headers.host}${req.url}`);
+      return res.redirect(HTTPS_CODE.MOVED_PERMANENTLY, `https://${req.headers.host}${req.url}`);
     }
     next();
   });
@@ -183,7 +184,7 @@ app.use((req, res, next) => {
       return;
     }
 
-    res.status(408).json({
+    res.status(HTTPS_CODE.REQUEST_TIMEOUT).json({
       success: false,
       message:
         "Request timeout - server did not receive a complete request in time",

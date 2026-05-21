@@ -2,6 +2,7 @@ import * as adminService from "../services/adminService.js";
 import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from "../utils/response.js";
 import { ensureValid } from "../middleware/validateRequest.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 
 // Returns a safe filename for Content-Disposition, preventing header injection.
 const safeFilename = (name) =>
@@ -115,13 +116,13 @@ export const getAllUsers = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Users retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Users retrieved successfully");
 });
 
 export const getUserById = asyncHandler(async (req, res) => {
   const { userId } = req.params;
   const user = await adminService.getUserById(userId);
-  successResponse(res, user, 200, "User retrieved successfully");
+  successResponse(res, user, HTTPS_CODE.OK_SUCCESS, "User retrieved successfully");
 });
 
 export const updateUserStatus = asyncHandler(async (req, res) => {
@@ -129,7 +130,7 @@ export const updateUserStatus = asyncHandler(async (req, res) => {
   const { userId } = req.params;
   const { status } = req.body;
   const user = await adminService.updateUserStatus(userId, status);
-  successResponse(res, user, 200, "User status updated successfully");
+  successResponse(res, user, HTTPS_CODE.OK_SUCCESS, "User status updated successfully");
 });
 
 // Blood Banks Management
@@ -142,13 +143,13 @@ export const getAllBloodBanks = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Blood banks retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Blood banks retrieved successfully");
 });
 
 export const getBloodBankById = asyncHandler(async (req, res) => {
   const { bankId } = req.params;
   const bank = await adminService.getBloodBankById(bankId);
-  successResponse(res, bank, 200, "Blood bank retrieved successfully");
+  successResponse(res, bank, HTTPS_CODE.OK_SUCCESS, "Blood bank retrieved successfully");
 });
 
 export const updateBloodBankStatus = asyncHandler(async (req, res) => {
@@ -161,7 +162,7 @@ export const updateBloodBankStatus = asyncHandler(async (req, res) => {
     adminEmail: req.admin?.adminEmail,
     adminName: "Super Admin",
   });
-  successResponse(res, bank, 200, "Blood bank status updated successfully");
+  successResponse(res, bank, HTTPS_CODE.OK_SUCCESS, "Blood bank status updated successfully");
 });
 
 // Camps Management
@@ -174,7 +175,7 @@ export const getAllCamps = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Blood camps retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Blood camps retrieved successfully");
 });
 
 export const getCampsByBloodBank = asyncHandler(async (req, res) => {
@@ -187,13 +188,13 @@ export const getCampsByBloodBank = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Blood bank camps retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Blood bank camps retrieved successfully");
 });
 
 export const getCampById = asyncHandler(async (req, res) => {
   const { campId } = req.params;
   const camp = await adminService.getCampById(campId);
-  successResponse(res, camp, 200, "Blood camp retrieved successfully");
+  successResponse(res, camp, HTTPS_CODE.OK_SUCCESS, "Blood camp retrieved successfully");
 });
 
 export const updateCampStatus = asyncHandler(async (req, res) => {
@@ -201,7 +202,7 @@ export const updateCampStatus = asyncHandler(async (req, res) => {
   const { campId } = req.params;
   const { status } = req.body;
   const camp = await adminService.updateCampStatus(campId, status);
-  successResponse(res, camp, 200, "Blood camp status updated successfully");
+  successResponse(res, camp, HTTPS_CODE.OK_SUCCESS, "Blood camp status updated successfully");
 });
 
 // Events Management
@@ -214,7 +215,7 @@ export const getAllEvents = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Events retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Events retrieved successfully");
 });
 
 export const getEventsByBloodBank = asyncHandler(async (req, res) => {
@@ -227,13 +228,13 @@ export const getEventsByBloodBank = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Blood bank events retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Blood bank events retrieved successfully");
 });
 
 export const getEventById = asyncHandler(async (req, res) => {
   const { eventId } = req.params;
   const event = await adminService.getEventById(eventId);
-  successResponse(res, event, 200, "Event retrieved successfully");
+  successResponse(res, event, HTTPS_CODE.OK_SUCCESS, "Event retrieved successfully");
 });
 
 export const updateEventStatus = asyncHandler(async (req, res) => {
@@ -241,7 +242,7 @@ export const updateEventStatus = asyncHandler(async (req, res) => {
   const { eventId } = req.params;
   const { status } = req.body;
   const event = await adminService.updateEventStatus(eventId, status);
-  successResponse(res, event, 200, "Event status updated successfully");
+  successResponse(res, event, HTTPS_CODE.OK_SUCCESS, "Event status updated successfully");
 });
 
 // Requests Management
@@ -254,13 +255,13 @@ export const getAllRequests = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Blood requests retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Blood requests retrieved successfully");
 });
 
 export const getRequestById = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
   const request = await adminService.getRequestById(requestId);
-  successResponse(res, request, 200, "Blood request retrieved successfully");
+  successResponse(res, request, HTTPS_CODE.OK_SUCCESS, "Blood request retrieved successfully");
 });
 
 export const updateRequestStatus = asyncHandler(async (req, res) => {
@@ -271,7 +272,7 @@ export const updateRequestStatus = asyncHandler(async (req, res) => {
   successResponse(
     res,
     request,
-    200,
+    HTTPS_CODE.OK_SUCCESS,
     "Blood request status updated successfully",
   );
 });
@@ -286,13 +287,13 @@ export const getAllDonations = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Donations retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Donations retrieved successfully");
 });
 
 export const getDonationById = asyncHandler(async (req, res) => {
   const { donationId } = req.params;
   const donation = await adminService.getDonationById(donationId);
-  successResponse(res, donation, 200, "Donation retrieved successfully");
+  successResponse(res, donation, HTTPS_CODE.OK_SUCCESS, "Donation retrieved successfully");
 });
 
 export const updateDonationStatus = asyncHandler(async (req, res) => {
@@ -300,7 +301,7 @@ export const updateDonationStatus = asyncHandler(async (req, res) => {
   const { donationId } = req.params;
   const { status } = req.body;
   const donation = await adminService.updateDonationStatus(donationId, status);
-  successResponse(res, donation, 200, "Donation status updated successfully");
+  successResponse(res, donation, HTTPS_CODE.OK_SUCCESS, "Donation status updated successfully");
 });
 
 // Inventory Management
@@ -313,13 +314,13 @@ export const getInventoryOverview = asyncHandler(async (req, res) => {
     parseLimit(limit),
     filters,
   );
-  successResponse(res, result, 200, "Inventory retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Inventory retrieved successfully");
 });
 
 export const getInventoryById = asyncHandler(async (req, res) => {
   const { inventoryId } = req.params;
   const result = await adminService.getInventoryById(inventoryId);
-  successResponse(res, result, 200, "Inventory details retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Inventory details retrieved successfully");
 });
 
 // Dashboard Stats
@@ -329,7 +330,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   successResponse(
     res,
     stats,
-    200,
+    HTTPS_CODE.OK_SUCCESS,
     "Dashboard statistics retrieved successfully",
   );
 });

@@ -39,6 +39,25 @@ const initServices = async () => {
     // 2. Connect to Redis
     await getRedisClient();
 
+    // 3. Verify SMTP Email Setup
+    console.log("✉️  Verifying SMTP email service configuration...");
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      if (process.env.NODE_ENV === "production") {
+        console.error("❌ CRITICAL: EMAIL_USER and EMAIL_PASSWORD must be defined in production!");
+        process.exit(1);
+      } else {
+        console.warn("⚠️  WARNING: EMAIL_USER or EMAIL_PASSWORD is not defined. SMTP notifications will be disabled.");
+      }
+    } else {
+      const { verifyEmailSetup } = await import("./utils/emailService.js");
+      const emailReady = await verifyEmailSetup();
+      if (emailReady) {
+        console.log("✅ SMTP Email Service: Ready to send notifications");
+      } else {
+        console.warn("⚠️  WARNING: SMTP Transporter verification failed. Outbound email features may fail.");
+      }
+    }
+
     if (process.env.SERVERLESS !== "true") {
       const httpServer = createServer(app);
 
