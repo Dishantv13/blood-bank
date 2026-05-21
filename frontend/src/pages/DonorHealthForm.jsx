@@ -185,6 +185,15 @@ const DonorHealthForm = () => {
       return;
     }
 
+    if (!fileName.endsWith(".pdf")) {
+      setIsScanning(false);
+      setError(
+        "Invalid File Type: Only PDF documents are supported for Aadhaar verification.",
+      );
+      toast.error("Identity Verification Failed.");
+      return;
+    }
+
     toast.info("Securely scanning Aadhaar...");
     const formData = new FormData();
     formData.append("document", file);
@@ -440,7 +449,7 @@ const DonorHealthForm = () => {
                     <label className="upload-btn">
                       <input
                         type="file"
-                        accept="image/*,application/pdf"
+                        accept="application/pdf"
                         onChange={(e) =>
                           handleAadharVerification(e.target.files[0])
                         }
@@ -450,8 +459,8 @@ const DonorHealthForm = () => {
                         <span className="icon">
                           <FaFileAlt />
                         </span>
-                        <strong>Upload Aadhaar (Image or PDF)</strong>
-                        <p>e-Aadhaar PDFs are now supported</p>
+                        <strong>Upload Aadhaar (PDF only)</strong>
+                        <p>Only secure e-Aadhaar PDFs are supported</p>
                       </div>
                     </label>
                   </div>
@@ -469,11 +478,11 @@ const DonorHealthForm = () => {
                     const day = String(date.getDate()).padStart(2, '0');
                     setValue("dateOfBirth", `${year}-${month}-${day}`);
                   }}
-                  placeholder="Will be filled after scan"
+                  placeholder="Will be filled after PDF scan"
                 />
                 {!aadharVerified && (
                   <small className="hint-txt">
-                    Upload your card above to populate this field
+                    Upload your Aadhaar PDF above to populate this field
                   </small>
                 )}
               </div>

@@ -21,7 +21,6 @@ import "../pages.css/Dashboard.css";
 import SkeletonLoader from "../components/SkeletonLoader";
 import EmptyState from "../components/EmptyState";
 import MatchingRequests from "../components/MatchingRequests";
-import GeospatialSearch from "../components/GeospatialSearch";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -914,7 +913,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <GeospatialSearch />
 
           {/* Compute charts from myRequests directly */}
           {(() => {

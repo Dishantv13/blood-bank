@@ -1,0 +1,427 @@
+/* --- Shared Container & Card Box Styles --- */
+.forgot-password-container,
+.blood-bank-forgot-password-container,
+.change-password-container,
+.blood-bank-change-password-container,
+.reset-password-container,
+.blood-bank-reset-password-container,
+.shared-auth-container {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-gradient);
+  padding: 20px;
+  margin-top: 80px;
+}
+
+/* Adjustments for full height pages like forgot/reset */
+.forgot-password-container,
+.blood-bank-forgot-password-container,
+.reset-password-container,
+.blood-bank-reset-password-container {
+  min-height: 100vh;
+  margin-top: 0;
+}
+
+.forgot-password-box,
+.blood-bank-forgot-password-box,
+.change-password-box,
+.blood-bank-change-password-box,
+.reset-password-box,
+.blood-bank-reset-password-box,
+.shared-auth-box {
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  padding: 40px;
+  width: 100%;
+  max-width: 450px;
+  animation: slideUp 0.5s ease-out;
+  color: var(--text-main);
+}
+
+.change-password-box,
+.blood-bank-change-password-box {
+  max-width: 500px;
+}
+
+.reset-password-box.error-box {
+  text-align: center;
+}
+
+.reset-password-box.error-box p {
+  color: #d32f2f;
+  margin: 15px 0;
+  font-size: 14px;
+}
+
+/* --- Shared Title & Descriptions --- */
+.forgot-password-box h2,
+.blood-bank-forgot-password-box h2,
+.change-password-box h2,
+.blood-bank-change-password-box h2,
+.reset-password-box h2,
+.blood-bank-reset-password-box h2,
+.shared-auth-box h2 {
+  color: var(--text-main);
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.reset-password-box h2,
+.blood-bank-reset-password-box h2 {
+  margin-bottom: 30px;
+}
+
+.form-description {
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* --- Shared Form Fields & Inputs --- */
+.form-group {
+  margin-bottom: 22px;
+}
+
+.form-group label {
+  display: block;
+  color: var(--text-main);
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid var(--input-border);
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  background: var(--input-bg);
+  color: var(--text-main);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group input:disabled {
+  background-color: var(--input-bg);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.form-group small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+/* --- Password Fields with Toggles --- */
+.password-input-group,
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-group input,
+.password-input-wrapper input,
+.password-field .password-input-wrapper input {
+  padding-right: 40px !important;
+}
+
+.toggle-password,
+.password-toggle,
+.password-field .password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 5px;
+  color: #667eea;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toggle-password:hover:not(:disabled),
+.password-toggle:hover:not(:disabled),
+.password-field .password-toggle:hover {
+  color: #764ba2;
+  transform: scale(1.1) translateY(-50%);
+}
+
+.toggle-password:disabled,
+.password-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Shared Buttons & Groups --- */
+.button-group {
+  display: flex;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.submit-button,
+.change-button,
+.reset-button,
+.back-button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+}
+
+.submit-button,
+.change-button,
+.back-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.submit-button:hover:not(:disabled),
+.change-button:hover:not(:disabled),
+.back-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+}
+
+.submit-button:disabled,
+.change-button:disabled,
+.back-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.reset-button {
+  background-color: var(--input-bg);
+  color: var(--text-main);
+  border: 2px solid var(--border-color);
+}
+
+.reset-button:hover:not(:disabled) {
+  background-color: var(--border-color);
+  border-color: var(--border-color);
+}
+
+.reset-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.back-button {
+  margin-top: 10px;
+}
+
+/* --- Shared Messaging (Success / Error) --- */
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  border-left: 4px solid #c62828;
+  animation: slideDown 0.3s ease;
+}
+
+.success-message {
+  text-align: center;
+  padding: 30px 20px;
+  animation: popIn 0.5s ease-out;
+}
+
+.success-icon {
+  font-size: 60px;
+  color: #4caf50;
+  margin-bottom: 20px;
+}
+
+.success-message p {
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.success-message-text {
+  color: #4caf50;
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 14px !important;
+  margin-bottom: 20px !important;
+}
+
+/* --- Shared Navigation Links --- */
+.back-link {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.back-link a {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.back-link a:hover {
+  color: #764ba2;
+  text-decoration: underline;
+}
+
+/* --- Password Strength & Requirements Card --- */
+.password-requirements {
+  background-color: var(--input-bg);
+  padding: 15px;
+  border-radius: 6px;
+  margin-top: 20px;
+  border: 1px solid var(--border-color);
+  text-align: left;
+}
+
+.password-requirements h4 {
+  margin: 0 0 10px 0;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.password-requirements ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.password-requirements li {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 4px 0;
+  position: relative;
+  padding-left: 20px;
+}
+
+.password-requirements li:before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+}
+
+/* --- Keyframe Animations --- */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Shared Media Queries --- */
+@media (max-width: 600px) {
+  .forgot-password-container,
+  .blood-bank-forgot-password-container,
+  .reset-password-container,
+  .blood-bank-reset-password-container {
+    margin-top: 0;
+  }
+
+  .change-password-container,
+  .blood-bank-change-password-container {
+    margin-top: 60px;
+  }
+
+  .forgot-password-box,
+  .blood-bank-forgot-password-box,
+  .change-password-box,
+  .blood-bank-change-password-box,
+  .reset-password-box,
+  .blood-bank-reset-password-box,
+  .shared-auth-box {
+    padding: 30px 20px;
+  }
+
+  .forgot-password-box h2,
+  .blood-bank-forgot-password-box h2,
+  .change-password-box h2,
+  .blood-bank-change-password-box h2,
+  .reset-password-box h2,
+  .blood-bank-reset-password-box h2,
+  .shared-auth-box h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+  }
+
+  .form-description {
+    font-size: 13px;
+  }
+
+  .button-group {
+    flex-direction: column;
+  }
+
+  .submit-button,
+  .change-button,
+  .reset-button,
+  .back-button {
+    width: 100%;
+  }
+}
