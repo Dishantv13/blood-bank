@@ -4,19 +4,20 @@ import { successResponse } from "../utils/response.js";
 import { clearCacheByPrefix } from "../middleware/cache.js";
 import * as userService from "../services/userService.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { cleanupTempFile, validateFileContent } from "../middleware/multer.js";
 
 // Get user profile
 export const getProfile = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.getUserProfile(userId);
-  successResponse(res, result, 200, "User profile fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "User profile fetched successfully");
 });
 
 // Update user profile photo
 export const updateProfilePhoto = asyncHandler(async (req, res) => {
   if (!req.file) {
-    throw new ApiError(400, "Please select a photo to upload");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please select a photo to upload");
   }
 
   const validation = await validateFileContent(req.file);
@@ -26,14 +27,14 @@ export const updateProfilePhoto = asyncHandler(async (req, res) => {
   ) {
     await cleanupTempFile(req.file.path);
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       validation.error || "Uploaded file must be a valid image",
     );
   }
 
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.updateProfilePhoto(userId, req.file.path);
-  successResponse(res, result, 200, "Profile photo updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Profile photo updated successfully");
 });
 
 // Update user profile
@@ -42,7 +43,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.updateUserProfile(userId, req.body);
-  successResponse(res, result, 200, "Profile updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Profile updated successfully");
 });
 
 // Update donor information
@@ -52,13 +53,13 @@ export const updateDonorInfo = asyncHandler(async (req, res) => {
   const userId = req.user.userId || req.user._id || req.user.id;
   const result = await userService.updateDonorInfo(userId, req.body);
   await clearCacheByPrefix("/api/v1/users/donors");
-  successResponse(res, result, 200, "Donor information updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Donor information updated successfully");
 });
 
 // Get available donors by blood group
 export const getDonors = asyncHandler(async (req, res) => {
   const result = await userService.getAvailableDonors(req);
-  successResponse(res, result, 200, "Donors fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Donors fetched successfully");
 });
 
 // Toggle between donor and patient mode
@@ -69,7 +70,7 @@ export const toggleMode = asyncHandler(async (req, res) => {
   const { mode } = req.body;
   const result = await userService.toggleMode(userId, mode);
   await clearCacheByPrefix("/api/v1/users/donors");
-  successResponse(res, result, 200, "User mode toggled successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "User mode toggled successfully");
 });
 
 // Get dashboard statistics
@@ -79,7 +80,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    200,
+    HTTPS_CODE.OK_SUCCESS,
     "Dashboard statistics fetched successfully",
   );
 });
@@ -87,13 +88,18 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 // Verify Aadhaar identity
 export const verifyAadhaar = asyncHandler(async (req, res) => {
   if (!req.file) {
-    throw new ApiError(400, "Please upload an Aadhaar document to verify");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Please upload an Aadhaar document to verify");
   }
 
   const validation = await validateFileContent(req.file);
   if (!validation.valid) {
     await cleanupTempFile(req.file.path);
-    throw new ApiError(400, validation.error || "Uploaded document is invalid");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, validation.error || "Uploaded document is invalid");
+  }
+
+  if (validation.detectedType !== "application/pdf") {
+    await cleanupTempFile(req.file.path);
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Only PDF documents (e-Aadhaar) are supported for verification.");
   }
 
   const userId = req.user.userId || req.user._id || req.user.id;
@@ -105,7 +111,7 @@ export const verifyAadhaar = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    202,
+    HTTPS_CODE.ACCEPTED,
     "Identity verification queued successfully",
   );
 });
@@ -116,7 +122,7 @@ export const getAadhaarVerificationStatus = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    200,
+    HTTPS_CODE.OK_SUCCESS,
     "Identity verification status fetched successfully",
   );
 });

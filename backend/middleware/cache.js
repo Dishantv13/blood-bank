@@ -1,6 +1,7 @@
 import redisClient from "../utils/redisClient.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 
 const pendingResponses = new Map();
 const memoryCacheStore = new Map();
@@ -96,7 +97,7 @@ export const cacheResponse =
         ) {
           res.set("X-Cache", "HIT-MEMORY-304");
           res.set("X-Server-Time", `${took}ms`);
-          return res.status(304).end();
+          return res.status(HTTPS_CODE.NOT_MODIFIED).end();
         }
         res.set("X-Cache", "HIT-MEMORY");
         res.set("X-Server-Time", `${took}ms`);
@@ -116,7 +117,7 @@ export const cacheResponse =
           if (clientEtag === `W/"${etag}"` || clientEtag === etag) {
             res.set("X-Cache", "HIT-REDIS-304");
             res.set("X-Server-Time", `${took}ms`);
-            return res.status(304).end();
+            return res.status(HTTPS_CODE.NOT_MODIFIED).end();
           }
 
           res.set("X-Cache", "HIT-REDIS");
@@ -152,7 +153,7 @@ export const cacheResponse =
       const originalJson = res.json.bind(res);
       res.json = (body) => {
         const took = (performance.now() - start).toFixed(2);
-        if (res.statusCode >= 200 && res.statusCode < 300) {
+        if (res.statusCode >= HTTPS_CODE.OK_SUCCESS && res.statusCode < 300) {
           const etag = setMemoryCache(key, body, ttlSeconds);
           redisClient
             .set(key, JSON.stringify(body), ttlSeconds)
@@ -208,17 +209,25 @@ export const clearCacheByPrefix = async (prefix) => {
       const pattern = `*${normalizedPrefix}*`;
       const keysToDelete = [];
       
-      // Use scanIterator for robust key traversal in node-redis v4+
-      for await (const key of client.scanIterator({
-        MATCH: pattern,
-        COUNT: 100
-      })) {
-        keysToDelete.push(key);
-        // Delete in batches of 100
-        if (keysToDelete.length >= 100) {
-          await client.del(keysToDelete);
-          clearedCount += keysToDelete.length;
-          keysToDelete.length = 0;
+      if (typeof client.scanIterator === 'function') {
+        // Use scanIterator for robust key traversal in node-redis v4+
+        for await (const key of client.scanIterator({
+          MATCH: pattern,
+          COUNT: 100
+        })) {
+          keysToDelete.push(key);
+          // Delete in batches of 100
+          if (keysToDelete.length >= 100) {
+            await client.del(keysToDelete);
+            clearedCount += keysToDelete.length;
+            keysToDelete.length = 0;
+          }
+        }
+      } else if (typeof client.keys === 'function') {
+        // Fallback for mock client or older node-redis versions
+        const keys = await client.keys(pattern);
+        if (Array.isArray(keys)) {
+          keysToDelete.push(...keys);
         }
       }
       

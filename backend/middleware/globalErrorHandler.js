@@ -1,10 +1,12 @@
+import { HTTPS_CODE } from "../utils/httpsCode.js";
+
 const globalErrorHandler = (err, req, res, _next) => {
   if (err.name === 'ValidationError') {
-    return res.status(400).json({ success: false, message: err.message });
+    return res.status(HTTPS_CODE.BAD_REQUEST).json({ success: false, message: err.message });
   }
 
   if (err.name === 'CastError') {
-    return res.status(400).json({
+    return res.status(HTTPS_CODE.BAD_REQUEST).json({
       success: false,
       message: `Invalid value for field: ${err.path}`,
     });
@@ -12,7 +14,7 @@ const globalErrorHandler = (err, req, res, _next) => {
 
   if (err.name === 'MongoServerError' && err.code === 11000) {
     const field = Object.keys(err.keyValue || {})[0] || 'field';
-    return res.status(409).json({
+    return res.status(HTTPS_CODE.CONFLICT).json({
       success: false,
       message: `${field} already exists`,
     });
@@ -27,11 +29,11 @@ const globalErrorHandler = (err, req, res, _next) => {
     timestamp: new Date().toISOString(),
   });
 
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || HTTPS_CODE.INTERNAL_SERVER_ERROR;
 
   // In production, hide detailed error messages to prevent information disclosure
   const message =
-    process.env.NODE_ENV === 'production' && statusCode === 500
+    process.env.NODE_ENV === 'production' && statusCode === HTTPS_CODE.INTERNAL_SERVER_ERROR
       ? 'Internal Server Error'
       : err.message || 'Internal Server Error';
 

@@ -19,14 +19,15 @@ import {
   validateSessionCsrf,
 } from "../services/sessionService.js";
 import cacheManager from "../utils/cacheManager.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 
 const unauthorized = (
   res,
   message = "No authentication token, access denied",
-) => res.status(401).json({ success: false, message });
+) => res.status(HTTPS_CODE.UNAUTHORIZED).json({ success: false, message });
 
 const forbidden = (res, message = "Not authorized") =>
-  res.status(403).json({ success: false, message });
+  res.status(HTTPS_CODE.FORBIDDEN).json({ success: false, message });
 
 const applyCsrfGuard = async (req, res, role, sessionId) => {
   if (process.env.NODE_ENV === "test") return true;
@@ -211,7 +212,7 @@ const adminAuth = asyncHandler(async (req, res, next) => {
 
 const loadApprovedBloodBank = async (bloodBankId, requestingUserId = null) => {
   if (!bloodBankId || bloodBankId === "undefined") {
-    return { error: { status: 400, message: "Invalid request parameters" } };
+    return { error: { status: HTTPS_CODE.BAD_REQUEST, message: "Invalid request parameters" } };
   }
 
   try {
@@ -220,7 +221,7 @@ const loadApprovedBloodBank = async (bloodBankId, requestingUserId = null) => {
       .lean();
 
     if (!bloodBank) {
-      return { error: { status: 404, message: "Blood bank not found" } };
+      return { error: { status: HTTPS_CODE.NOT_FOUND, message: "Blood bank not found" } };
     }
 
     if (
@@ -230,7 +231,7 @@ const loadApprovedBloodBank = async (bloodBankId, requestingUserId = null) => {
     ) {
       return {
         error: {
-          status: 403,
+          status: HTTPS_CODE.FORBIDDEN,
           message: "You do not have permission to access this blood bank",
         },
       };
@@ -244,7 +245,7 @@ const loadApprovedBloodBank = async (bloodBankId, requestingUserId = null) => {
     ) {
       return {
         error: {
-          status: 403,
+          status: HTTPS_CODE.FORBIDDEN,
           message: "Your blood bank account is not approved for access",
         },
       };
@@ -259,7 +260,7 @@ const loadApprovedBloodBank = async (bloodBankId, requestingUserId = null) => {
     };
     return payload;
   } catch (err) {
-    return { error: { status: 400, message: "Invalid blood bank ID format" } };
+    return { error: { status: HTTPS_CODE.BAD_REQUEST, message: "Invalid blood bank ID format" } };
   }
 };
 

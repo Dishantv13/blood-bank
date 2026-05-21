@@ -41,9 +41,9 @@ class UserRepository extends BaseRepository {
       activeMode: "donor",
       _id: { $ne: requestedBy },
       $or: [
-        { "donorInfo.lastDonationDate": { $exists: false } },
-        { "donorInfo.lastDonationDate": null },
-        { "donorInfo.lastDonationDate": { $lte: threeMonthsAgo } },
+        { lastDonationDate: { $exists: false } },
+        { lastDonationDate: null },
+        { lastDonationDate: { $lte: threeMonthsAgo } },
       ],
     };
 
@@ -106,7 +106,7 @@ class UserRepository extends BaseRepository {
                 name: 1,
                 email: 1,
                 mobileNumber: "$phone",
-                bloodType: { $ifNull: ["$bloodGroup", "$donorInfo.bloodGroup"] },
+                bloodType: "$bloodGroup",
                 requestCount: { $size: "$requests" },
                 donationCount: { $size: "$donations" },
                 status: {

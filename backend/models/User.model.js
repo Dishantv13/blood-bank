@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import { BLOOD_GROUPS } from "../validations/validation.constants.js";
+import { encrypt, decrypt } from "../utils/encryption.js";
 
 const UserSchema = new mongoose.Schema({
   name: {
@@ -101,7 +102,11 @@ const UserSchema = new mongoose.Schema({
     },
   },
   aadharCard: {
-    imageUrl: String,
+    imageUrl: {
+      type: String,
+      get: decrypt,
+      set: encrypt,
+    },
     isVerified: {
       type: Boolean,
       default: false,
@@ -115,7 +120,11 @@ const UserSchema = new mongoose.Schema({
     verificationRequestedAt: Date,
     verificationCompletedAt: Date,
     verificationFailureReason: String,
-    verifiedDateOfBirth: Date,
+    verifiedDateOfBirth: {
+      type: String,
+      get: decrypt,
+      set: encrypt,
+    },
   },
   lastDonationDate: {
     type: Date,
@@ -132,7 +141,6 @@ const UserSchema = new mongoose.Schema({
     // Summary statistics for fast dashboard/profile access
     totalDonations: { type: Number, default: 0 },
     totalDonatedVolume: { type: Number, default: 0 },
-    lastDonationDate: Date,
     isEligible: { type: Boolean, default: false },
     eligibilityReasons: Object,
     lastUpdated: Date,
@@ -141,7 +149,6 @@ const UserSchema = new mongoose.Schema({
     // Core identity fields that might be needed frequently
     dateOfBirth: Date,
     gender: String,
-    bloodGroup: String,
   },
   loginAttempts: {
     type: Number,
@@ -175,7 +182,26 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+}, {
+  toJSON: { getters: true },
+  toObject: { getters: true },
 });
+
+UserSchema.virtual("donorInfo.bloodGroup")
+  .get(function () {
+    return this.bloodGroup;
+  })
+  .set(function (value) {
+    this.bloodGroup = value;
+  });
+
+UserSchema.virtual("donorInfo.lastDonationDate")
+  .get(function () {
+    return this.lastDonationDate;
+  })
+  .set(function (value) {
+    this.lastDonationDate = value;
+  });
 
 // Index for geospatial queries
 UserSchema.index({ location: "2dsphere" });

@@ -3,6 +3,7 @@ import adminAuthStateRepository from "../repositories/AdminAuthStateRepository.j
 import { MAX_LOGIN_ATTEMPTS, LOCK_DURATION_MS } from "../config/authConfig.js";
 import { enforceCsrfForRole } from "../middleware/csrf.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as authCookies from "../utils/authCookies.js";
 import * as sessionService from "./sessionService.js";
 
@@ -12,7 +13,7 @@ const getAdminConfig = () => {
   const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH;
 
   if (!adminEmail || !adminPasswordHash) {
-    throw new ApiError(503, "Admin authentication is not configured");
+    throw new ApiError(HTTPS_CODE.SERVICE_UNAVAILABLE, "Admin authentication is not configured");
   }
 
   return {
@@ -100,7 +101,7 @@ const incrementAdminTokenVersion = async (reason = "security_event") => {
 
 export const loginAdmin = async (email, password) => {
   if (!email || !password) {
-    throw new ApiError(400, "Email and password are required");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Email and password are required");
   }
 
   const { adminEmail, adminPasswordHash } = getAdminConfig();
@@ -114,7 +115,7 @@ export const loginAdmin = async (email, password) => {
 
   // Check lockout before verifying password (prevents timing oracle when locked).
   if (state.lockUntil && new Date(state.lockUntil) > new Date()) {
-    throw new ApiError(401, "Invalid admin credentials");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Invalid admin credentials");
   }
 
   const isPasswordMatch = await bcrypt.compare(password, adminPasswordHash);
@@ -125,7 +126,7 @@ export const loginAdmin = async (email, password) => {
     if (isEmailMatch) {
       await incrementAdminLoginAttempts(adminEmail);
     }
-    throw new ApiError(401, "Invalid admin credentials");
+    throw new ApiError(HTTPS_CODE.UNAUTHORIZED, "Invalid admin credentials");
   }
 
   // Successful login – clear lockout state.
