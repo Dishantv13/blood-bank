@@ -1,5 +1,6 @@
 import DonorHealth from "../models/DonorHealth.model.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as pagination from "../utils/pagination.js";
 
 export const submitHealthForm = async (userId, data) => {
@@ -9,7 +10,7 @@ export const submitHealthForm = async (userId, data) => {
     !consent?.consentToDonate ||
     !consent?.understandsProcess
   ) {
-    throw new ApiError(400, "All consent fields must be accepted");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "All consent fields must be accepted");
   }
 
   const existing = await DonorHealth.findOne({
@@ -18,7 +19,7 @@ export const submitHealthForm = async (userId, data) => {
   }).lean();
   if (existing) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "You already have a pending health form. Please wait for review.",
     );
   }
@@ -44,7 +45,7 @@ export const getLatestForm = async (userId) => {
   const form = await DonorHealth.findOne({ donor: userId })
     .sort({ submittedAt: -1 })
     .lean();
-  if (!form) throw new ApiError(404, "No health form found");
+  if (!form) throw new ApiError(HTTPS_CODE.NOT_FOUND, "No health form found");
   return form;
 };
 
@@ -88,13 +89,13 @@ export const getFormById = async (id) => {
   const form = await DonorHealth.findById(id)
     .populate("donor", "name email phone")
     .lean();
-  if (!form) throw new ApiError(404, "Health form not found");
+  if (!form) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Health fore not found");
   return form;
 };
 
 export const reviewForm = async (id, bloodBankId, data) => {
   const form = await DonorHealth.findById(id);
-  if (!form) throw new ApiError(404, "Health form not found");
+  if (!form) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Health form not found");
 
   form.status = data.status;
   form.reviewNotes = data.reviewNotes;
@@ -107,12 +108,12 @@ export const reviewForm = async (id, bloodBankId, data) => {
 
 export const updateForm = async (id, userId, data) => {
   const form = await DonorHealth.findById(id);
-  if (!form) throw new ApiError(404, "Health form not found");
+  if (!form) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Health form not found");
   if (form.donor.toString() !== userId.toString())
-    throw new ApiError(403, "Not authorized");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized");
   if (!["pending", "requires_review"].includes(form.status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       "Cannot update a form that has been approved or rejected",
     );
   }

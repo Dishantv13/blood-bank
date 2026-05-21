@@ -1,5 +1,6 @@
 import inventoryRepository from "../repositories/InventoryRepository.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { invalidateBloodBankCaches } from "../utils/cacheInvalidation.js";
 import * as validationService from "./validationService.js";
 
@@ -10,7 +11,7 @@ export const getInventory = async (bloodBankId) => {
   });
 
   if (!inventory) {
-    throw new ApiError(404, "Inventory record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Inventory record not found");
   }
 
   return inventory;
@@ -34,7 +35,7 @@ export const updateInventoryUnits = async (
   );
 
   if (!inventory) {
-    throw new ApiError(404, "Inventory record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Inventory record not found");
   }
 
   // Find or create the blood group item
@@ -51,7 +52,7 @@ export const updateInventoryUnits = async (
     if (operation === "set") item.units = units;
     else if (operation === "add") item.units += units;
     else if (operation === "subtract") {
-      if (item.units < units) throw new ApiError(400, `Insufficient ${bloodGroup} Whole Blood units`);
+      if (item.units < units) throw new ApiError(HTTPS_CODE.BAD_REQUEST, `Insufficient ${bloodGroup} Whole Blood units`);
       item.units -= units;
     }
   } else {
@@ -67,7 +68,7 @@ export const updateInventoryUnits = async (
     if (operation === "set") comp.units = units;
     else if (operation === "add") comp.units += units;
     else if (operation === "subtract") {
-      if (comp.units < units) throw new ApiError(400, `Insufficient ${bloodGroup} ${componentType} units`);
+      if (comp.units < units) throw new ApiError(HTTPS_CODE.BAD_REQUEST, `Insufficient ${bloodGroup} ${componentType} units`);
       comp.units -= units;
     }
     comp.lastUpdated = new Date();
@@ -88,7 +89,7 @@ export const addInventoryUnits = async (
   session = null,
 ) => {
   if (!units || units <= 0) {
-    throw new ApiError(400, "Units must be greater than 0");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Units must be greater than 0");
   }
 
   return updateInventoryUnits(bloodBankId, bloodGroup, componentType, units, "add", session);
@@ -102,7 +103,7 @@ export const subtractInventoryUnits = async (
   session = null,
 ) => {
   if (!units || units <= 0) {
-    throw new ApiError(400, "Units must be greater than 0");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Units must be greater than 0");
   }
 
   return updateInventoryUnits(
@@ -132,13 +133,13 @@ export const checkInventoryAvailability = async (
     { select: "items" },
   );
   if (!inventory) {
-    throw new ApiError(404, "Inventory record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Inventory record not found");
   }
 
   const item = inventory.items.find((i) => i.bloodGroup === bloodGroup);
 
   if (!item) {
-    throw new ApiError(404, `Blood group ${bloodGroup} not found in inventory`);
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, `Blood group ${bloodGroup} not found in inventory`);
   }
 
   return item.units >= requiredUnits;
@@ -153,13 +154,13 @@ export const getAvailableUnits = async (bloodBankId, bloodGroup) => {
     { select: "items" },
   );
   if (!inventory) {
-    throw new ApiError(404, "Inventory record not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Inventory record not found");
   }
 
   const item = inventory.items.find((i) => i.bloodGroup === bloodGroup);
 
   if (!item) {
-    throw new ApiError(404, `Blood group ${bloodGroup} not found in inventory`);
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, `Blood group ${bloodGroup} not found in inventory`);
   }
 
   return item.units;

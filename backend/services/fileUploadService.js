@@ -1,18 +1,19 @@
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 
 export const handleSingleUpload = async (
   localFilePath,
   folder = "general/uploads",
 ) => {
   if (!localFilePath) {
-    throw new ApiError(400, "No file found to upload");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "No file found to upload");
   }
 
   const cloudinaryResponse = await uploadOnCloudinary(localFilePath, folder);
 
   if (!cloudinaryResponse) {
-    throw new ApiError(500, "Cloudinary upload failed");
+    throw new ApiError(HTTPS_CODE.INTERNAL_SERVER_ERROR, "Cloudinary upload failed");
   }
 
   return {
@@ -26,7 +27,7 @@ export const handleMultipleUploads = async (
   folder = "general/uploads",
 ) => {
   if (!files || files.length === 0) {
-    throw new ApiError(400, "No files found to upload");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "No files found to upload");
   }
 
   const uploadPromises = files.map((file) =>
@@ -44,7 +45,7 @@ export const handleMultipleUploads = async (
     }));
 
   if (successfulUploads.length === 0) {
-    throw new ApiError(500, "All file uploads failed");
+    throw new ApiError(HTTPS_CODE.INTERNAL_SERVER_ERROR, "All file uploads failed");
   }
 
   return {

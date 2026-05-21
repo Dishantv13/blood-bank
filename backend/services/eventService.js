@@ -2,6 +2,7 @@ import eventRepository from "../repositories/EventRepository.js";
 import userRepository from "../repositories/UserRepository.js";
 import cacheManager from "../utils/cacheManager.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as pagination from "../utils/pagination.js";
 import * as notificationService from "./notificationService.js";
 
@@ -63,7 +64,7 @@ export const createEvent = async (userId, data) => {
     select: "name role",
   });
   if (!organizer) {
-    throw new ApiError(404, "Organizer not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Organizer not found");
   }
 
   const event = await eventRepository.create({
@@ -93,15 +94,15 @@ export const registerEvent = async (eventId, userId) => {
     userRepository.findById(userId, { select: "name email" }),
   ]);
 
-  if (!event) throw new ApiError(404, "Event not found");
-  if (!user) throw new ApiError(404, "User not found");
+  if (!event) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Event not found");
+  if (!user) throw new ApiError(HTTPS_CODE.NOT_FOUND, "User not found");
 
   if (
     event.registeredDonors.some(
       (id) => id && id.toString() === userId.toString(),
     )
   ) {
-    throw new ApiError(400, "Already registered for this event");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Already registered for this event");
   }
 
   event.registeredDonors.push(userId);
@@ -125,9 +126,9 @@ export const registerEvent = async (eventId, userId) => {
 
 export const deleteEvent = async (eventId, userId) => {
   const event = await eventRepository.findById(eventId);
-  if (!event) throw new ApiError(404, "Event not found");
+  if (!event) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Event not found");
   if (String(event.organizedBy) !== String(userId)) {
-    throw new ApiError(403, "Not authorized to delete this event");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to delete this event");
   }
 
   await eventRepository.deleteOne({ _id: eventId });

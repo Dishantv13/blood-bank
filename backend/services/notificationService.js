@@ -2,6 +2,7 @@ import notificationRepository from "../repositories/NotificationRepository.js";
 import userRepository from "../repositories/UserRepository.js";
 import bloodBankRepository from "../repositories/BloodBankRepository.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as pagination from "../utils/pagination.js";
 import * as socket from "../utils/socket.js";
 
@@ -128,7 +129,7 @@ export const markAsRead = async (notificationId, recipientId) => {
   );
 
   if (!notification) {
-    throw new ApiError(404, "Notification not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Notification not found");
   }
 
   return notification;
@@ -151,7 +152,7 @@ export const deleteNotification = async (notificationId, recipientId) => {
   });
 
   if (!result) {
-    throw new ApiError(404, "Notification not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Notification not found");
   }
 
   return { success: true };

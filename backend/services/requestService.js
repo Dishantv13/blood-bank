@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import requestRepository from "../repositories/RequestRepository.js";
 import cacheManager from "../utils/cacheManager.js";
 import { ApiError } from "../utils/apiError.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import { ensureValidObjectId, toObjectId } from "../utils/dbGuards.js";
 import { invalidateBloodBankCaches } from "../utils/cacheInvalidation.js";
 import * as validationService from "./validationService.js";
@@ -126,7 +127,7 @@ export const getRequestById = async (requestId, viewer = {}) => {
   });
 
   if (!request) {
-    throw new ApiError(404, "Blood request not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
   }
 
   const isAdmin = viewer?.type === "admin";
@@ -155,7 +156,7 @@ export const getRequestById = async (requestId, viewer = {}) => {
       ));
 
   if (!canViewSensitiveDetails) {
-    throw new ApiError(403, "Not authorized to view this blood request");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to view this blood request");
   }
 
   return serializers.sanitizePrivateBloodRequest(request);
@@ -168,15 +169,15 @@ export const updateBloodRequest = async (requestId, userId, data) => {
 
   const request = await requestRepository.findById(requestId, { lean: false });
   if (!request) {
-    throw new ApiError(404, "Blood request not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
   }
 
   if (request.requestedBy.toString() !== userId.toString()) {
-    throw new ApiError(403, "Not authorized to update this request");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to update this request");
   }
 
   if (request.status !== "pending") {
-    throw new ApiError(400, "Cannot update request that is not pending");
+    throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Cannot update request that is not pending");
   }
 
   // Validate data if provided
@@ -231,14 +232,14 @@ export const updateRequestStatus = async (
 
   if (!validStatuses.includes(status)) {
     throw new ApiError(
-      400,
+      HTTPS_CODE.BAD_REQUEST,
       `Invalid status. Must be one of: ${validStatuses.join(", ")}`,
     );
   }
 
   const request = await requestRepository.findById(requestId, { lean: false });
   if (!request) {
-    throw new ApiError(404, "Blood request not found");
+    throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
   }
 
   const actorType = actor?.type; // 'user' or 'bloodbank'
@@ -247,14 +248,14 @@ export const updateRequestStatus = async (
   // Authorization and business logic constraints
   if (actorType === "user") {
     if (String(request.requestedBy) !== actorId) {
-      throw new ApiError(403, "Not authorized to update this request");
+      throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to update this request");
     }
     if (status !== "cancelled") {
-      throw new ApiError(400, "Users can only cancel their own requests");
+      throw new ApiError(HTTPS_CODE.BAD_REQUEST, "Users can only cancel their own requests");
     }
     if (["fulfilled", "completed", "rejected"].includes(request.status)) {
       throw new ApiError(
-        400,
+        HTTPS_CODE.BAD_REQUEST,
         `Cannot cancel request in ${request.status} status`,
       );
     }
@@ -264,7 +265,7 @@ export const updateRequestStatus = async (
       request.targetBloodBank &&
       String(request.targetBloodBank) !== actorId
     ) {
-      throw new ApiError(403, "Not authorized to update this request");
+      throw new ApiError(HTTPS_CODE.FORBIDDEN, "Not authorized to update this request");
     }
     // If it's a general pool request, first blood bank to approve "claims" it
     if (!request.targetBloodBank && status === "approved") {
@@ -402,10 +403,10 @@ export const fulfillRequest = async (
   ensureValidObjectId(bloodBankId, "blood bank id");
 
   const request = await requestRepository.findById(requestId, { lean: false });
-  if (!request) throw new ApiError(404, "Blood request not found");
+  if (!request) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Blood request not found");
 
   if (request.bloodBank && String(request.bloodBank) !== String(bloodBankId)) {
-    throw new ApiError(403, "This request is assigned to another blood bank");
+    throw new ApiError(HTTPS_CODE.FORBIDDEN, "This request is assigned to another blood bank");
   }
 
   const oldStatus = request.status;
