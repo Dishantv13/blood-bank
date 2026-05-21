@@ -14,7 +14,7 @@
 [Core Capabilities](#-core-capabilities) • [Technical Architecture](#%EF%B8%8F-technical-architecture) • [Security & Performance](#-security--performance-standards) • [Developer Setup](#-installation--setup) • [Contributing](#-contributing)
 
 </div>
-
+    
 ---
 
 > [!IMPORTANT]
