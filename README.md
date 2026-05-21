@@ -19,7 +19,7 @@
 
 > [!IMPORTANT]
 > **RaktSarthi** (Blood Companion) is not just a directory—it is a mission-critical logistics engine. In medical emergencies where seconds decide lives, RaktSarthi enforces real-time synchronization, cold-chain compliance, and absolute data integrity to deliver blood safely where it is needed most.
-
+    
 ---
 
 ## 🚀 Core Capabilities
