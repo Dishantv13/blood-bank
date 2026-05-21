@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as notificationService from "../services/notificationService.js";
 import { authOrBloodBank } from "../middleware/auth.js";
 import { asyncHandler } from "../utils/asynchandler.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 const router = Router();
 
 // All routes require authentication (user or blood bank)
@@ -20,7 +21,7 @@ router.get(
       getRecipientId(req),
       req.query,
     );
-    res.status(200).json(result);
+    res.status(HTTPS_CODE.OK_SUCCESS).json(result);
   }),
 );
 
@@ -30,7 +31,7 @@ router.get(
     const result = await notificationService.getUnreadCount(
       getRecipientId(req),
     );
-    res.status(200).json(result);
+    res.status(HTTPS_CODE.OK_SUCCESS).json(result);
   }),
 );
 
@@ -41,7 +42,7 @@ router.patch(
       req.params.id,
       getRecipientId(req),
     );
-    res.status(200).json({ success: true, notification: result });
+    res.status(HTTPS_CODE.OK_SUCCESS).json({ success: true, notification: result });
   }),
 );
 
@@ -49,7 +50,7 @@ router.patch(
   "/read-all",
   asyncHandler(async (req, res) => {
     const result = await notificationService.markAllAsRead(getRecipientId(req));
-    res.status(200).json(result);
+    res.status(HTTPS_CODE.OK_SUCCESS).json(result);
   }),
 );
 
@@ -60,7 +61,7 @@ router.delete(
       req.params.id,
       getRecipientId(req),
     );
-    res.status(200).json(result);
+    res.status(HTTPS_CODE.OK_SUCCESS).json(result);
   }),
 );
 

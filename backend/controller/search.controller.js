@@ -1,6 +1,7 @@
 import * as locationService from "../services/locationService.js";
 import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from "../utils/response.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 
 export const searchAvailability = asyncHandler(async (req, res) => {
   const { lat, lng, bloodGroup, radius, type } = req.query;
@@ -13,5 +14,5 @@ export const searchAvailability = asyncHandler(async (req, res) => {
     type,
   });
 
-  successResponse(res, results, 200, "Search results retrieved successfully");
+  successResponse(res, results, HTTPS_CODE.OK_SUCCESS, "Search results retrieved successfully");
 });

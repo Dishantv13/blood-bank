@@ -1,5 +1,6 @@
 import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from "../utils/response.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as chatService from "../services/chatService.js";
 
 export const getHistory = asyncHandler(async (req, res) => {
@@ -14,7 +15,7 @@ export const getHistory = asyncHandler(async (req, res) => {
     parseInt(page) || 1,
   );
 
-  successResponse(res, result, 200, "Chat history fetched successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Chat history fetched successfully");
 });
 
 export const markRead = asyncHandler(async (req, res) => {
@@ -23,5 +24,5 @@ export const markRead = asyncHandler(async (req, res) => {
 
   await chatService.markAsRead(requestId, userId);
 
-  successResponse(res, null, 200, "Messages marked as read");
+  successResponse(res, null, HTTPS_CODE.OK_SUCCESS, "Messages marked as read");
 });

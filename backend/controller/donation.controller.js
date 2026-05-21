@@ -1,6 +1,7 @@
 import { validationResult } from "express-validator";
 import { asyncHandler } from "../utils/asynchandler.js";
 import { successResponse } from "../utils/response.js";
+import { HTTPS_CODE } from "../utils/httpsCode.js";
 import * as donationService from "../services/donationService.js";
 import * as certificateService from "../services/certificateService.js";
 
@@ -8,7 +9,7 @@ import * as certificateService from "../services/certificateService.js";
 export const createDonationRequest = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(HTTPS_CODE.BAD_REQUEST).json({ errors: errors.array() });
   }
 
   const donorId = req.user.userId || req.user._id || req.user.id;
@@ -17,14 +18,14 @@ export const createDonationRequest = asyncHandler(async (req, res) => {
     req.body.bloodBankId,
     req.body,
   );
-  successResponse(res, result, 201, "Donation request submitted successfully");
+  successResponse(res, result, HTTPS_CODE.CREATED, "Donation request submitted successfully");
 });
 
 // Get user's own donation history
 export const getMyDonations = asyncHandler(async (req, res) => {
   const donorId = req.user.userId || req.user._id || req.user.id;
   const result = await donationService.getUserDonations(donorId, req.query);
-  successResponse(res, result, 200, "Donation history retrieved successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Donation history retrieved successfully");
 });
 
 // Get blood bank's donations
@@ -37,7 +38,7 @@ export const getBloodBankDonations = asyncHandler(async (req, res) => {
   successResponse(
     res,
     result,
-    200,
+    HTTPS_CODE.OK_SUCCESS,
     "Blood bank donations retrieved successfully",
   );
 });
@@ -46,7 +47,7 @@ export const getBloodBankDonations = asyncHandler(async (req, res) => {
 export const recordDonation = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(HTTPS_CODE.BAD_REQUEST).json({ errors: errors.array() });
   }
 
   const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank.id;
@@ -56,14 +57,14 @@ export const recordDonation = asyncHandler(async (req, res) => {
     bloodBankId,
     req.body.volumeDonated,
   );
-  successResponse(res, result, 200, "Donation recorded successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Donation recorded successfully");
 });
 
 // Update donation status
 export const updateDonationStatus = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(HTTPS_CODE.BAD_REQUEST).json({ errors: errors.array() });
   }
 
   const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank.id;
@@ -73,14 +74,14 @@ export const updateDonationStatus = asyncHandler(async (req, res) => {
     bloodBankId,
     req.body.status,
   );
-  successResponse(res, result, 200, "Donation status updated successfully");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Donation status updated successfully");
 });
 
 // Create donation by blood bank
 export const createDonationByBank = asyncHandler(async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
+    return res.status(HTTPS_CODE.BAD_REQUEST).json({ errors: errors.array() });
   }
 
   const bloodBankId = req.bloodBank.bloodBankId || req.bloodBank.id;
@@ -92,7 +93,7 @@ export const createDonationByBank = asyncHandler(async (req, res) => {
       bloodGroup: req.body.bloodGroup,
     },
   );
-  successResponse(res, result, 201, "Donation record created successfully");
+  successResponse(res, result, HTTPS_CODE.CREATED, "Donation record created successfully");
 });
 
 // Download donation certificate
@@ -116,5 +117,5 @@ export const downloadCertificate = asyncHandler(async (req, res) => {
 export const verifyCertificateHandler = asyncHandler(async (req, res) => {
   const { code } = req.params;
   const result = await certificateService.verifyCertificate(code);
-  successResponse(res, result, 200, "Certificate verification successful");
+  successResponse(res, result, HTTPS_CODE.OK_SUCCESS, "Certificate verification successful");
 });
