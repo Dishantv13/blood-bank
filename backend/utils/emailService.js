@@ -17,14 +17,31 @@ const escapeHtml = (str) =>
     .replace(/'/g, "&#x27;")
     .replace(/\//g, "&#x2F;");
 
-// Create transporter for sending emails
-const transporter = nodemailer.createTransport({
-  service: "gmail",
+// Resolve SMTP/Email Configuration from Environment Variables
+const emailUser = process.env.EMAIL_USER || process.env.SMTP_USER;
+const emailPass = process.env.EMAIL_PASSWORD || process.env.SMTP_PASS;
+
+const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+const smtpPort = parseInt(process.env.SMTP_PORT, 10) || 587;
+
+const transporterConfig = {
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpPort === 465, // true for 465, false for 587 (which upgrades securely via STARTTLS)
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
+    user: emailUser,
+    pass: emailPass,
   },
-});
+  connectionTimeout: 20000, // 20 seconds connection timeout for production reliability
+  greetingTimeout: 20000,
+  socketTimeout: 30000,
+  tls: {
+    rejectUnauthorized: false, // Don't fail on self-signed or intermediate certificates
+  },
+};
+
+// Create transporter for sending emails
+const transporter = nodemailer.createTransport(transporterConfig);
 
 // Sends email directly via Nodemailer (BullMQ removed).
 const sendEmail = async (to, subject, html) => {
@@ -34,7 +51,7 @@ const sendEmail = async (to, subject, html) => {
   }
   try {
     const info = await transporter.sendMail({
-      from: `"RaktSarthi" <${process.env.EMAIL_USER || "noreply@raktsarthi.com"}>`,
+      from: `"RaktSarthi" <${emailUser || "noreply@raktsarthi.com"}>`,
       to,
       subject,
       html,
@@ -236,6 +253,9 @@ export const sendWeeklyInventoryDigest = async (bloodBank, stats) => {
 export const verifyEmailSetup = async () => {
   if (process.env.NODE_ENV === "test") return true;
   try {
+    const activeHost = smtpHost || "Gmail Service";
+    const activePort = smtpHost ? smtpPort : "default";
+    console.log(`📡 Verifying connection to email server (${activeHost}:${activePort})...`);
     await transporter.verify();
     console.log("📧 Email service is ready");
     return true;

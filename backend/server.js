@@ -41,12 +41,15 @@ const initServices = async () => {
 
     // 3. Verify SMTP Email Setup
     console.log("✉️  Verifying SMTP email service configuration...");
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+    const emailUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const emailPass = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
+
+    if (!emailUser || !emailPass) {
       if (process.env.NODE_ENV === "production") {
-        console.error("❌ CRITICAL: EMAIL_USER and EMAIL_PASSWORD must be defined in production!");
+        console.error("❌ CRITICAL: SMTP_USER (or EMAIL_USER) and SMTP_PASS (or EMAIL_PASSWORD) must be defined in production!");
         process.exit(1);
       } else {
-        console.warn("⚠️  WARNING: EMAIL_USER or EMAIL_PASSWORD is not defined. SMTP notifications will be disabled.");
+        console.warn("⚠️  WARNING: SMTP/EMAIL credentials are not defined. SMTP notifications will be disabled.");
       }
     } else {
       const { verifyEmailSetup } = await import("./utils/emailService.js");
