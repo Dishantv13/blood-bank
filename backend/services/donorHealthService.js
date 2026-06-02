@@ -89,7 +89,7 @@ export const getFormById = async (id) => {
   const form = await DonorHealth.findById(id)
     .populate("donor", "name email phone")
     .lean();
-  if (!form) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Health fore not found");
+  if (!form) throw new ApiError(HTTPS_CODE.NOT_FOUND, "Health form not found");
   return form;
 };
 

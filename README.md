@@ -111,7 +111,7 @@ RaktSarthi/
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/yourusername/RaktSarthi.git
+git clone https://github.com/Dishantv13/blood-bank.git
 cd RaktSarthi
 ```
 

@@ -13,7 +13,7 @@ import * as bloodBankManager from "./bloodBankManagerService.js";
 import * as auditService from "./auditService.js";
 import * as pagination from "../utils/pagination.js";
 import * as cloudinary from "../utils/cloudinary.js";
-import { addInventoryUnits, subtractInventoryUnits } from "./inventoryService.js";
+import * as inventoryService from "./inventoryService.js";
 
 const buildBloodBankAddress = (address = {}) => {
   if (!address) return "";
@@ -348,20 +348,20 @@ export const approveRequest = async (
           "You can only approve requests sent to your blood bank",
         );
       }
-      await subtractInventoryUnits(
+      await inventoryService.subtractInventoryUnits(
         responderBankId,
         request.bloodGroup,
         request.units,
         session,
       );
-      await addInventoryUnits(
+      await inventoryService.addInventoryUnits(
         request.requestingBloodBank,
         request.bloodGroup,
         request.units,
         session,
       );
     } else {
-      await subtractInventoryUnits(
+      await inventoryService.subtractInventoryUnits(
         responderBankId,
         request.bloodGroup,
         request.units,
