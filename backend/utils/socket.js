@@ -131,9 +131,6 @@ export const initSocket = async (server) => {
     }
 
     const userId = rawId.toString();
-    console.log(
-      `[WS] Client connected: ${userId} (${socket.id}) [Role: ${socket.roleType || "unknown"}]`,
-    );
 
     socket.join(`user:${userId}`);
 

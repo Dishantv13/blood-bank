@@ -55,15 +55,16 @@ const sendEmail = async (to, subject, html) => {
     return { messageId: "test-id" };
   }
 
-  // Fallback to console logger in development if SMTP service is not reachable/verified
-  if (!isSmtpReady && process.env.NODE_ENV !== "production") {
+  // Fallback to console logger if SMTP service is not reachable/verified (e.g. Render port blocking)
+  if (!isSmtpReady) {
+    const isProd = process.env.NODE_ENV === "production";
     console.log(`\n==================================================`);
-    console.log(`✉️  [MOCK EMAIL SENT] (SMTP server is offline/unreachable)`);
+    console.log(`✉️  [MOCK EMAIL SENT] (${isProd ? "PRODUCTION FALLBACK" : "SMTP offline/unreachable"})`);
     console.log(`👉 To: ${to}`);
     console.log(`👉 Subject: ${subject}`);
     console.log(`👉 Body Preview: ${html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').slice(0, 250).trim()}...`);
     console.log(`==================================================\n`);
-    return { messageId: "mock-dev-id-" + Date.now() };
+    return { messageId: "mock-id-" + Date.now() };
   }
 
   try {
