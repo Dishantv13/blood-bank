@@ -27,8 +27,8 @@ const initServices = async () => {
     // 1. Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 10000,
-      maxPoolSize: 50,
-      minPoolSize: 5,
+      maxPoolSize: 10,
+      minPoolSize: 2,
       socketTimeoutMS: 45000,
       heartbeatFrequencyMS: 10000,
       maxIdleTimeMS: 30000,
