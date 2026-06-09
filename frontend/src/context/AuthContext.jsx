@@ -167,6 +167,11 @@ export const AuthProvider = ({ children }) => {
   const clearRoleSession = useCallback(
     (role) => {
       clearRefreshTimeout(role);
+      try {
+        if (typeof window !== "undefined" && window.sessionStorage) {
+          window.sessionStorage.removeItem(`csrf_token_${role}`);
+        }
+      } catch (_e) {}
 
       if (role === "admin") {
         setAdminUser(null);

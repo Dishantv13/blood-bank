@@ -213,6 +213,20 @@ const normalizeApiPayload = (rawResponse) => {
   };
 };
 
+const saveCsrfTokenFromPayload = (payload, role) => {
+  if (!payload || typeof payload !== "object") return;
+  const token = payload.csrfToken || payload.data?.csrfToken;
+  if (token && typeof token === "string") {
+    try {
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        window.sessionStorage.setItem(`csrf_token_${role}`, token);
+      }
+    } catch (e) {
+      console.error("Failed to store CSRF token in sessionStorage:", e);
+    }
+  }
+};
+
 const baseQuery = fetchBaseQuery({
   baseUrl: API_URL,
   credentials: "include",
@@ -225,10 +239,20 @@ const baseQuery = fetchBaseQuery({
       headers.set("Content-Type", "application/json");
     }
 
-    // SECURE: Always attempt to attach the CSRF token from cookies if it exists.
+    // SECURE: Always attempt to attach the CSRF token from cookies/sessionStorage if it exists.
     // This is critical for the initial /session check and /refresh after a Google OAuth redirect.
     const role = getRoleFromUrl(url, method);
-    const csrfToken = parseCookie(getCsrfCookieName(role));
+    let csrfToken = null;
+    try {
+      if (typeof window !== "undefined" && window.sessionStorage) {
+        csrfToken = window.sessionStorage.getItem(`csrf_token_${role}`);
+      }
+    } catch (_e) {}
+
+    if (!csrfToken) {
+      csrfToken = parseCookie(getCsrfCookieName(role));
+    }
+
     if (csrfToken) {
       headers.set("x-csrf-token", csrfToken);
     }
@@ -237,7 +261,13 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
-const removeRoleState = (_role) => {};
+const removeRoleState = (role) => {
+  try {
+    if (typeof window !== "undefined" && window.sessionStorage) {
+      window.sessionStorage.removeItem(`csrf_token_${role}`);
+    }
+  } catch (_e) {}
+};
 
 const isLogoutInProgress = () =>
   typeof window !== "undefined" && window.__AUTH_LOGOUT_IN_PROGRESS__ === true;
@@ -265,11 +295,14 @@ const runRefreshForRole = async (role, api, extraOptions) => {
   return withRefreshMutex(role, async () => {
     const csrfCookie = parseCookie(getCsrfCookieName(role));
     if (!csrfCookie) {
-      await baseQuery(
+      const csrfRes = await baseQuery(
         { url: getCsrfEndpoint(role), method: "GET" },
         api,
         extraOptions,
       );
+      if (csrfRes.data) {
+        saveCsrfTokenFromPayload(csrfRes.data, role);
+      }
     }
 
     let refreshResult = await baseQuery(
@@ -277,19 +310,28 @@ const runRefreshForRole = async (role, api, extraOptions) => {
       api,
       extraOptions,
     );
+    if (refreshResult.data) {
+      saveCsrfTokenFromPayload(refreshResult.data, role);
+    }
 
     // Refresh can itself fail on stale CSRF cookie; renew token and retry once.
     if (isCsrfError(refreshResult)) {
-      await baseQuery(
+      const csrfRes = await baseQuery(
         { url: getCsrfEndpoint(role), method: "GET" },
         api,
         extraOptions,
       );
+      if (csrfRes.data) {
+        saveCsrfTokenFromPayload(csrfRes.data, role);
+      }
       refreshResult = await baseQuery(
         { url: getRefreshEndpoint(role), method: "POST" },
         api,
         extraOptions,
       );
+      if (refreshResult.data) {
+        saveCsrfTokenFromPayload(refreshResult.data, role);
+      }
     }
 
     return refreshResult;
@@ -318,11 +360,14 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 
   // If CSRF is missing/expired, fetch a new token and retry state-changing calls once.
   if (isStateChangingMethod(requestMethod) && isCsrfError(result)) {
-    await baseQuery(
+    const csrfRes = await baseQuery(
       { url: getCsrfEndpoint(requestRole), method: "GET" },
       api,
       extraOptions,
     );
+    if (csrfRes.data) {
+      saveCsrfTokenFromPayload(csrfRes.data, requestRole);
+    }
     result = await baseQuery(args, api, extraOptions);
   }
 
@@ -387,6 +432,7 @@ const baseQueryWithReauth = async (args, api, extraOptions) => {
 
   if (result.data !== undefined) {
     result.data = normalizeApiPayload(result.data);
+    saveCsrfTokenFromPayload(result.data, requestRole);
   }
 
   return result;

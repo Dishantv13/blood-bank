@@ -49,7 +49,6 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("disconnect", (reason) => {
-      console.log("⚠️ Real-time: Disconnected -", reason);
       setIsConnected(false);
     });
 

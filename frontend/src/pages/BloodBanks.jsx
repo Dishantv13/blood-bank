@@ -45,11 +45,6 @@ const BloodBanks = () => {
     const selectedGroup = filterBloodGroup || "All Blood Groups";
     const selectedDistance = radius ? `Within ${radius} km` : "Any Distance";
     const gpsStatus = latitude && longitude ? "Active" : "Inactive";
-    console.log(
-      `%c[🔍 Blood Banks Directory Filter Applied]%c\n• Selected Blood Group: ${selectedGroup}\n• Active Radius: ${selectedDistance}\n• GPS Tracking: ${gpsStatus}\n• Active Page: ${page}\n• Records Per Page: ${limit}`,
-      "color: #ef4444; font-weight: bold; font-size: 1.1em;",
-      "color: inherit; font-weight: normal;"
-    );
   }, [filterBloodGroup, radius, latitude, longitude, page, limit]);
 
   const { data: bloodBanksRes, isFetching: loadingBloodBanks } =

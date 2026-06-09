@@ -38,11 +38,6 @@ const GeospatialSearch = () => {
       ? `(${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)})`
       : "Not yet detected (Waiting for user to click 'Detect Location')";
 
-    console.log(
-      `%c[📍 Geospatial Search Filter Changed]%c\n• Blood Group Needed: ${bloodGroup}\n• Search Radius: ${radius} Km\n• Search Source Type: ${searchType}\n• GPS Coordinates: ${gpsString}`,
-      "color: #ef4444; font-weight: bold; font-size: 1.1em;",
-      "color: inherit; font-weight: normal;"
-    );
   }, [bloodGroup, radius, searchType, coords]);
 
   const detectLocation = () => {

@@ -33,7 +33,6 @@ const NotificationCenter = ({ isOpen, onClose }) => {
     if (!socket || !isAuthenticated) return;
 
     const handleNewNotification = (data) => {
-      console.log("📢 Real-time: Notification received for UI update", data);
       refetch(); // Instantly refresh the list from server
     };
 
