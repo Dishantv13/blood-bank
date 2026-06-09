@@ -30,9 +30,6 @@ export const initSocket = async (server) => {
         if (!origin || allowedOrigins.includes(origin.replace(/\/$/, ""))) {
           callback(null, true);
         } else {
-          console.warn(
-            `[Blocked] Socket.io connection from unauthorised origin: ${origin}`,
-          );
           callback(new Error("CORS blocking WebSocket from origin: " + origin));
         }
       },
@@ -93,26 +90,17 @@ export const initSocket = async (server) => {
       }
 
       if (!token || !secret) {
-        console.warn(
-          `[WS Auth] Unauthorized attempt: Access Token missing (Cookies present: ${Object.keys(cookies).join(", ")})`,
-        );
         return next(new Error("Authentication error: Access Token missing"));
       }
 
       // 4. Verify against the correct secret
       jwt.verify(token, secret, async (err, decoded) => {
         if (err) {
-          console.warn(
-            `[WS Auth] Unauthorized attempt (${roleType}): ${err.message}`,
-          );
           return next(new Error("Authentication error: Invalid session"));
         }
 
         // SESSION ENFORCEMENT: Check if session is revoked in DB/Redis
         if (!(await isSessionValid(roleType, decoded.sid))) {
-          console.warn(
-            `[WS Auth] Revoked session access attempt: ${decoded.sid}`,
-          );
           return next(new Error("Authentication error: Session revoked"));
         }
 
@@ -121,7 +109,6 @@ export const initSocket = async (server) => {
         next();
       });
     } catch (error) {
-      console.error("[WS Auth] Middleware error:", error.message);
       next(new Error("Internal Authentication error"));
     }
   });

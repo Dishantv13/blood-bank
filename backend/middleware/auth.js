@@ -100,7 +100,6 @@ const auth = asyncHandler(async (req, res, next) => {
   const token = getAccessTokenFromRequest(req, "user");
 
   if (!token) {
-    console.warn("[AUTH] Rejected: No token provided");
     return unauthorized(res);
   }
 
@@ -113,28 +112,20 @@ const auth = asyncHandler(async (req, res, next) => {
 
     let user = await loadAuthenticatedUser(decoded.userId || decoded.id);
     if (!user) {
-      console.warn("[AUTH] Rejected: User not found", { userId: decoded.userId });
       return unauthorized(res, "Authenticated user not found in database");
     }
 
     // SELF-HEALING: If cache is stale, try one fresh DB lookup before rejecting
     if (!matchesTokenVersion(decoded, user.tokenVersion)) {
-      console.log("[AUTH] Potential stale cache detected, retrying with fresh DB lookup...");
       user = await loadAuthenticatedUser(decoded.userId || decoded.id, true); // true = bypass cache
       
       if (!user || !matchesTokenVersion(decoded, user.tokenVersion)) {
-        console.warn("[AUTH] Rejected: tokenVersion mismatch (Confirmed against DB)", {
-          userId: user?.id,
-          decodedVersion: decoded.tokenVersion,
-          currentVersion: user?.tokenVersion,
-        });
         return unauthorized(res, "Session has been revoked due to security event");
       }
     }
 
     // SESSION ENFORCEMENT: Check if this specific session ID is still valid/active
     if (!(await isSessionValid("user", decoded.sid))) {
-      console.warn("[AUTH] Rejected: Session revoked or inactive", { sid: decoded.sid });
       return unauthorized(
         res,
         "Session has been revoked or is no longer active",
@@ -152,7 +143,6 @@ const auth = asyncHandler(async (req, res, next) => {
     };
     next();
   } catch (error) {
-    console.error("[AUTH ERROR] User authentication failed:", error.message);
     return unauthorized(res, `Token is not valid: ${error.message}`);
   }
 });
@@ -205,7 +195,6 @@ const adminAuth = asyncHandler(async (req, res, next) => {
     };
     next();
   } catch (error) {
-    console.error("[AUTH ERROR] Admin authentication failed:", error.message);
     return unauthorized(res, `Admin token is not valid: ${error.message}`);
   }
 });
@@ -317,10 +306,6 @@ const bloodBankAuth = asyncHandler(async (req, res, next) => {
 
     next();
   } catch (error) {
-    console.error(
-      "[AUTH ERROR] Blood bank authentication failed:",
-      error.message,
-    );
     return unauthorized(res, `Blood bank token is not valid: ${error.message}`);
   }
 });

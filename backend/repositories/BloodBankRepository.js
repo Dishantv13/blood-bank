@@ -173,7 +173,6 @@ class BloodBankRepository extends BaseRepository {
 
     const result = await this.model.aggregate(pipeline);
     const end = performance.now();
-    console.log(`[DB] Aggregation took ${(end - start).toFixed(2)}ms`);
 
     const data = result[0]?.data || [];
     const total = result[0]?.totalCount[0]?.count || 0;

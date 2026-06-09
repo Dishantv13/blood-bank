@@ -276,6 +276,7 @@ export const verifyEmailSetup = async () => {
     const activeHost = smtpHost || "Gmail Service";
     const activePort = smtpHost ? smtpPort : "default";
     console.log(`📡 Verifying connection to email server (${activeHost}:${activePort})...`);
+    console.log(`🔑 SMTP Configuration - Host: ${activeHost}, Port: ${activePort}, User: ${emailUser ? "Configured" : "MISSING"}, Pass: ${emailPass ? "Configured" : "MISSING"}`);
     
     // Set a quick timeout for SMTP verification to fail fast in development mode
     const verificationTimeout = process.env.NODE_ENV === "production" ? 15000 : 4000;
@@ -291,6 +292,7 @@ export const verifyEmailSetup = async () => {
     return true;
   } catch (error) {
     console.error("Email verification failed:", error.message);
+    console.error("Email verification error details:", error);
     isSmtpReady = false;
     return false;
   }
