@@ -24,6 +24,9 @@ const emailPass = process.env.EMAIL_PASSWORD || process.env.SMTP_PASS;
 const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
 const smtpPort = parseInt(process.env.SMTP_PORT, 10) || 587;
 
+const isProduction = process.env.NODE_ENV === "production";
+const devTimeout = 4000; // 4 seconds timeout for dev to prevent blocking API responses on failure
+
 const transporterConfig = {
   host: smtpHost,
   port: smtpPort,
@@ -32,13 +35,15 @@ const transporterConfig = {
     user: emailUser,
     pass: emailPass,
   },
-  connectionTimeout: 20000, // 20 seconds connection timeout for production reliability
-  greetingTimeout: 20000,
-  socketTimeout: 30000,
+  connectionTimeout: isProduction ? 20000 : devTimeout,
+  greetingTimeout: isProduction ? 20000 : devTimeout,
+  socketTimeout: isProduction ? 30000 : devTimeout,
   tls: {
     rejectUnauthorized: false, // Don't fail on self-signed or intermediate certificates
   },
 };
+
+let isSmtpReady = false;
 
 // Create transporter for sending emails
 const transporter = nodemailer.createTransport(transporterConfig);
@@ -49,6 +54,18 @@ const sendEmail = async (to, subject, html) => {
     console.log(`[Email Mock] Skip sending email to ${to} in test mode.`);
     return { messageId: "test-id" };
   }
+
+  // Fallback to console logger in development if SMTP service is not reachable/verified
+  if (!isSmtpReady && process.env.NODE_ENV !== "production") {
+    console.log(`\n==================================================`);
+    console.log(`✉️  [MOCK EMAIL SENT] (SMTP server is offline/unreachable)`);
+    console.log(`👉 To: ${to}`);
+    console.log(`👉 Subject: ${subject}`);
+    console.log(`👉 Body Preview: ${html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').slice(0, 250).trim()}...`);
+    console.log(`==================================================\n`);
+    return { messageId: "mock-dev-id-" + Date.now() };
+  }
+
   try {
     const info = await transporter.sendMail({
       from: `"RaktSarthi" <${emailUser || "noreply@raktsarthi.com"}>`,
@@ -251,16 +268,30 @@ export const sendWeeklyInventoryDigest = async (bloodBank, stats) => {
 };
 
 export const verifyEmailSetup = async () => {
-  if (process.env.NODE_ENV === "test") return true;
+  if (process.env.NODE_ENV === "test") {
+    isSmtpReady = true;
+    return true;
+  }
   try {
     const activeHost = smtpHost || "Gmail Service";
     const activePort = smtpHost ? smtpPort : "default";
     console.log(`📡 Verifying connection to email server (${activeHost}:${activePort})...`);
-    await transporter.verify();
+    
+    // Set a quick timeout for SMTP verification to fail fast in development mode
+    const verificationTimeout = process.env.NODE_ENV === "production" ? 15000 : 4000;
+    
+    const verifyPromise = transporter.verify();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Connection timeout")), verificationTimeout)
+    );
+    
+    await Promise.race([verifyPromise, timeoutPromise]);
     console.log("📧 Email service is ready");
+    isSmtpReady = true;
     return true;
   } catch (error) {
     console.error("Email verification failed:", error.message);
+    isSmtpReady = false;
     return false;
   }
 };

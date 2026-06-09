@@ -53,12 +53,14 @@ const initServices = async () => {
       }
     } else {
       const { verifyEmailSetup } = await import("./utils/emailService.js");
-      const emailReady = await verifyEmailSetup();
-      if (emailReady) {
-        console.log("✅ SMTP Email Service: Ready to send notifications");
-      } else {
-        console.warn("⚠️  WARNING: SMTP Transporter verification failed. Outbound email features may fail.");
-      }
+      // Verify email setup asynchronously so it doesn't block server startup
+      verifyEmailSetup().then((emailReady) => {
+        if (emailReady) {
+          console.log("✅ SMTP Email Service: Ready to send notifications");
+        } else {
+          console.warn("⚠️  WARNING: SMTP Transporter verification failed. Outbound email features may fail.");
+        }
+      });
     }
 
     if (process.env.SERVERLESS !== "true") {
