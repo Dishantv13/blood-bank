@@ -48,11 +48,41 @@ let isSmtpReady = false;
 // Create transporter for sending emails
 const transporter = nodemailer.createTransport(transporterConfig);
 
-// Sends email directly via Nodemailer (BullMQ removed).
+// Sends email directly via Nodemailer or Resend HTTP API.
 const sendEmail = async (to, subject, html) => {
   if (process.env.NODE_ENV === "test") {
     console.log(`[Email Mock] Skip sending email to ${to} in test mode.`);
     return { messageId: "test-id" };
+  }
+
+  // If Resend API key is configured, send via Resend HTTP API
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: `RaktSarthi <${fromEmail}>`,
+          to: [to],
+          subject: subject,
+          html: html,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || `HTTP error ${response.status}`);
+      }
+      console.log(`[Email via Resend] Sent to ${to}. MessageId: ${data.id}`);
+      return { messageId: data.id };
+    } catch (error) {
+      console.error(`[Email via Resend] Critical failure to send to ${to}:`, error.message);
+      return null;
+    }
   }
 
   // Fallback to console logger if SMTP service is not reachable/verified (e.g. Render port blocking)
@@ -273,6 +303,15 @@ export const verifyEmailSetup = async () => {
     isSmtpReady = true;
     return true;
   }
+
+  // If Resend API Key is set, verify/trust it
+  if (process.env.RESEND_API_KEY) {
+    console.log("📡 Email service configured using Resend HTTP API.");
+    console.log(`🔑 Resend API Key: Configured, From Email: ${process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev"}`);
+    isSmtpReady = true;
+    return true;
+  }
+
   try {
     const activeHost = smtpHost || "Gmail Service";
     const activePort = smtpHost ? smtpPort : "default";
