@@ -238,7 +238,6 @@ const BloodBankDirectoryDetails = () => {
       );
       success("Blood request sent successfully");
     } catch (err) {
-      console.error("Error creating blood bank request:", err);
       const errorMessage = err.data?.message || "Failed to send request";
       showRequestMessage("error", errorMessage);
       error(errorMessage);
@@ -295,7 +294,6 @@ const BloodBankDirectoryDetails = () => {
       );
       success("Multi-group blood request sent successfully");
     } catch (err) {
-      console.error("Error creating multi blood bank request:", err);
       const errorMessage =
         err.data?.message || "Failed to send multi-group request";
       showRequestMessage("error", errorMessage);

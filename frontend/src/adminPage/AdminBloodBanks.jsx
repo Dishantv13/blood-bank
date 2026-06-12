@@ -8,6 +8,7 @@ import AdminTable from "./AdminTable.jsx";
 import { ROUTE_PATH } from "../enum/routePath.js";
 import { usePaginationParams } from "../hooks/usePaginationParams.js";
 import SearchFilter from "../components/SearchFilter.jsx";
+import { useToast } from "../components/ToastContainer";
 
 const ReviewModal = ({ reviewState, onClose, onConfirm, submitting }) => {
   if (!reviewState) return null;
@@ -82,6 +83,7 @@ const ReviewModal = ({ reviewState, onClose, onConfirm, submitting }) => {
 
 const AdminBloodBanks = () => {
   const navigate = useNavigate();
+  const toast = useToast();
   const { page, limit, setPage, setLimit } = usePaginationParams(10);
   const [filters, setFilters] = useState({ search: "", status: "" });
   const [reviewState, setReviewState] = useState(null);
@@ -132,9 +134,14 @@ const AdminBloodBanks = () => {
         rejectionReason:
           reviewState.action === "rejected" ? reviewState.reason.trim() : "",
       }).unwrap();
+      toast.success(
+        `Blood bank request has been ${reviewState.action === "approved" ? "approved" : "rejected"} successfully.`
+      );
       setReviewState(null);
     } catch (error) {
-      console.error("Failed to review blood bank request:", error);
+      toast.error(
+        error.data?.message || "Failed to review blood bank request."
+      );
     }
   };
 

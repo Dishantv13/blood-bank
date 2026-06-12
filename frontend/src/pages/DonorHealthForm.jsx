@@ -210,7 +210,6 @@ const DonorHealthForm = () => {
         throw new Error("Verification Failed - No DOB extracted");
       }
     } catch (err) {
-      console.error("[Identity] Connection failed:", err);
       setError(
         `Security Failure: ${err.message || "Server connection interrupted."}`,
       );
@@ -278,7 +277,6 @@ const DonorHealthForm = () => {
       toast.success("Health Profile Updated Successfully!");
       navigate(ROUTE_PATH.DASHBOARD);
     } catch (err) {
-      console.error("Donor info update error:", err);
       const errorDetail = err.data?.errors?.[0]?.msg || err.data?.message || err.message;
       toast.error(errorDetail || "Failed to update. Please try again.");
     }

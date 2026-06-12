@@ -573,27 +573,25 @@ const BloodBankDashboard = () => {
             );
           }
         } catch (err) {
-          console.error("Error reverse geocoding:", err);
           warning(
-            "Location coordinates captured, but address could not be retrieved. Please enter address manually.",
+            "Location coordinates captured, but address could not be retrieved. Please enter address manually."
           );
         } finally {
           setFetchingLocation(false);
         }
       },
-      (error) => {
-        console.error("Error getting location:", error);
+      (err) => {
         let errorMessage = "Unable to retrieve your location. ";
 
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
+        switch (err.code) {
+          case err.PERMISSION_DENIED:
             errorMessage +=
               "Please allow location access in your browser settings.";
             break;
-          case error.POSITION_UNAVAILABLE:
+          case err.POSITION_UNAVAILABLE:
             errorMessage += "Location information is unavailable.";
             break;
-          case error.TIMEOUT:
+          case err.TIMEOUT:
             errorMessage +=
               "Location request timed out. Please try again or enter address manually.";
             break;
@@ -634,18 +632,16 @@ const BloodBankDashboard = () => {
           }).unwrap();
           success("Hospital location updated successfully!");
         } catch (err) {
-          console.error("Error updating bank location:", err);
           error(
-            "Location captured but failed to save to profile. Please try again.",
+            "Location captured but failed to save to profile. Please try again."
           );
         } finally {
           setGettingBankLocation(false);
         }
       },
       (err) => {
-        console.error("Error getting location:", err);
         error(
-          "Unable to retrieve your location. Please check browser permissions.",
+          "Unable to retrieve your location. Please check browser permissions."
         );
         setGettingBankLocation(false);
       },
@@ -658,8 +654,8 @@ const BloodBankDashboard = () => {
         await deleteCampMutation(campId).unwrap();
         addNotification(`Camp deleted successfully`);
       } catch (err) {
-        console.error("Error deleting camp:", err);
         addNotification("Error deleting camp", "error");
+        error(err.data?.message || "Failed to delete camp. Please try again.");
       }
     }
   };
@@ -680,8 +676,8 @@ const BloodBankDashboard = () => {
         registeredDonors: response.registrations || response || [],
       };
       setSelectedCamp(updatedCamp);
-    } catch (error) {
-      console.error("Error fetching registrations:", error);
+    } catch (err) {
+      error(err.data?.message || "Failed to fetch registrations.");
       // Fallback to camp data we have
       setSelectedCamp(camp);
     }
@@ -702,7 +698,6 @@ const BloodBankDashboard = () => {
       await deleteCampRegistrationMutation({ campId, donorId }).unwrap();
       addNotification("Donor registration removed successfully");
     } catch (err) {
-      console.error("Error deleting donor:", err);
       const errorMsg =
         err.data?.message || "Failed to remove donor registration";
       error(errorMsg);
@@ -726,7 +721,6 @@ const BloodBankDashboard = () => {
       addNotification("Blood request approved successfully");
       success("Blood request approved successfully");
     } catch (err) {
-      console.error("Error approving request:", err);
       const errorMessage =
         err.data?.message || "Failed to approve request. Please try again.";
       addNotification(errorMessage);
@@ -751,12 +745,12 @@ const BloodBankDashboard = () => {
       success("Inventory saved successfully!");
       addNotification("Inventory saved successfully!");
     } catch (err) {
-      console.error("Error saving inventory:", err);
       const errorMessage =
         err.data?.message ||
         err.message ||
         "Failed to save inventory. Please try again.";
       setInventorySaveError(errorMessage);
+      error(errorMessage);
     } finally {
       setSavingInventory(false);
     }
@@ -804,7 +798,6 @@ const BloodBankDashboard = () => {
       success("Hospital photo uploaded successfully!");
       setBloodBankPhoto(null);
     } catch (err) {
-      console.error("Error uploading photo:", err);
       // More descriptive error if available
       const errorMsg =
         err.data?.message || "Failed to upload photo. Please try again.";
@@ -830,7 +823,6 @@ const BloodBankDashboard = () => {
       addNotification("Blood request rejected");
       info("Blood request rejected");
     } catch (err) {
-      console.error("Error rejecting request:", err);
       const errorMessage =
         err.data?.message || "Failed to reject request. Please try again.";
       addNotification(errorMessage);
@@ -890,7 +882,6 @@ const BloodBankDashboard = () => {
         description: "",
       });
     } catch (err) {
-      console.error("Error saving camp:", err);
       const msg =
         err.data?.errors?.[0]?.msg ||
         err.data?.message ||
@@ -927,7 +918,6 @@ const BloodBankDashboard = () => {
       await updateProfile(profileForm).unwrap();
       success("Hospital profile updated successfully!");
     } catch (err) {
-      console.error("Error saving profile:", err);
       const msg =
         err.data?.errors?.[0]?.msg ||
         err.data?.message ||
@@ -946,7 +936,6 @@ const BloodBankDashboard = () => {
       await updateProfile({ operatingHours }).unwrap();
       success("Operating hours updated successfully!");
     } catch (err) {
-      console.error("Error saving hours:", err);
       const msg =
         err.data?.errors?.[0]?.msg ||
         err.data?.message ||
@@ -965,7 +954,6 @@ const BloodBankDashboard = () => {
       await updateProfile({ preferences }).unwrap();
       success("Notification preferences updated successfully!");
     } catch (err) {
-      console.error("Error saving preferences:", err);
       const msg =
         err.data?.errors?.[0]?.msg ||
         err.data?.message ||
@@ -1009,7 +997,6 @@ const BloodBankDashboard = () => {
         `${type.charAt(0).toUpperCase() + type.slice(1)} data exported successfully`,
       );
     } catch (err) {
-      console.error("Export error:", err);
       error(`Failed to export ${type} data. Please try again.`);
     }
   };
@@ -1050,7 +1037,6 @@ const BloodBankDashboard = () => {
         handleLogout();
       }, 2000);
     } catch (err) {
-      console.error("Password change error details:", err);
       const msg =
         err.data?.errors?.[0]?.msg ||
         err.data?.message ||

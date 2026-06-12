@@ -38,8 +38,10 @@ const CertificateCard = ({ donation }) => {
 
       toast.success("Certificate downloaded successfully!");
     } catch (error) {
-      console.error("Download error:", error);
-      toast.error("Failed to download certificate. Please try again later.");
+      toast.error(
+        error.data?.message ||
+          "Failed to download certificate. Please try again later.",
+      );
     }
   };
 
