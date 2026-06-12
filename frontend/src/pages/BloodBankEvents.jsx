@@ -8,11 +8,12 @@ import {
 import "../pages.css/BloodBankEvents.css";
 import SkeletonLoader from "../components/SkeletonLoader";
 import DatePicker from "../components/DatePicker";
+import { useToast } from "../components/ToastContainer";
 
 const BloodBankEvents = () => {
+  const toast = useToast();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState({ type: "", text: "" });
   const [editingEvent, setEditingEvent] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -48,12 +49,11 @@ const BloodBankEvents = () => {
 
     try {
       await updateEvent({ id: editingEvent._id, ...editingEvent }).unwrap();
-      showMessage("success", "Event updated successfully!");
+      toast.success("Event updated successfully!");
       setShowEditModal(false);
       setEditingEvent(null);
     } catch (error) {
-      console.error("Error updating event:", error);
-      showMessage("error", error.data?.message || "Failed to update event");
+      toast.error(error.data?.message || "Failed to update event");
     }
   };
 
@@ -68,16 +68,15 @@ const BloodBankEvents = () => {
 
     try {
       await deleteEvent(eventId).unwrap();
-      showMessage("success", "Event deleted successfully!");
+      toast.success("Event deleted successfully!");
     } catch (error) {
-      console.error("Error deleting event:", error);
-      showMessage("error", error.data?.message || "Failed to delete event");
+      toast.error(error.data?.message || "Failed to delete event");
     }
   };
 
   const handleExportRegistrations = async (eventId, eventTitle) => {
     try {
-      showMessage("info", "Generating Excel file...");
+      toast.info("Generating Excel file...");
 
       const arrayBuffer = await exportRegistrations(eventId).unwrap();
 
@@ -97,10 +96,9 @@ const BloodBankEvents = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
 
-      showMessage("success", "Registration data exported successfully!");
+      toast.success("Registration data exported successfully!");
     } catch (error) {
-      console.error("Error exporting registrations:", error);
-      showMessage("error", "Failed to export registrations");
+      toast.error("Failed to export registrations");
     }
   };
 
@@ -120,10 +118,6 @@ const BloodBankEvents = () => {
           View, edit, and export registration data for your organized events
         </p>
       </div>
-
-      {message.text && (
-        <div className={`alert alert-${message.type}`}>{message.text}</div>
-      )}
 
       {events.length === 0 ? (
         <div className="empty-state">

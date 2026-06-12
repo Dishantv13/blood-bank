@@ -226,7 +226,6 @@ const Dashboard = () => {
         toast.success(`Switched to ${newMode} mode successfully.`);
       }
     } catch (error) {
-      console.error("Mode toggle error:", error);
       toast.error(
         error.data?.message ||
           "Error occurred while switching mode. Please try again.",
@@ -249,7 +248,6 @@ const Dashboard = () => {
         toast.success("Successfully registered as a donor!");
       }
     } catch (error) {
-      console.error("Donor registration error:", error);
       toast.error(
         error.data?.message ||
           "Error occurred while registering as a donor. Please try again.",

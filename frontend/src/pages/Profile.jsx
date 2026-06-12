@@ -177,9 +177,9 @@ const Profile = () => {
       setProfileImage(null);
       setTimeout(() => setMessage(""), MESSAGE_DISPLAY_MS);
     } catch (error) {
-      console.error("Error uploading image:", error);
       setMessageType("error");
       setMessage("Failed to upload image. Please try again.");
+      toast.error("Failed to upload image. Please try again.");
       setTimeout(() => setMessage(""), MESSAGE_DISPLAY_MS);
     } finally {
       setUploadingImage(false);
@@ -214,7 +214,6 @@ const Profile = () => {
 
       setTimeout(() => setMessage(""), MESSAGE_DISPLAY_MS);
     } catch (error) {
-      console.error("Profile update error:", error);
       const errorDetail = error.data?.errors?.[0]?.msg || error.data?.message || error.message;
       setMessageType("error");
       setMessage(errorDetail || "Failed to update profile");

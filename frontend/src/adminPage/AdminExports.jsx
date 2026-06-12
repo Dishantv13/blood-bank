@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { toast } from "react-toastify";
 import "../adminPage.css/AdminExports.css";
 import {
   useLazyExportUsersXlsxQuery,
@@ -9,8 +8,10 @@ import {
   useLazyExportEventsXlsxQuery,
   useLazyExportAllDataXlsxQuery,
 } from "../store/adminApi.js";
+import { useToast } from "../components/ToastContainer";
 
 const AdminExports = () => {
+  const toast = useToast();
   const [module, setModule] = useState("users");
   const [isExporting, setIsExporting] = useState(false);
 
@@ -77,7 +78,6 @@ const AdminExports = () => {
 
       toast.success(`${module.replace("-", " ")} exported successfully`);
     } catch (error) {
-      console.error("Export failed:", error);
       const errorMessage = error?.data?.message || error?.message || "Failed to export data. Please try again.";
       toast.error(errorMessage);
     } finally {

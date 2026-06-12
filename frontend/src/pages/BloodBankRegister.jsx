@@ -393,7 +393,6 @@ const BloodBankRegister = () => {
         `OTP sent to ${nextVerificationState.maskedEmail || "your email"}`,
       );
     } catch (err) {
-      console.error("Registration initiation error:", err.data || err.message);
       const errorMessage =
         err?.data?.message ||
         err?.error ||
