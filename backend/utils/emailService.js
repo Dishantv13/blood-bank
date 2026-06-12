@@ -55,51 +55,6 @@ const sendEmail = async (to, subject, html) => {
     return { messageId: "test-id" };
   }
 
-  // If Resend API key is configured, send via Resend HTTP API
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-          "User-Agent": "RaktSarthi-BloodBank/1.0.0",
-        },
-        body: JSON.stringify({
-          from: `RaktSarthi <${fromEmail}>`,
-          to: [to],
-          subject: subject,
-          html: html,
-        }),
-      });
-
-      let data = {};
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        data = { message: text || `HTTP error ${response.status}` };
-      }
-
-      if (!response.ok) {
-        let errorMessage = data.message || `HTTP error ${response.status}`;
-        if (response.status === 403 && fromEmail === "onboarding@resend.dev") {
-          errorMessage += " | WARNING: You are using 'onboarding@resend.dev' as the sender address. In onboarding mode, Resend only permits sending emails to your own registered Resend account email. To send to other Gmail addresses, you must verify your custom domain on the Resend dashboard and set the RESEND_FROM_EMAIL environment variable to an email on that domain.";
-        } else if (response.status === 403) {
-          errorMessage += " | WARNING: Please verify that the domain for the 'from' email has been successfully verified in your Resend dashboard and that your API key has sending permissions.";
-        }
-        throw new Error(errorMessage);
-      }
-      console.log(`[Email via Resend] Sent to ${to}. MessageId: ${data.id}`);
-      return { messageId: data.id };
-    } catch (error) {
-      console.error(`[Email via Resend] Critical failure to send to ${to}:`, error.message);
-      return null;
-    }
-  }
-
   // Fallback to console logger if SMTP service is not reachable/verified (e.g. Render port blocking)
   if (!isSmtpReady) {
     const isProd = process.env.NODE_ENV === "production";
@@ -317,64 +272,6 @@ export const verifyEmailSetup = async () => {
   if (process.env.NODE_ENV === "test") {
     isSmtpReady = true;
     return true;
-  }
-
-  // If Resend API Key is set, verify it against the Resend API
-  if (process.env.RESEND_API_KEY) {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-    console.log("📡 Verifying Resend API Key configuration...");
-    try {
-      const response = await fetch("https://api.resend.com/domains", {
-        method: "GET",
-        headers: {
-          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-          "User-Agent": "RaktSarthi-BloodBank/1.0.0",
-        },
-      });
-
-      let data = {};
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        data = { message: text || `HTTP error ${response.status}` };
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || `HTTP error ${response.status}`);
-      }
-
-      console.log("✅ Resend API Key is valid.");
-      console.log(`🔑 From Email: ${fromEmail}`);
-
-      // If fromEmail is not onboarding@resend.dev, verify domain status
-      if (fromEmail !== "onboarding@resend.dev") {
-        const domainParts = fromEmail.split("@");
-        if (domainParts.length === 2) {
-          const senderDomain = domainParts[1].toLowerCase();
-          const domainsList = data.data || [];
-          const matchedDomain = domainsList.find(d => d.name.toLowerCase() === senderDomain);
-
-          if (!matchedDomain) {
-            console.warn(`⚠️  WARNING: The domain '${senderDomain}' used in RESEND_FROM_EMAIL was not found in your Resend domains list! Please add it to your Resend dashboard.`);
-          } else if (matchedDomain.status !== "verified") {
-            console.warn(`⚠️  WARNING: The domain '${senderDomain}' is configured but its status is '${matchedDomain.status}' (not verified). Outbound emails to external addresses will fail.`);
-          } else {
-            console.log(`✅ Domain '${senderDomain}' is verified in Resend.`);
-          }
-        }
-      } else {
-        console.warn("⚠️  WARNING: Using default 'onboarding@resend.dev' sender address. In onboarding mode, Resend only allows sending emails to your own registered Resend account email.");
-      }
-
-      isSmtpReady = true;
-      return true;
-    } catch (error) {
-      console.error("❌ Resend setup verification failed:", error.message);
-      isSmtpReady = false;
-      return false;
-    }
   }
 
   try {

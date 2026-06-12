@@ -39,28 +39,24 @@ const initServices = async () => {
     // 2. Connect to Redis
     await getRedisClient();
 
-    // 3. Verify SMTP Email / Resend Setup
+    // 3. Verify SMTP Email Setup
     console.log("✉️  Verifying email service configuration...");
     const emailUser = process.env.SMTP_USER || process.env.EMAIL_USER;
     const emailPass = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
-    const resendApiKey = process.env.RESEND_API_KEY;
 
-    if (!resendApiKey && (!emailUser || !emailPass)) {
+    if (!emailUser || !emailPass) {
       if (process.env.NODE_ENV === "production") {
-        console.error("❌ CRITICAL: Either RESEND_API_KEY or SMTP credentials (SMTP_USER/SMTP_PASS) must be defined in production!");
+        console.error("❌ CRITICAL: SMTP credentials (SMTP_USER/SMTP_PASS) must be defined in production!");
         process.exit(1);
       } else {
-        console.warn("⚠️  WARNING: SMTP/EMAIL or Resend credentials are not defined. Email notifications will be disabled.");
+        console.warn("⚠️  WARNING: SMTP/EMAIL credentials are not defined. Email notifications will be disabled.");
       }
     } else {
       const { verifyEmailSetup } = await import("./utils/emailService.js");
       // Verify email setup asynchronously so it doesn't block server startup
       verifyEmailSetup().then((emailReady) => {
         if (emailReady) {
-          console.log(resendApiKey
-            ? "✅ Resend Email Service: Ready to send notifications"
-            : "✅ SMTP Email Service: Ready to send notifications"
-          );
+          console.log("✅ SMTP Email Service: Ready to send notifications");
         } else {
           console.warn("⚠️  WARNING: Email Service verification failed. Outbound email features may fail.");
         }
