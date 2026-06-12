@@ -54,7 +54,6 @@ const BloodRequestSchema = new mongoose.Schema(
         type: {
           type: String,
           enum: ["Point"],
-          default: "Point",
         },
         coordinates: {
           type: [Number],
@@ -146,7 +145,7 @@ const BloodRequestSchema = new mongoose.Schema(
   },
 );
 
-// Automatically add initial "pending" timeline entry on creation
+// Automatically add initial "pending" timeline entry on creation and clean up location
 BloodRequestSchema.pre("save", async function () {
   if (this.isNew && (!this.timeline || this.timeline.length === 0)) {
     this.timeline.push({
@@ -156,6 +155,16 @@ BloodRequestSchema.pre("save", async function () {
       timestamp: new Date(),
       note: "Blood request created.",
     });
+  }
+
+  // Clean up location if coordinates are missing or invalid
+  if (this.hospital?.location) {
+    const coords = this.hospital.location.coordinates;
+    if (coords && Array.isArray(coords) && coords.length === 2 && coords.every(c => c != null && !isNaN(c))) {
+      this.hospital.location.type = "Point";
+    } else {
+      this.hospital.location = undefined;
+    }
   }
 });
 

@@ -35,7 +35,6 @@ const EventSchema = new mongoose.Schema(
         type: {
           type: String,
           enum: ["Point"],
-          default: "Point",
         },
         coordinates: {
           type: [Number],
@@ -94,5 +93,17 @@ EventSchema.index({ isActive: 1 });
 EventSchema.index({ isActive: 1, date: 1 });
 EventSchema.index({ registeredDonors: 1, date: 1 });
 EventSchema.index({ "location.coordinates": "2dsphere" });
+
+// Clean up location coordinates if they are missing or invalid to avoid 2dsphere indexing issues
+EventSchema.pre("save", async function () {
+  if (this.location?.coordinates) {
+    const coords = this.location.coordinates.coordinates;
+    if (coords && Array.isArray(coords) && coords.length === 2 && coords.every(c => c != null && !isNaN(c))) {
+      this.location.coordinates.type = "Point";
+    } else {
+      this.location.coordinates = undefined;
+    }
+  }
+});
 
 export default mongoose.model("Event", EventSchema);
