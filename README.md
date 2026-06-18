@@ -137,7 +137,7 @@ Create `frontend/.env`:
 ```env
 REACT_APP_API_URL=http://localhost:5001/api
 ```
-Update your Firebase configuration in [firebase.jsx](file:///c:/Users/disha/Desktop/bloodbank-main/frontend/src/config/firebase.jsx).
+Update your Firebase configuration in [firebase.jsx](/frontend/src/config/firebase.jsx).
 Run installation:
 ```bash
 cd ../frontend
